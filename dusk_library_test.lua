@@ -346,7 +346,7 @@ function Library:CreateWindow(config)
     end)
 
     -- ==========================================
-    -- ШАПКА: TITLE, ONLINE COUNTER, SEARCH, MAC BUTTONS
+    -- ШАПКА: TITLE, ONLINE COUNTER, MAC BUTTONS
     -- ==========================================
     local Header = Library.Utils.Make("Frame", {
         Size = UDim2.new(1, -60, 0, 60), Position = UDim2.new(0, 60, 0, 0),
@@ -387,16 +387,6 @@ function Library:CreateWindow(config)
         Library:Connect(b.MouseLeave, function() Library.Utils.TBT(b, 0.2, {BackgroundTransparency = 0}) end)
         return b
     end
-
-    -- 4. Строка поиска (Search)
-    local SearchContainer = Library.Utils.Make("Frame", { Size = UDim2.new(0, 160, 0, 32), AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -95, 0.5, 0), BackgroundTransparency = 1, Parent = Header })
-    local SearchBg = Library.Utils.Make("Frame", { Size = UDim2.new(1, 0, 1, 0), Parent = SearchContainer }, { BackgroundColor3 = "Section" })
-    Library.Utils.Make("UICorner", { CornerRadius = UDim.new(1, 0), Parent = SearchBg })
-    Library.Utils.Make("UIStroke", { Parent = SearchBg }, { Color = "Stroke" })
-    
-    Library.Utils.Make("ImageLabel", { Size = UDim2.new(0, 16, 0, 16), Position = UDim2.new(1, -24, 0.5, 0), AnchorPoint = Vector2.new(0, 0.5), BackgroundTransparency = 1, Image = "rbxassetid://3926305904", ImageRectOffset = Vector2.new(964, 324), ImageRectSize = Vector2.new(36, 36), Parent = SearchContainer }, { ImageColor3 = "SubText" })
-    local SearchInput = Library.Utils.Make("TextBox", { Size = UDim2.new(1, -40, 1, 0), Position = UDim2.new(0, 12, 0, 0), BackgroundTransparency = 1, PlaceholderText = "Search...", Text = "", Font = Enum.Font.GothamMedium, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, ClearTextOnFocus = false, Parent = SearchContainer }, { TextColor3 = "Text", PlaceholderColor3 = "SubText" })
-
     -- ==========================================
     -- ЛОГИКА СВОРАЧИВАНИЯ (MINIMIZE / FLOATING LOGO)
     -- ==========================================
@@ -494,6 +484,7 @@ function Library:CreateWindow(config)
     -- ==========================================
     local Window = {
         MainFrame = MainFrame,
+        MainUIScale = MainUIScale,
         TabsContainer = TabsContainer,
         PagesContainer = Pages,
         Tabs = {}, 
@@ -1555,5 +1546,51 @@ function Library:CreateWindow(config)
             self:Notify("Error", "Failed to read config!", 3)
         end
     end
+    -- ================================================
+    --8. КНОПКА С ПРЕВЬю
+    --=================================================
+    function Tab:CreateImageButton(config)
+            config = config or {}
+            local text = config.Name or ""
+            local image = config.Image or "rbxassetid://0"
+            local callback = config.Callback or function() end
+
+            local B = Library.Utils.Make("TextButton", {
+                Size = UDim2.new(1, 0, 0, 130),
+                Text = "", AutoButtonColor = false, ClipsDescendants = true, Parent = Page
+            }, { BackgroundColor3 = "Section" })
+            Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 10), Parent = B})
+            
+            local Str = Library.Utils.Make("UIStroke", {ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Thickness = 1.5, Transparency = 0.4, Parent = B}, {Color = "Accent"})
+            local btnScale = Instance.new("UIScale", B)
+
+            local Img = Library.Utils.Make("ImageLabel", {
+                Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1,
+                Image = image, ScaleType = Enum.ScaleType.Crop, Parent = B
+            })
+
+            if text ~= "" then
+                local TextBg = Library.Utils.Make("Frame", {
+                    Size = UDim2.new(1, 0, 0, 30), Position = UDim2.new(0, 0, 1, -30),
+                    BackgroundColor3 = Color3.fromRGB(0, 0, 0), BackgroundTransparency = 0.5, BorderSizePixel = 0, Parent = B
+                })
+                Library.Utils.Make("TextLabel", {
+                    Text = text, Size = UDim2.new(1, -20, 1, 0), Position = UDim2.new(0, 10, 0, 0),
+                    BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, Parent = TextBg
+                }, { TextColor3 = "Text" })
+            end
+
+            Library:Connect(B.MouseEnter, function() Library.Utils.TBT(Str, 0.25, {Transparency = 0, Thickness = 2}) end)
+            Library:Connect(B.MouseLeave, function() Library.Utils.TBT(Str, 0.25, {Transparency = 0.4, Thickness = 1.5}) end)
+            
+            Library:Connect(B.MouseButton1Click, function()
+                local t1 = Library.Utils.TBT(btnScale, 0.1, {Scale = 0.96}, Enum.EasingStyle.Sine)
+                t1.Completed:Connect(function() Library.Utils.TBT(btnScale, 0.2, {Scale = 1}, Enum.EasingStyle.Bounce) end)
+                Library.Utils.CreateRipple(B)
+                pcall(callback)
+            end)
+            
+            return B
+        end
 
 return Library
