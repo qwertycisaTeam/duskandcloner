@@ -305,7 +305,7 @@ function Library:CreateWindow(config)
     end)
 
     local MainFrame = Library.Utils.Make("CanvasGroup", {
-        Size = UDim2.new(0, 680, 0, 450), AnchorPoint = Vector2.new(0.5, 0.5),
+        Size = UDim2.new(0, 460, 0, 410), AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.new(0.5, 0, 0.5, 0), BorderSizePixel = 0, GroupTransparency = 1,
         Visible = false, BackgroundTransparency = 0.15, Parent = ScreenGui
     }, { BackgroundColor3 = "Background" })
