@@ -1435,7 +1435,59 @@ function Library:CreateWindow(config)
 
         return Tab
     end
+    -- ======================================
+    --5.5 Imagebutton
+    -- ======================================
+    function Tab:CreatePreviewButton(config)
+            config = config or {}
+            local imageId = config.Image or ""
+            local height = config.Height or 150 -- Дефолтная высота под превью
+            local callback = config.Callback or function() end
 
+            -- Создаем основную кнопку
+            local Btn = Library.Utils.Make("ImageButton", {
+                Size = UDim2.new(1, 0, 0, height),
+                BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+                Image = imageId,
+                ScaleType = Enum.ScaleType.Fit, -- Если картинка обрезается, поменяй на Crop
+                AutoButtonColor = false,
+                ClipsDescendants = true,
+                Parent = Page
+            })
+            Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 14), Parent = Btn})
+
+            -- Делаем жирную черную обводку в стиле твоих ModeCards
+            local Stroke = Library.Utils.Make("UIStroke", {
+                ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+                Thickness = 4,
+                Color = Color3.fromRGB(0, 0, 0),
+                Parent = Btn
+            })
+
+            local btnScale = Instance.new("UIScale", Btn)
+
+            -- Используем твои безопасные коннекты для ховера
+            Library:Connect(Btn.MouseEnter, function()
+                Library.Utils.TBT(Stroke, 0.25, {Thickness = 6})
+            end)
+
+            Library:Connect(Btn.MouseLeave, function()
+                Library.Utils.TBT(Stroke, 0.25, {Thickness = 4})
+            end)
+
+            -- Логика клика с твоими фирменными эффектами (Bounce + Ripple)
+            Library:Connect(Btn.MouseButton1Click, function()
+                local t1 = Library.Utils.TBT(btnScale, 0.1, {Scale = 0.96}, Enum.EasingStyle.Sine)
+                t1.Completed:Connect(function() 
+                    Library.Utils.TBT(btnScale, 0.2, {Scale = 1}, Enum.EasingStyle.Bounce) 
+                end)
+                
+                Library.Utils.CreateRipple(Btn)
+                pcall(callback)
+            end)
+
+            return Btn
+        end
     -- ==========================================
     -- ГЛОБАЛЬНЫЙ ПОИСК (GLOBAL SEARCH)
     -- ==========================================
