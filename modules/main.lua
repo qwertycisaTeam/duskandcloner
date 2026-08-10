@@ -13,25 +13,14 @@ function Module:Init(Library, Window, Tab)
         Text = "Встань внутрь дома, который хочешь скопировать, перед использованием функций." 
     })
 
-    -- Вызов нашей новой функции с большими кнопками-картинками
-    Tab:CreateImageButton({
-        Name = "COPY - Сохранить структуру",
-        Image = "rbxassetid://0", -- Вставь сюда ID картинки COPY, загруженной в Roblox
+    Tab:CreatePreviewButton({
+        Image = "rbxassetid://87011988082140", -- Вставь сюда ID из Studio
+        Height = 160,
         Callback = function()
-            Library:Notify("Replicator", "Сканирование мебели и стен началось...", 3)
-            -- Здесь будет твоя логика лупа по CollectionService или Workspace для сбора данных дома
+            print("Initiating copy sequence...")
+            -- Логика перехвата структур
         end
     })
-
-    Tab:CreateImageButton({
-        Name = "PASTE - Воспроизвести",
-        Image = "rbxassetid://0", -- Вставь сюда ID картинки PASTE, загруженной в Roblox
-        Callback = function()
-            Library:Notify("Replicator", "Начинаю постройку дома...", 3)
-            -- Здесь будет вызов RemoteEvents через SimpleSpy для спавна мебели
-        end
-    })
-
     -- ==========================================
     -- 2. НАСТРОЙКИ РЕПЛИКАТОРА (SETTINGS)
     -- ==========================================
