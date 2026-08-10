@@ -80,16 +80,25 @@ end
 getgenv().GlobalDuskConnections = {}
 
 -- 2 init
-local coreUrl = domain .. "/raw/dusk_library_test?t=" .. tostring(tick())
+local repoDomain = "https://raw.githubusercontent.com/qwertycisaTeam/duskandcloner/main"
+local coreUrl = repoDomain .. "/dusk_library_test.lua?t=" .. tostring(tick())
+
 local success, coreCode = pcall(function() return game:HttpGet(coreUrl) end)
 
-if not success then
-    warn("[DEBUG] Ошибка HTTP запроса библиотеки!")
-    return
-elseif coreCode == "" or coreCode:match("404 Not Found") then
-    warn("[DEBUG] Сервер вернул 404. Проверь, лежит ли dusk_library_test.lua в папке release!")
+if not success or coreCode:match("404: Not Found") then
+    warn("[DEBUG] Ошибка 404: GitHub не нашел файл " .. coreUrl)
     return 
 end
+
+local Library = loadstring(coreCode)()
+
+local Window = Library:CreateWindow({
+    Title = "Struct", AccentTitle = "Replicator", Version = getgenv().DuskVersion or "v2.0"
+})
+
+-- Принудительно показываем окно (чтобы оно не было невидимым)
+Window.MainFrame.Visible = true
+Window.MainFrame.GroupTransparency = 0
 
 local Library = loadstring(coreCode)()
 
