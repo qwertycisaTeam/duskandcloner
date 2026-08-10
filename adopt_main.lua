@@ -3,15 +3,6 @@ local real_warn = clonefunction and clonefunction(warn) or warn
 local real_error = clonefunction and clonefunction(error) or error
 local real_info = clonefunction and clonefunction(info) or function() end
 
-if hookfunction then
-    hookfunction(print, function(...) end)
-    hookfunction(warn, function(...) end)
-    hookfunction(info, function(...) end)
-else
-    getgenv().print = function(...) end
-    getgenv().warn = function(...) end
-    getgenv().info = function(...) end
-end
 
 local print = real_print
 local warn = real_warn
