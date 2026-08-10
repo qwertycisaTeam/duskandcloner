@@ -646,7 +646,7 @@ function Library:CreateWindow(config)
         -- =========================================
     --6.5 будь здоров
     -- ==========================================
-    function Tab:CreatePreviewButton()
+    function Tab:CreatePreviewButton(config)
             config = config or {}
             local imageId = config.Image or ""
             local height = config.Height or 150 -- Дефолтная высота под превью
