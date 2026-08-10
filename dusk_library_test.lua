@@ -1310,7 +1310,52 @@ function Library:CreateWindow(config)
                 end)
             end
         end
+        -- ================================================
+        -- 4.5. КНОПКА С ПРЕВЬЮ 
+        -- ================================================
+        function Tab:CreateImageButton(config)
+            config = config or {}
+            local text = config.Name or ""
+            local image = config.Image or "rbxassetid://0"
+            local callback = config.Callback or function() end
 
+            local B = Library.Utils.Make("TextButton", {
+                Size = UDim2.new(1, 0, 0, 130),
+                Text = "", AutoButtonColor = false, ClipsDescendants = true, Parent = Page
+            }, { BackgroundColor3 = "Section" })
+            Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 10), Parent = B})
+                
+            local Str = Library.Utils.Make("UIStroke", {ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Thickness = 1.5, Transparency = 0.4, Parent = B}, {Color = "Accent"})
+            local btnScale = Instance.new("UIScale", B)
+
+            local Img = Library.Utils.Make("ImageLabel", {
+                Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1,
+                Image = image, ScaleType = Enum.ScaleType.Crop, Parent = B
+            })
+
+            if text ~= "" then
+                local TextBg = Library.Utils.Make("Frame", {
+                    Size = UDim2.new(1, 0, 0, 30), Position = UDim2.new(0, 0, 1, -30),
+                    BackgroundColor3 = Color3.fromRGB(0, 0, 0), BackgroundTransparency = 0.5, BorderSizePixel = 0, Parent = B
+                })
+                Library.Utils.Make("TextLabel", {
+                    Text = text, Size = UDim2.new(1, -20, 1, 0), Position = UDim2.new(0, 10, 0, 0),
+                    BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, Parent = TextBg
+                }, { TextColor3 = "Text" })
+            end
+
+            Library:Connect(B.MouseEnter, function() Library.Utils.TBT(Str, 0.25, {Transparency = 0, Thickness = 2}) end)
+            Library:Connect(B.MouseLeave, function() Library.Utils.TBT(Str, 0.25, {Transparency = 0.4, Thickness = 1.5}) end)
+                
+            Library:Connect(B.MouseButton1Click, function()
+                local t1 = Library.Utils.TBT(btnScale, 0.1, {Scale = 0.96}, Enum.EasingStyle.Sine)
+                t1.Completed:Connect(function() Library.Utils.TBT(btnScale, 0.2, {Scale = 1}, Enum.EasingStyle.Bounce) end)
+                Library.Utils.CreateRipple(B)
+                pcall(callback)
+            end)
+                
+            return B
+        end
         -- ==========================================
         -- ТОГГЛ С РЕЖИМАМИ (TOGGLE WITH MODES)
         -- ==========================================
@@ -1545,52 +1590,6 @@ function Library:CreateWindow(config)
         else
             self:Notify("Error", "Failed to read config!", 3)
         end
-    end
-    -- ================================================
-    --8. КНОПКА С ПРЕВЬю
-    --=================================================
-    function Tab:CreateImageButton(config)
-        config = config or {}
-        local text = config.Name or ""
-        local image = config.Image or "rbxassetid://0"
-        local callback = config.Callback or function() end
-
-        local B = Library.Utils.Make("TextButton", {
-            Size = UDim2.new(1, 0, 0, 130),
-            text = "", AutoButtonColor = false, ClipsDescendants = true, Parent = Page
-        }, { BackgroundColor3 = "Section" })
-        Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 10), Parent = B})
-            
-        local Str = Library.Utils.Make("UIStroke", {ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Thickness = 1.5, Transparency = 0.4, Parent = B}, {Color = "Accent"})
-        local btnScale = Instance.new("UIScale", B)
-
-        local Img = Library.Utils.Make("ImageLabel", {
-            Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1,
-            Image = image, ScaleType = Enum.ScaleType.Crop, Parent = B
-        })
-
-        if text ~= "" then
-            local TextBg = Library.Utils.Make("Frame", {
-                Size = UDim2.new(1, 0, 0, 30), Position = UDim2.new(0, 0, 1, -30),
-                BackgroundColor3 = Color3.fromRGB(0, 0, 0), BackgroundTransparency = 0.5, BorderSizePixel = 0, Parent = B
-            })
-            Library.Utils.Make("TextLabel", {
-                Text = text, Size = UDim2.new(1, -20, 1, 0), Position = UDim2.new(0, 10, 0, 0),
-                BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, Parent = TextBg
-            }, { TextColor3 = "Text" })
-        end
-
-        Library:Connect(B.MouseEnter, function() Library.Utils.TBT(Str, 0.25, {Transparency = 0, Thickness = 2}) end)
-        Library:Connect(B.MouseLeave, function() Library.Utils.TBT(Str, 0.25, {Transparency = 0.4, Thickness = 1.5}) end)
-            
-        Library:Connect(B.MouseButton1Click, function()
-            local t1 = Library.Utils.TBT(btnScale, 0.1, {Scale = 0.96}, Enum.EasingStyle.Sine)
-            t1.Completed:Connect(function() Library.Utils.TBT(btnScale, 0.2, {Scale = 1}, Enum.EasingStyle.Bounce) end)
-            Library.Utils.CreateRipple(B)
-            pcall(callback)
-        end)
-            
-        return B
     end
 
 return Library
