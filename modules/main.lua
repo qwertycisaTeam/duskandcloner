@@ -9,7 +9,7 @@ function Module:Init(Library, Window, Tab)
     -- ==========================================
     Tab:CreateSection({ Name = "House Replicator Actions" })
     Tab:CreatePreviewButton({
-        Image = "rbxassetid://ТВОЙ_ID_КАРТИНКИ_С_COPY", -- Вставь сюда ID из Studio
+        Image = "rbxassetid://87011988082140", -- Вставь сюда ID из Studio
         Height = 160,
         Callback = function()
             print("Initiating copy sequence...")
