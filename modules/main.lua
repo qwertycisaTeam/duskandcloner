@@ -8,12 +8,13 @@ function Module:Init(Library, Window, Tab)
     -- 1. ОСНОВНЫЕ ДЕЙСТВИЯ (ACTIONS)
     -- ==========================================
     Tab:CreateSection({ Name = "House Replicator Actions" })
-    Tab:CreatePreviewButton({
-        Image = "rbxassetid://87011988082140", -- Вставь сюда ID из Studio
-        Height = 160,
+    -- Пример создания кнопки "COPY"
+    Tab:CreateImageButton({
+        Image = "rbxassetid://87011988082140", -- Вставь ID твоей картинки из студии
+        Height = 150, -- Можно регулировать высоту
         Callback = function()
-            print("Initiating copy sequence...")
-            -- Логика перехвата структур
+            print("Copy structure executed!")
+            -- Здесь код для парсинга и копирования v7 файлов
         end
     })
     -- ==========================================
