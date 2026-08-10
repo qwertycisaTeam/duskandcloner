@@ -305,7 +305,7 @@ function Library:CreateWindow(config)
     end)
 
     local MainFrame = Library.Utils.Make("CanvasGroup", {
-        Size = UDim2.new(0, 440, 0, 410), AnchorPoint = Vector2.new(0.5, 0.5),
+        Size = UDim2.new(0, 200, 0, 410), AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.new(0.5, 0, 0.5, 0), BorderSizePixel = 0, GroupTransparency = 1,
         Visible = false, BackgroundTransparency = 0.15, Parent = ScreenGui
     }, { BackgroundColor3 = "Background" })
@@ -346,7 +346,7 @@ function Library:CreateWindow(config)
     end)
 
     -- ==========================================
-    -- ШАПКА: TITLE, ONLINE COUNTER, SEARCH, MAC BUTTONS
+    -- ШАПКА: TITLE, ONLINE COUNTER, MAC BUTTONS
     -- ==========================================
     local Header = Library.Utils.Make("Frame", {
         Size = UDim2.new(1, -60, 0, 60), Position = UDim2.new(0, 60, 0, 0),
