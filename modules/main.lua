@@ -13,14 +13,6 @@ function Module:Init(Library, Window, Tab)
         Text = "Встань внутрь дома, который хочешь скопировать, перед использованием функций." 
     })
 
-    Tab:CreatePreviewButton({
-        Image = "rbxassetid://87011988082140", -- Вставь сюда ID из Studio
-        Height = 160,
-        Callback = function()
-            print("Initiating copy sequence...")
-            -- Логика перехвата структур
-        end
-    })
     -- ==========================================
     -- 2. НАСТРОЙКИ РЕПЛИКАТОРА (SETTINGS)
     -- ==========================================
