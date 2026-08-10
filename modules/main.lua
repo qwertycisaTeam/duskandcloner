@@ -8,7 +8,11 @@ function Module:Init(Library, Window, Tab)
     -- 1. ОСНОВНЫЕ ДЕЙСТВИЯ (ACTIONS)
     -- ==========================================
     Tab:CreateSection({ Name = "House Replicator Actions" })
-    
+    Tab:CreatePreviewButton({
+        Image = "rbxassetid://603108166", -- 100% рабочая публичная текстура
+        Height = 150, 
+        Callback = function() end
+    })
     -- КНОПКА КОПИРОВАНИЯ
     Tab:CreatePreviewButton({
         Image = "rbxassetid://72958619361915", 
