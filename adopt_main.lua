@@ -103,6 +103,10 @@ local Tabs = {
 }
 
 Window:SelectTab(Tabs.Replicator)
+
+Window.MainFrame.Visible = true
+Window.MainFrame.GroupTransparency = 0
+
 Window:Build()
 
 -- Настраиваем пути к твоим модулям клонера (через твой локалхост)
