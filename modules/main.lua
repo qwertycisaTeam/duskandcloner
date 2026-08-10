@@ -9,7 +9,7 @@ function Module:Init(Library, Window, Tab)
     -- ==========================================
     Tab:CreateSection({ Name = "House Replicator Actions" })
     -- Пример создания кнопки "COPY"
-    Tab:CreateImageButton({
+    Tab:CreatePrewievButton({
         Image = "rbxassetid://87011988082140", -- Вставь ID твоей картинки из студии
         Height = 150, -- Можно регулировать высоту
         Callback = function()
