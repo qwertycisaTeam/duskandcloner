@@ -8,11 +8,14 @@ function Module:Init(Library, Window, Tab)
     -- 1. ОСНОВНЫЕ ДЕЙСТВИЯ (ACTIONS)
     -- ==========================================
     Tab:CreateSection({ Name = "House Replicator Actions" })
-    
-    Tab:CreateNotice({ 
-        Text = "Встань внутрь дома, который хочешь скопировать, перед использованием функций." 
+    Tab:CreatePreviewButton({
+        Image = "rbxassetid://ТВОЙ_ID_КАРТИНКИ_С_COPY", -- Вставь сюда ID из Studio
+        Height = 160,
+        Callback = function()
+            print("Initiating copy sequence...")
+            -- Логика перехвата структур
+        end
     })
-
     -- ==========================================
     -- 2. НАСТРОЙКИ РЕПЛИКАТОРА (SETTINGS)
     -- ==========================================
