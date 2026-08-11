@@ -1598,5 +1598,5 @@ function Library:CreateWindow(config)
             self:Notify("Error", "Failed to read config!", 3)
         end
     end
-
+end
 return Library
