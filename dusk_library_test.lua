@@ -1478,6 +1478,8 @@ function Library:CreateWindow(config)
 
         return Tab
     end
+    return Window
+end 
 -- ==========================================
     -- 6. СИСТЕМА УВЕДОМЛЕНИЙ (NOTIFICATIONS)
     -- ==========================================
@@ -1598,5 +1600,5 @@ function Library:CreateWindow(config)
             self:Notify("Error", "Failed to read config!", 3)
         end
     end
-end
+
 return Library
