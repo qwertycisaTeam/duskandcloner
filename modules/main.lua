@@ -75,7 +75,7 @@ function Module:Init(Library, Window, Tab)
 
     -- КНОПКА ВСТАВКИ
     Tab:CreatePreviewButton({
-        Image = "rbxassetid://129747602158533", 
+        Image = "rbxassetid://131271299361465", 
         Height = 150, 
         Callback = function()
             -- Запускаем в отдельном потоке, чтобы UI не завис на время постройки
