@@ -1480,7 +1480,12 @@ function Library:CreateWindow(config)
     end
     function Window:Build()
         MainFrame.Visible = true
-        Library.Utils.TBT(MainFrame, 0.4, {GroupTransparency = 0, Size = UDim2.new(0, 680, 0, 450)}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+        local targetSize = MainFrame.Size 
+        MainFrame.Size = UDim2.new(0, 0, 0, 0) 
+        Library.Utils.TBT(MainFrame, 0.4, {
+            GroupTransparency = 0, 
+            Size = targetSize 
+        }, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
     end
     return Window
 end 
