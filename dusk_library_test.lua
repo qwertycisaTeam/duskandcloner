@@ -1479,7 +1479,7 @@ function Library:CreateWindow(config)
         return Tab
     end
     
-    -- ==========================================
+   -- ==========================================
     -- ГЛОБАЛЬНЫЙ ПОИСК (GLOBAL SEARCH)
     -- ==========================================
     local SearchPage = Library.Utils.Make("ScrollingFrame", {
