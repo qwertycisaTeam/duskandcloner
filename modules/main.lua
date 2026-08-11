@@ -9,7 +9,7 @@ function Module:Init(Library, Window, Tab)
     -- ==========================================
     -- КНОПКА КОПИРОВАНИЯ
     Tab:CreatePreviewButton({
-        Image = "rbxassetid://101080995585899", 
+        Image = "rbxassetid://121179192490706", 
         Height = 150, 
         Callback = function()
             -- Запускаем в отдельном потоке, чтобы не тормозить UI
