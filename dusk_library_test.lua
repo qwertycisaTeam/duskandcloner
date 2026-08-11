@@ -305,7 +305,7 @@ function Library:CreateWindow(config)
     end)
 
     local MainFrame = Library.Utils.Make("CanvasGroup", {
-        Size = UDim2.new(0, 200, 0, 410), AnchorPoint = Vector2.new(0.5, 0.5),
+        Size = UDim2.new(0, 440, 0, 410), AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.new(0.5, 0, 0.5, 0), BorderSizePixel = 0, GroupTransparency = 1,
         Visible = false, BackgroundTransparency = 0.15, Parent = ScreenGui
     }, { BackgroundColor3 = "Background" })
@@ -1477,6 +1477,10 @@ function Library:CreateWindow(config)
         end
 
         return Tab
+    end
+    function Window:Build()
+        MainFrame.Visible = true
+        Library.Utils.TBT(MainFrame, 0.4, {GroupTransparency = 0, Size = UDim2.new(0, 680, 0, 450)}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
     end
     return Window
 end 
