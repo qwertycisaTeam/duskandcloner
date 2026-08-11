@@ -1478,7 +1478,6 @@ function Library:CreateWindow(config)
 
         return Tab
     end
-end
 -- ==========================================
     -- 6. СИСТЕМА УВЕДОМЛЕНИЙ (NOTIFICATIONS)
     -- ==========================================
