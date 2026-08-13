@@ -438,7 +438,7 @@ function Library:CreateWindow(config)
             end
 
             MainFrame.Visible = true
-            Library.Utils.TBT(MainFrame, 0.4, {GroupTransparency = 0, Size = UDim2.new(0, 680, 0, 450)}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+            Library.Utils.TBT(MainFrame, 0.4, {GroupTransparency = 0, Size = UDim2.new(0, 460, 0, 410)}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
         end
     end
 
