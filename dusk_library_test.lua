@@ -12,16 +12,6 @@ local Camera = workspace.CurrentCamera
 
 local MainFont = Font.new("rbxassetid://16658237174") -- Libre Baskerville
 local LoaderFont = Font.new("rbxassetid://12187365104") -- Blaka
-local UI_Icons = {
-    Delete = "rbxassetid://103348299780330",      -- korzina
-    Rename = "rbxassetid://104417156882773",    -- karandash
-    Copy = "rbxassetid://115843248520941",         -- buferobmena
-    Price = "rbxassetid://125651659356206",        -- moneta
-    Furniture = "rbxassetid://72936320954395",    -- sofayarlik
-    Options = "rbxassetid://96935793442177",   -- yarlik
-    Explorer = "rbxassetid://111285083640153", -- Provodnik
-    JsonFile = "rbxassetid://99263938121768"        -- json
-}
 
 if getgenv().DuskShine_Core then
     getgenv().DuskShine_Core:Destroy()
@@ -56,7 +46,11 @@ function Library:Destroy()
     if oldEco then oldEco:Destroy() end
 end
 
-
+function Library:Connect(signal, callback)
+    local connection = signal:Connect(callback)
+    table.insert(self.Connections, connection)
+    return connection
+end
 
 local rgb = Color3.fromRGB
 
@@ -180,16 +174,6 @@ function Library.Utils.ApplyGradient(uiElement, accentColor)
     end
 end
 
-
-function Library:Connect(signal, callback)
-    -- Подключаем ивент и сохраняем его в переменную
-    local connection = signal:Connect(callback)
-    -- Записываем в таблицу, чтобы Library:Destroy() мог потом всё это очистить
-    table.insert(self.Connections, connection)
-    return connection
-end
-
-
 -- Функция создания элементов с авто-подключением темы
 function Library.Utils.Make(className, properties, themeProps)
     local inst = Instance.new(className)
@@ -295,9 +279,6 @@ function Library:RunLoader(ScreenGui, OnComplete)
     if OnComplete then OnComplete() end
 end
 
---========================================================
---CОЗДАЕМ ОКНО
---========================================================
 function Library:CreateWindow(config)
     config = config or {}
     local windowTitle = config.Title or "Dusk &"
@@ -324,7 +305,7 @@ function Library:CreateWindow(config)
     end)
 
     local MainFrame = Library.Utils.Make("CanvasGroup", {
-        Size = UDim2.new(0, 440, 0, 410), AnchorPoint = Vector2.new(0.5, 0.5),
+        Size = UDim2.new(0, 680, 0, 450), AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.new(0.5, 0, 0.5, 0), BorderSizePixel = 0, GroupTransparency = 1,
         Visible = false, BackgroundTransparency = 0.15, Parent = ScreenGui
     }, { BackgroundColor3 = "Background" })
@@ -365,7 +346,7 @@ function Library:CreateWindow(config)
     end)
 
     -- ==========================================
-    -- ШАПКА: TITLE, ONLINE COUNTER, MAC BUTTONS
+    -- ШАПКА: TITLE, ONLINE COUNTER, SEARCH, MAC BUTTONS
     -- ==========================================
     local Header = Library.Utils.Make("Frame", {
         Size = UDim2.new(1, -60, 0, 60), Position = UDim2.new(0, 60, 0, 0),
@@ -406,6 +387,15 @@ function Library:CreateWindow(config)
         Library:Connect(b.MouseLeave, function() Library.Utils.TBT(b, 0.2, {BackgroundTransparency = 0}) end)
         return b
     end
+
+    -- 4. Строка поиска (Search)
+    local SearchContainer = Library.Utils.Make("Frame", { Size = UDim2.new(0, 160, 0, 32), AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -95, 0.5, 0), BackgroundTransparency = 1, Parent = Header })
+    local SearchBg = Library.Utils.Make("Frame", { Size = UDim2.new(1, 0, 1, 0), Parent = SearchContainer }, { BackgroundColor3 = "Section" })
+    Library.Utils.Make("UICorner", { CornerRadius = UDim.new(1, 0), Parent = SearchBg })
+    Library.Utils.Make("UIStroke", { Parent = SearchBg }, { Color = "Stroke" })
+    
+    Library.Utils.Make("ImageLabel", { Size = UDim2.new(0, 16, 0, 16), Position = UDim2.new(1, -24, 0.5, 0), AnchorPoint = Vector2.new(0, 0.5), BackgroundTransparency = 1, Image = "rbxassetid://3926305904", ImageRectOffset = Vector2.new(964, 324), ImageRectSize = Vector2.new(36, 36), Parent = SearchContainer }, { ImageColor3 = "SubText" })
+    local SearchInput = Library.Utils.Make("TextBox", { Size = UDim2.new(1, -40, 1, 0), Position = UDim2.new(0, 12, 0, 0), BackgroundTransparency = 1, PlaceholderText = "Search...", Text = "", Font = Enum.Font.GothamMedium, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, ClearTextOnFocus = false, Parent = SearchContainer }, { TextColor3 = "Text", PlaceholderColor3 = "SubText" })
 
     -- ==========================================
     -- ЛОГИКА СВОРАЧИВАНИЯ (MINIMIZE / FLOATING LOGO)
@@ -448,7 +438,7 @@ function Library:CreateWindow(config)
             end
 
             MainFrame.Visible = true
-            Library.Utils.TBT(MainFrame, 0.4, {GroupTransparency = 0, Size = UDim2.new(0, 440, 0, 410)}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+            Library.Utils.TBT(MainFrame, 0.4, {GroupTransparency = 0, Size = UDim2.new(0, 680, 0, 450)}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
         end
     end
 
@@ -507,11 +497,12 @@ function Library:CreateWindow(config)
         TabsContainer = TabsContainer,
         PagesContainer = Pages,
         Tabs = {}, 
-        CurrentTab = nil
+        CurrentTab = nil,
+        ToggleMenu = ToggleMinimize
     }
 
     function Window:SetOnlineStatus(countText)
-        OnlineText.Text = "" .. tostring(countText)
+        OnlineText.Text = "Currently playing: " .. tostring(countText)
         Library.Utils.TBT(OnlineIndicator, 0.4, {BackgroundColor3 = Color3.fromRGB(255, 255, 255)})
         task.delay(0.4, function()
             Library.Utils.TBT(OnlineIndicator, 0.4, {BackgroundColor3 = Color3.fromRGB(15, 205, 105)})
@@ -652,6 +643,98 @@ function Library:CreateWindow(config)
             end)
             
             return B
+        end
+
+        function Tab:CreateCopyLink(config)
+            local name = config.Name or "Link"
+            local url = config.Url or ""
+            
+            local notifyIcon = config.NotifyIcon or "10723426722"
+            local notifyLogo = config.NotifyLogo or "72958619361915"
+
+            -- Используем 3-й аргумент для привязки к теме
+            local F = Library.Utils.Make("Frame", {
+                Size = UDim2.new(1, 0, 0, 46),
+                Parent = Page
+            }, { BackgroundColor3 = "Section" })
+            
+            Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 8), Parent = F})
+            local FStroke = Library.Utils.Make("UIStroke", {Thickness = 1, Parent = F}, {Color = "Stroke"})
+
+            local Btn = Library.Utils.Make("TextButton", {
+                Size = UDim2.new(1, 0, 1, 0),
+                BackgroundTransparency = 1,
+                Text = "",
+                Parent = F
+            })
+
+            -- Заголовок привязываем к "Text"
+            Library.Utils.Make("TextLabel", {
+                Text = name,
+                Size = UDim2.new(1, -45, 0, 16),
+                Position = UDim2.new(0, 14, 0, 8),
+                BackgroundTransparency = 1,
+                Font = Enum.Font.GothamBold,
+                TextSize = 13,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                Parent = F
+            }, { TextColor3 = "Text" })
+
+            -- Ссылку привязываем к "SubText"
+            Library.Utils.Make("TextLabel", {
+                Text = url,
+                Size = UDim2.new(1, -45, 0, 14),
+                Position = UDim2.new(0, 14, 0, 26),
+                BackgroundTransparency = 1,
+                Font = Enum.Font.GothamMedium,
+                TextSize = 11,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                Parent = F
+            }, { TextColor3 = "SubText" })
+
+            -- Иконку привязываем к "SubText"
+            local Icon = Library.Utils.Make("ImageLabel", {
+                Size = UDim2.new(0, 18, 0, 18),
+                Position = UDim2.new(1, -30, 0.5, -9),
+                BackgroundTransparency = 1,
+                Image = "rbxassetid://10827393433", 
+                Parent = F
+            }, { ImageColor3 = "SubText" })
+
+            -- Анимации при наведении (Перекрашиваем в Акцентный цвет)
+            Library:Connect(Btn.MouseEnter, function() 
+                Library.Utils.TBT(FStroke, 0.25, {Color = Library.CurrentTheme.Accent})
+                Library.Utils.TBT(Icon, 0.25, {ImageColor3 = Library.CurrentTheme.Accent})
+            end)
+            
+            Library:Connect(Btn.MouseLeave, function() 
+                Library.Utils.TBT(FStroke, 0.25, {Color = Library.CurrentTheme.Stroke})
+                Library.Utils.TBT(Icon, 0.25, {ImageColor3 = Library.CurrentTheme.SubText})
+            end)
+
+            Library:Connect(Btn.MouseButton1Click, function()
+                Library.Utils.CreateRipple(F)
+                
+                if setclipboard then
+                    pcall(function() setclipboard(url) end)
+                    
+                    if Library and Library.Notify then
+                        Library:Notify(
+                            "Link Copied!", 
+                            "Copied " .. name .. " to clipboard.", 
+                            3, 
+                            notifyIcon, 
+                            notifyLogo
+                        )
+                    end
+                else
+                    if Library and Library.Notify then
+                        Library:Notify("Error", "Your executor doesn't support clipboard copying.", 4)
+                    end
+                end
+            end)
+
+            return F
         end
 
         function Tab:CreateToggle(config)
@@ -1209,6 +1292,70 @@ function Library:CreateWindow(config)
             return { SetText = function(newText) S.Text = newText end }
         end
 
+        function Tab:CreateDivider(config)
+            config = config or {}
+            local text = config.Text or ""
+
+            local Container = Library.Utils.Make("Frame", { 
+                Size = UDim2.new(1, 0, 0, 30), 
+                BackgroundTransparency = 1, 
+                Parent = Page 
+            })
+
+            local Layout = Library.Utils.Make("UIListLayout", { 
+                FillDirection = Enum.FillDirection.Horizontal, 
+                VerticalAlignment = Enum.VerticalAlignment.Center, 
+                HorizontalAlignment = Enum.HorizontalAlignment.Center, 
+                Padding = UDim.new(0, 12), 
+                SortOrder = Enum.SortOrder.LayoutOrder, 
+                Parent = Container 
+            })
+
+            -- Левая линия (Градиент от прозрачного к цвету)
+            local LeftLine = Library.Utils.Make("Frame", { 
+                LayoutOrder = 1, 
+                Size = UDim2.new(0.35, 0, 0, 1), 
+                BorderSizePixel = 0,
+                Parent = Container 
+            }, { BackgroundColor3 = "Stroke" })
+            
+            local LGrad = Instance.new("UIGradient", LeftLine)
+            LGrad.Transparency = NumberSequence.new({
+                NumberSequenceKeypoint.new(0, 1),
+                NumberSequenceKeypoint.new(1, 0)
+            })
+
+            -- Текст по центру
+            local Txt = Library.Utils.Make("TextLabel", { 
+                LayoutOrder = 2, 
+                Text = text, 
+                AutomaticSize = Enum.AutomaticSize.X, 
+                Size = UDim2.new(0, 0, 1, 0), 
+                BackgroundTransparency = 1, 
+                Font = Enum.Font.GothamMedium, 
+                TextSize = 12, 
+                Parent = Container 
+            }, { TextColor3 = "SubText" })
+
+            -- Правая линия (Градиент от цвета к прозрачному)
+            local RightLine = Library.Utils.Make("Frame", { 
+                LayoutOrder = 3, 
+                Size = UDim2.new(0.35, 0, 0, 1), 
+                BorderSizePixel = 0,
+                Parent = Container 
+            }, { BackgroundColor3 = "Stroke" })
+
+            local RGrad = Instance.new("UIGradient", RightLine)
+            RGrad.Transparency = NumberSequence.new({
+                NumberSequenceKeypoint.new(0, 0),
+                NumberSequenceKeypoint.new(1, 1)
+            })
+
+            return {
+                SetText = function(newText) Txt.Text = newText end
+            }
+        end
+
         function Tab:CreateLabel(config)
             config = config or {}
             local text = config.Text or "Label"
@@ -1256,17 +1403,59 @@ function Library:CreateWindow(config)
             config = config or {}
             local text = config.Text or "Notice"
 
-            local F = Library.Utils.Make("Frame", { Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 0.4, Parent = Page }, { BackgroundColor3 = "Section" })
-            Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 10), Parent = F})
-            Library.Utils.Make("UIStroke", {Thickness = 1.5, Transparency = 0.5, Parent = F}, {Color = "Red"})
-            Library.Utils.Make("UIPadding", {PaddingBottom = UDim.new(0, 12), Parent = F})
+            -- Делаем солидный фон с легким красноватым tint'ом вместо дешевой прозрачности
+            local F = Library.Utils.Make("Frame", { 
+                Size = UDim2.new(1, 0, 0, 0), 
+                AutomaticSize = Enum.AutomaticSize.Y, 
+                BackgroundTransparency = 0, 
+                Parent = Page 
+            }, { BackgroundColor3 = "Section" })
+            F.BackgroundColor3 = Color3.fromRGB(32, 24, 24) 
 
-            local LeftLine = Library.Utils.Make("Frame", { Size = UDim2.new(0, 3, 1, -20), Position = UDim2.new(0, 10, 0.5, 0), AnchorPoint = Vector2.new(0, 0.5), BorderSizePixel = 0, Parent = F }, { BackgroundColor3 = "Red" })
-            Library.Utils.Make("UICorner", {CornerRadius = UDim.new(1, 0), Parent = LeftLine})
+            Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 6), Parent = F})
+            Library.Utils.Make("UIStroke", {Thickness = 1, Transparency = 0.3, Parent = F}, {Color = "Red"})
+            
+            -- Жесткие внутренние отступы
+            Library.Utils.Make("UIPadding", {
+                PaddingTop = UDim.new(0, 10), 
+                PaddingBottom = UDim.new(0, 10), 
+                PaddingLeft = UDim.new(0, 12), 
+                PaddingRight = UDim.new(0, 12), 
+                Parent = F
+            })
 
-            Library.Utils.Make("ImageLabel", { Size = UDim2.new(0, 18, 0, 18), Position = UDim2.new(0, 20, 0, 12), BackgroundTransparency = 1, Image = "rbxassetid://11877677509", Parent = F }, { ImageColor3 = "Red" })
+            -- Левая акцентная линия, привязанная прямо к краю
+            local LeftLine = Library.Utils.Make("Frame", { 
+                Size = UDim2.new(0, 3, 1, 0), 
+                Position = UDim2.new(0, -12, 0, 0), -- Компенсируем UIPadding
+                BorderSizePixel = 0, 
+                Parent = F 
+            }, { BackgroundColor3 = "Red" })
+            Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 6), Parent = LeftLine})
 
-            local T = Library.Utils.Make("TextLabel", { Text = text, Size = UDim2.new(1, -54, 0, 0), Position = UDim2.new(0, 44, 0, 12), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, FontFace = MainFont, TextSize = 13, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, RichText = true, Parent = F }, { TextColor3 = "Text" })
+            -- Иконка и текст с динамическим выравниванием
+            Library.Utils.Make("ImageLabel", { 
+                Size = UDim2.new(0, 16, 0, 16), 
+                Position = UDim2.new(0, 4, 0, 1), 
+                BackgroundTransparency = 1, 
+                Image = "rbxassetid://11877677509", 
+                Parent = F 
+            }, { ImageColor3 = "Red" })
+
+            local T = Library.Utils.Make("TextLabel", { 
+                Text = text, 
+                Size = UDim2.new(1, -26, 0, 0), 
+                Position = UDim2.new(0, 26, 0, 0), 
+                AutomaticSize = Enum.AutomaticSize.Y, 
+                BackgroundTransparency = 1, 
+                FontFace = MainFont, 
+                TextSize = 12, 
+                TextWrapped = true, 
+                TextXAlignment = Enum.TextXAlignment.Left, 
+                TextYAlignment = Enum.TextYAlignment.Top, 
+                RichText = true, 
+                Parent = F 
+            }, { TextColor3 = "Text" })
 
             return { SetText = function(newText) T.Text = newText end }
         end
@@ -1445,63 +1634,274 @@ function Library:CreateWindow(config)
 
         return Tab
     end
-    function Window:Build()
-        MainFrame.Visible = true
-        local targetSize = MainFrame.Size 
-        MainFrame.Size = UDim2.new(0, 0, 0, 0) 
-        Library.Utils.TBT(MainFrame, 0.4, {
-            GroupTransparency = 0, 
-            Size = targetSize 
-        }, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+
+    -- ==========================================
+    -- ГЛОБАЛЬНЫЙ ПОИСК (GLOBAL SEARCH)
+    -- ==========================================
+    local SearchPage = Library.Utils.Make("ScrollingFrame", {
+        Name = "GlobalSearchPage", Size = UDim2.new(1, -20, 1, -10), Position = UDim2.new(0, 10, 0, 5),
+        BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 3, Visible = false, ZIndex = 50, Parent = Pages
+    }, { ScrollBarImageColor3 = "SubText" })
+
+    local SearchLayout = Library.Utils.Make("UIListLayout", { Padding = UDim.new(0, 12), SortOrder = Enum.SortOrder.LayoutOrder, Parent = SearchPage })
+    Library.Utils.Make("UIPadding", { PaddingTop = UDim.new(0, 10), PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 20), PaddingBottom = UDim.new(0, 15), Parent = SearchPage })
+
+    SearchLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        SearchPage.CanvasSize = UDim2.new(0, 0, 0, SearchLayout.AbsoluteContentSize.Y + 20)
+    end)
+
+    local isSearchOpen = false
+    local originalParents = {}
+    local SearchClickBtn = Library.Utils.Make("TextButton", {Size = UDim2.new(0, 30, 0, 30), Position = UDim2.new(1, -30, 0, 0), BackgroundTransparency = 1, Text = "", ZIndex = 10, Parent = SearchContainer})
+
+    local function RestoreSearch()
+        SearchPage.Visible = false
+        for elem, data in pairs(originalParents) do
+            if elem and data.Parent then
+                elem.Parent = data.Parent
+                elem.LayoutOrder = data.OriginalOrder 
+                elem.Visible = true
+            end
+        end
+        table.clear(originalParents)
+        
+        if Window and Window.CurrentTab then
+            for _, tab in ipairs(Window.Tabs) do
+                if tab.Btn == Window.CurrentTab then
+                    tab.Page.Visible = true
+                    break
+                end
+            end
+        end
     end
+
+    local function CloseSearch()
+        isSearchOpen = false
+        SearchInput.Text = ""
+        Library.Utils.TBT(SearchContainer, 0.4, {Size = UDim2.new(0, 32, 0, 32)}, Enum.EasingStyle.Quint)
+        Library.Utils.TBT(SearchInput, 0.2, {TextTransparency = 1})
+        Library.ThemeObjects[SearchContainer:FindFirstChildOfClass("ImageLabel")] = { ImageColor3 = "SubText" }
+        Library.Utils.TBT(SearchContainer:FindFirstChildOfClass("ImageLabel"), 0.3, {ImageColor3 = Library.CurrentTheme.SubText})
+        task.delay(0.2, function() if not isSearchOpen then SearchInput.Visible = false end end)
+    end
+
+    Library:Connect(SearchClickBtn.MouseButton1Click, function()
+        isSearchOpen = not isSearchOpen
+        local searchIcon = SearchContainer:FindFirstChildOfClass("ImageLabel")
+        if isSearchOpen then
+            SearchInput.Visible = true
+            Library.Utils.TBT(SearchContainer, 0.4, {Size = UDim2.new(0, 160, 0, 32)}, Enum.EasingStyle.Quint)
+            Library.Utils.TBT(SearchInput, 0.3, {TextTransparency = 0})
+            Library.ThemeObjects[searchIcon] = { ImageColor3 = "Accent" }
+            Library.Utils.TBT(searchIcon, 0.3, {ImageColor3 = Library.CurrentTheme.Accent})
+            SearchInput:CaptureFocus()
+        else
+            CloseSearch()
+        end
+    end)
+
+    Library:Connect(SearchInput:GetPropertyChangedSignal("Text"), function()
+        local query = string.lower(SearchInput.Text):match("^%s*(.-)%s*$") or ""
+        if query == "" then RestoreSearch(); return end
+
+        for _, tab in ipairs(Window.Tabs) do tab.Page.Visible = false end
+        SearchPage.Visible = true
+        
+        if not next(originalParents) then
+            local pageIndex = 0
+            for _, tab in ipairs(Window.Tabs) do
+                pageIndex = pageIndex + 1
+                for _, elem in ipairs(tab.Page:GetChildren()) do
+                    if elem:IsA("GuiObject") and not elem:IsA("UIListLayout") and not elem:IsA("UIPadding") and not string.find(elem.Name, "SubPage") then
+                        originalParents[elem] = { Parent = tab.Page, OriginalOrder = elem.LayoutOrder, AbsoluteOrder = (pageIndex * 1000) + (elem.LayoutOrder or 0), TabRef = tab }
+                    end
+                end
+            end
+        end
+        
+        local matchedElements = {}
+        for elem, data in pairs(originalParents) do
+            local match = false
+            local rawText = ""
+            for _, desc in ipairs(elem:GetDescendants()) do 
+                if desc:IsA("TextLabel") or desc:IsA("TextBox") or desc:IsA("TextButton") then
+                    rawText = rawText .. " " .. tostring(desc.Text or "")
+                end
+            end
+            
+            local cleanText = string.lower(string.gsub(rawText, "<[^>]+>", ""))
+            if string.find(cleanText, query, 1, true) then match = true end
+            if string.find(cleanText, "update log") or string.len(cleanText) > 100 then match = false end
+            
+            if match then table.insert(matchedElements, {Element = elem, Data = data})
+            elseif elem.Parent == SearchPage then elem.Parent = data.Parent; elem.LayoutOrder = data.OriginalOrder end
+        end
+        
+        table.sort(matchedElements, function(a, b) return (a.Data.AbsoluteOrder or 0) < (b.Data.AbsoluteOrder or 0) end)
+        for i, item in ipairs(matchedElements) do item.Element.Parent = SearchPage; item.Element.LayoutOrder = i; item.Element.Visible = true end
+        task.defer(function() SearchPage.CanvasPosition = Vector2.new(0, 0) end)
+    end)
+
+    Library:Connect(UserInputService.InputBegan, function(input)
+        if not isSearchOpen or not SearchPage.Visible then return end
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            local mPos = input.Position
+            local spPos = SearchPage.AbsolutePosition
+            local spSize = SearchPage.AbsoluteSize
+            
+            if mPos.X >= spPos.X and mPos.X <= spPos.X + spSize.X and mPos.Y >= spPos.Y and mPos.Y <= spPos.Y + spSize.Y then
+                for elem, data in pairs(originalParents) do
+                    if elem.Parent == SearchPage and elem.Visible then
+                        local pos = elem.AbsolutePosition; local size = elem.AbsoluteSize
+                        if mPos.X >= pos.X and mPos.X <= pos.X + size.X and mPos.Y >= pos.Y and mPos.Y <= pos.Y + size.Y then
+                            -- Закрываем поиск и чистим текст ПРЯМО ТУТ
+                            CloseSearch() 
+                            Window:SelectTab(data.TabRef)
+                            
+                            task.spawn(function()
+                                task.wait(0.15) 
+                                local targetY = elem.AbsolutePosition.Y - data.Parent.AbsolutePosition.Y + data.Parent.CanvasPosition.Y
+                                Library.Utils.TBT(data.Parent, 0.3, {CanvasPosition = Vector2.new(0, targetY - 15)}, Enum.EasingStyle.Cubic)
+                                
+                                local stroke = elem:FindFirstChildOfClass("UIStroke")
+                                if stroke then
+                                    local oColor = stroke.Color; local oThick = stroke.Thickness
+                                    Library.Utils.TBT(stroke, 0.2, {Color = Library.CurrentTheme.Accent, Thickness = 2.5})
+                                    task.wait(0.6)
+                                    Library.Utils.TBT(stroke, 0.5, {Color = oColor, Thickness = oThick})
+                                end
+                            end)
+                            break
+                        end
+                    end
+                end
+            end
+        end
+    end)
+
+    function Window:Build()
+        -- Запускаем лоадер, передавая ему наш ScreenGui
+        Library:RunLoader(ScreenGui, function()
+            -- Этот код выполнится только после того, как лоадер исчезнет
+            MainFrame.Visible = true
+            Library.Utils.TBT(MainFrame, 0.5, {GroupTransparency = 0})
+        end)
+    end
+
     return Window
-end 
--- ==========================================
+end
+
+    -- ==========================================
     -- 6. СИСТЕМА УВЕДОМЛЕНИЙ (NOTIFICATIONS)
     -- ==========================================
-    function Library:Notify(title, text, duration, icon)
-    duration = duration or 3
-    -- Если иконку не передали, ставим дефолтную
-    local iconId = icon or "rbxassetid://283952329" 
-    
-    local ScreenGui = PlayerGui:FindFirstChild("DuskShine_Mega")
-    if not ScreenGui then return end
+    function Library:Notify(title, text, duration, icon, logo)
+        duration = duration or 3
         
+        -- 1. Умная конвертация ID для иконки и логотипа
+        local iconId = icon or "rbxassetid://283952329" 
+        if tonumber(iconId) then iconId = "rbxassetid://" .. iconId end
+        if logo and tonumber(logo) then logo = "rbxassetid://" .. logo end
+        
+        local ScreenGui = PlayerGui:FindFirstChild("DuskShine_Mega")
+        if not ScreenGui then return end
+            
         local Holder = ScreenGui:FindFirstChild("Notifications")
         if not Holder then return end
 
-        local Container = Library.Utils.Make("Frame", { Size = UDim2.new(0, 320, 0, 55), BackgroundTransparency = 1, Parent = Holder })
-
-        local Canvas = Library.Utils.Make("CanvasGroup", {
-            Size = UDim2.new(1, 0, 1, -5), Position = UDim2.new(1, 30, 0, 0),
-            BackgroundColor3 = Color3.fromRGB(22, 22, 26), GroupTransparency = 1, BorderSizePixel = 0, Parent = Container
+        local Container = Library.Utils.Make("Frame", { 
+            Size = UDim2.new(0, 310, 0, 0), 
+            AutomaticSize = Enum.AutomaticSize.Y, 
+            BackgroundTransparency = 1, 
+            Parent = Holder 
         })
-        Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 6), Parent = Canvas})
-        Library.Utils.Make("UIStroke", {Thickness = 1, Transparency = 0.5, Parent = Canvas}, {Color = "Stroke"})
 
-        local LeftBar = Library.Utils.Make("Frame", { Size = UDim2.new(0, 3, 1, -16), Position = UDim2.new(0, 8, 0.5, 0), AnchorPoint = Vector2.new(0, 0.5), BorderSizePixel = 0, Parent = Canvas }, { BackgroundColor3 = "Accent" })
-        Library.Utils.Make("UICorner", {CornerRadius = UDim.new(1, 0), Parent = LeftBar})
-
-        Library.Utils.Make("TextLabel", { Text = title, Size = UDim2.new(1, -75, 0, 20), Position = UDim2.new(0, 22, 0, 6), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, Parent = Canvas }, { TextColor3 = "Text" })
-        Library.Utils.Make("TextLabel", { Text = text, Size = UDim2.new(1, -75, 0, 20), Position = UDim2.new(0, 22, 0, 24), BackgroundTransparency = 1, Font = Enum.Font.GothamMedium, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, Parent = Canvas }, { TextColor3 = "SubText" })
-
-        Library.Utils.Make("ImageLabel", { Size = UDim2.new(0, 28, 0, 28), AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, -2), BackgroundTransparency = 1, Image = iconId, Parent = Canvas })
-
-        local TimeBarBg = Library.Utils.Make("Frame", { Size = UDim2.new(1, 0, 0, 1), Position = UDim2.new(0, 0, 1, -1), BackgroundTransparency = 1, BorderSizePixel = 0, Parent = Canvas })
-        local TimeBar = Library.Utils.Make("Frame", { Size = UDim2.new(1, 0, 1, 0), BorderSizePixel = 0, Parent = TimeBarBg }, { BackgroundColor3 = "Accent" })
+        local AlertBox = Library.Utils.Make("Frame", {
+            Size = UDim2.new(1, 0, 1, -5), 
+            Position = UDim2.new(1, 40, 0, 0), 
+            BackgroundColor3 = Color3.fromRGB(25, 25, 30), 
+            BackgroundTransparency = 1, 
+            BorderSizePixel = 0, 
+            ClipsDescendants = true,
+            Parent = Container
+        })
+        Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 8), Parent = AlertBox})
+        local Stroke = Library.Utils.Make("UIStroke", {Thickness = 1, Transparency = 1, Parent = AlertBox}, {Color = "Stroke"})
         
-        local BarGradient = Instance.new("UIGradient")
-        BarGradient.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.7, 0), NumberSequenceKeypoint.new(1, 1) })
-        BarGradient.Parent = TimeBar
+        -- Правый водяной знак (Создаем ДО контента, чтобы положить на ZIndex 1)
+        local RightLogo = nil
+        if logo then
+            RightLogo = Library.Utils.Make("ImageLabel", {
+                Size = UDim2.new(0, 160, 0, 160), 
+                Position = UDim2.new(1, 35, 0.5, 0), 
+                AnchorPoint = Vector2.new(1, 0.5), 
+                BackgroundTransparency = 1, 
+                Image = logo, 
+                ImageTransparency = 1, 
+                ScaleType = Enum.ScaleType.Fit, 
+                ZIndex = 1, 
+                Parent = AlertBox 
+            })
+        end
 
-        Library.Utils.TBT(Canvas, 0.4, {Position = UDim2.new(0, 0, 0, 0), GroupTransparency = 0}, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out)
-        Library.Utils.TBT(TimeBar, duration, {Size = UDim2.new(0, 0, 1, 0)}, Enum.EasingStyle.Linear)
+        local Content = Library.Utils.Make("Frame", {
+            Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, ZIndex = 2, Parent = AlertBox
+        })
+        Library.Utils.Make("UIPadding", {
+            PaddingTop = UDim.new(0, 12), PaddingBottom = UDim.new(0, 18), 
+            PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 12), Parent = Content
+        })
+
+        local Icon = Library.Utils.Make("ImageLabel", { 
+            Size = UDim2.new(0, 32, 0, 32), Position = UDim2.new(0, 0, 0, 0), 
+            BackgroundTransparency = 1, Image = iconId, ImageTransparency = 1, ZIndex = 3, Parent = Content 
+        })
+
+        -- 2. ОДИН правильный расчет отступа перед созданием текста
+        local textOffset = logo and -55 or -42
+
+        local TitleLbl = Library.Utils.Make("TextLabel", { 
+            Text = title, Size = UDim2.new(1, textOffset, 0, 16), Position = UDim2.new(0, 42, 0, 0), 
+            BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 14, 
+            TextXAlignment = Enum.TextXAlignment.Left, TextTransparency = 1, ZIndex = 3, Parent = Content 
+        }, { TextColor3 = "Text" })
+
+        local DescLbl = Library.Utils.Make("TextLabel", { 
+            Text = text, Size = UDim2.new(1, textOffset, 0, 0), Position = UDim2.new(0, 42, 0, 18), 
+            AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, Font = Enum.Font.GothamMedium, 
+            TextSize = 12, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, 
+            TextTransparency = 1, ZIndex = 3, Parent = Content 
+        }, { TextColor3 = "Text" })
+
+        local TimeBarBg = Library.Utils.Make("Frame", { 
+            Size = UDim2.new(1, 0, 0, 3), Position = UDim2.new(0, 0, 1, -3), 
+            BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 5, Parent = AlertBox 
+        })
+        local TimeBar = Library.Utils.Make("Frame", { 
+            Size = UDim2.new(0, 0, 1, 0), BorderSizePixel = 0, BackgroundTransparency = 1, Parent = TimeBarBg 
+        }, { BackgroundColor3 = "Accent" })
+
+        Library.Utils.TBT(AlertBox, 0.35, {Position = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 0}, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+        Library.Utils.TBT(Stroke, 0.35, {Transparency = 0.2})
+        Library.Utils.TBT(Icon, 0.35, {ImageTransparency = 0})
+        Library.Utils.TBT(TitleLbl, 0.35, {TextTransparency = 0})
+        Library.Utils.TBT(DescLbl, 0.35, {TextTransparency = 0})
+        Library.Utils.TBT(TimeBar, 0.35, {BackgroundTransparency = 0})
+        
+        if RightLogo then Library.Utils.TBT(RightLogo, 0.35, {ImageTransparency = 0.85}) end
+
+        Library.Utils.TBT(TimeBar, duration, {Size = UDim2.new(1, 0, 1, 0)}, Enum.EasingStyle.Linear)
 
         local isClosed = false
         task.delay(duration, function()
             if isClosed then return end
             isClosed = true
-            local out = Library.Utils.TBT(Canvas, 0.3, {Position = UDim2.new(0, 15, 0, 0), GroupTransparency = 1}, Enum.EasingStyle.Sine, Enum.EasingDirection.In)
+            local out = Library.Utils.TBT(AlertBox, 0.3, {Position = UDim2.new(1, 50, 0, 0), BackgroundTransparency = 1}, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+            Library.Utils.TBT(Stroke, 0.3, {Transparency = 1})
+            Library.Utils.TBT(Icon, 0.3, {ImageTransparency = 1})
+            Library.Utils.TBT(TitleLbl, 0.3, {TextTransparency = 1})
+            Library.Utils.TBT(DescLbl, 0.3, {TextTransparency = 1})
+            Library.Utils.TBT(TimeBar, 0.3, {BackgroundTransparency = 1})
+            if RightLogo then Library.Utils.TBT(RightLogo, 0.3, {ImageTransparency = 1}) end
             out.Completed:Connect(function() Container:Destroy() end)
         end)
     end
