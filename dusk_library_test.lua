@@ -180,6 +180,16 @@ function Library.Utils.ApplyGradient(uiElement, accentColor)
     end
 end
 
+
+function Library:Connect(signal, callback)
+    -- Подключаем ивент и сохраняем его в переменную
+    local connection = signal:Connect(callback)
+    -- Записываем в таблицу, чтобы Library:Destroy() мог потом всё это очистить
+    table.insert(self.Connections, connection)
+    return connection
+end
+
+
 -- Функция создания элементов с авто-подключением темы
 function Library.Utils.Make(className, properties, themeProps)
     local inst = Instance.new(className)
