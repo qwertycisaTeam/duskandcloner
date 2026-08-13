@@ -388,15 +388,6 @@ function Library:CreateWindow(config)
         return b
     end
 
-    -- 4. Строка поиска (Search)
-    local SearchContainer = Library.Utils.Make("Frame", { Size = UDim2.new(0, 160, 0, 32), AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -95, 0.5, 0), BackgroundTransparency = 1, Parent = Header })
-    local SearchBg = Library.Utils.Make("Frame", { Size = UDim2.new(1, 0, 1, 0), Parent = SearchContainer }, { BackgroundColor3 = "Section" })
-    Library.Utils.Make("UICorner", { CornerRadius = UDim.new(1, 0), Parent = SearchBg })
-    Library.Utils.Make("UIStroke", { Parent = SearchBg }, { Color = "Stroke" })
-    
-    Library.Utils.Make("ImageLabel", { Size = UDim2.new(0, 16, 0, 16), Position = UDim2.new(1, -24, 0.5, 0), AnchorPoint = Vector2.new(0, 0.5), BackgroundTransparency = 1, Image = "rbxassetid://3926305904", ImageRectOffset = Vector2.new(964, 324), ImageRectSize = Vector2.new(36, 36), Parent = SearchContainer }, { ImageColor3 = "SubText" })
-    local SearchInput = Library.Utils.Make("TextBox", { Size = UDim2.new(1, -40, 1, 0), Position = UDim2.new(0, 12, 0, 0), BackgroundTransparency = 1, PlaceholderText = "Search...", Text = "", Font = Enum.Font.GothamMedium, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, ClearTextOnFocus = false, Parent = SearchContainer }, { TextColor3 = "Text", PlaceholderColor3 = "SubText" })
-
     -- ==========================================
     -- ЛОГИКА СВОРАЧИВАНИЯ (MINIMIZE / FLOATING LOGO)
     -- ==========================================
