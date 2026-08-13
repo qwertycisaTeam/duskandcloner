@@ -25,7 +25,7 @@ function Module:GetHouses()
 end
 
 -- ==========================================
--- ИНТЕРФЕЙС (UI) - ИДЕАЛЬНАЯ КОПИЯ МАКЕТА
+-- ИНТЕРФЕЙС (ПРЕМИУМ ВЕРСИЯ)
 -- ==========================================
 function Module:Init(Library, Window, Tab)
     self.Library = Library
@@ -49,33 +49,24 @@ function Module:Init(Library, Window, Tab)
         Parent = HeaderPanel
     }, { TextColor3 = "SubText" })
 
-    -- Строгая кнопка REFRESH без эмодзи
+    -- ИДЕАЛЬНАЯ КНОПКА REFRESH (Текст + Иконка выровнены по центру)
     local RefreshBtn = Library.Utils.Make("TextButton", {
-        Text = "REFRESH",
-        Size = UDim2.new(0, 95, 0, 26),
+        Text = "",
+        Size = UDim2.new(0, 85, 0, 24),
         AnchorPoint = Vector2.new(1, 0.5),
         Position = UDim2.new(1, -10, 0.5, 0),
-        Font = Enum.Font.GothamBold,
-        TextSize = 11,
-        TextXAlignment = Enum.TextXAlignment.Right,
         AutoButtonColor = false,
         Parent = HeaderPanel
-    }, { BackgroundColor3 = "Sidebar", TextColor3 = "Text" })
+    }, { BackgroundColor3 = "Sidebar" })
     Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 6), Parent = RefreshBtn })
-    Library.Utils.Make("UIPadding", { PaddingRight = UDim.new(0, 12), Parent = RefreshBtn })
     local RefStroke = Library.Utils.Make("UIStroke", { Thickness = 1, Transparency = 0.5, Parent = RefreshBtn }, { Color = "Stroke" })
-    
-    -- Чистая иконка обновления вместо смайлика
-    local RefIcon = Library.Utils.Make("ImageLabel", {
-        Size = UDim2.new(0, 14, 0, 14),
-        Position = UDim2.new(0, 10, 0.5, 0),
-        AnchorPoint = Vector2.new(0, 0.5),
-        BackgroundTransparency = 1,
-        Image = "rbxassetid://10873923769", 
-        Parent = RefreshBtn
-    }, { ImageColor3 = "Text" })
 
-    -- Анимация кнопки
+    local RefContent = Library.Utils.Make("Frame", { Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Parent = RefreshBtn })
+    Library.Utils.Make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 6), Parent = RefContent })
+    
+    local RefIcon = Library.Utils.Make("ImageLabel", { Size = UDim2.new(0, 12, 0, 12), BackgroundTransparency = 1, Image = "rbxassetid://10873923769", Parent = RefContent }, { ImageColor3 = "Text" })
+    Library.Utils.Make("TextLabel", { Text = "REFRESH", AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.new(0, 0, 1, 0), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 11, Parent = RefContent }, { TextColor3 = "Text" })
+
     local refScale = Instance.new("UIScale", RefreshBtn)
     Library:Connect(RefreshBtn.MouseEnter, function() 
         Library.Utils.TBT(RefStroke, 0.2, {Transparency = 0}) 
@@ -88,27 +79,18 @@ function Module:Init(Library, Window, Tab)
     Library:Connect(RefreshBtn.MouseButton1Click, function()
         local t = Library.Utils.TBT(refScale, 0.1, {Scale = 0.9})
         t.Completed:Connect(function() Library.Utils.TBT(refScale, 0.2, {Scale = 1}, Enum.EasingStyle.Bounce) end)
-        
-        -- Крутим иконку при нажатии
-        Library.Utils.TBT(RefIcon, 0.5, {Rotation = 360})
-        task.delay(0.5, function() RefIcon.Rotation = 0 end)
-        
+        Library.Utils.TBT(RefIcon, 0.5, {Rotation = 360}); task.delay(0.5, function() RefIcon.Rotation = 0 end)
         self:RefreshList()
     end)
 
-    -- 2. Контейнер для списка
+    -- 2. КОНТЕЙНЕР
     self.ListContainer = Library.Utils.Make("Frame", {
         Size = UDim2.new(1, 0, 0, 0),
         AutomaticSize = Enum.AutomaticSize.Y,
         BackgroundTransparency = 1,
         Parent = Tab.Page
     })
-    
-    Library.Utils.Make("UIListLayout", {
-        Padding = UDim.new(0, 4), -- Минимальный отступ, как на макете
-        SortOrder = Enum.SortOrder.LayoutOrder,
-        Parent = self.ListContainer
-    })
+    Library.Utils.Make("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder, Parent = self.ListContainer })
 
     self:RefreshList()
 end
@@ -121,14 +103,7 @@ function Module:RefreshList()
     local houses = self:GetHouses()
 
     if #houses == 0 then
-        Library.Utils.Make("TextLabel", {
-            Text = "No saved houses found.",
-            Size = UDim2.new(1, 0, 0, 40),
-            BackgroundTransparency = 1,
-            Font = Enum.Font.GothamMedium,
-            TextSize = 13,
-            Parent = self.ListContainer
-        }, { TextColor3 = "SubText" })
+        Library.Utils.Make("TextLabel", { Text = "No saved houses found.", Size = UDim2.new(1, 0, 0, 40), BackgroundTransparency = 1, Font = Enum.Font.GothamMedium, TextSize = 13, Parent = self.ListContainer }, { TextColor3 = "SubText" })
         return
     end
 
@@ -138,31 +113,32 @@ function Module:RefreshList()
 end
 
 -- ==========================================
--- КАРТОЧКА ФАЙЛА (МАКЕТНАЯ ВЕРСИЯ)
+-- КАРТОЧКА ФАЙЛА (С НЕОНОВОЙ ОБВОДКОЙ)
 -- ==========================================
 function Module:CreateFileCard(fileName)
     local Library = self.Library
 
-    -- Карточка прозрачная по дефолту! (Сливается с фоном)
+    -- Дорогой фон: не полностью прозрачный, создает ощущение "матового стекла"
     local Card = Library.Utils.Make("TextButton", { 
         Text = "",
         Size = UDim2.new(1, 0, 0, 52), 
         AutoButtonColor = false,
-        BackgroundTransparency = 1, 
+        BackgroundTransparency = 0.4, 
         Parent = self.ListContainer 
     }, { BackgroundColor3 = "Section" })
     Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 10), Parent = Card })
     
-    -- Неоновая обводка (Скрыта по дефолту)
+    -- Базовая тусклая обводка (чтобы карточка не терялась)
     local GlowStroke = Library.Utils.Make("UIStroke", { 
-        Thickness = 1.5, 
-        Transparency = 1, 
+        Thickness = 1, 
+        Transparency = 0.8, 
         Color = Color3.fromRGB(255, 255, 255), 
         Parent = Card 
     })
 
+    -- Твоя новая премиальная иконка JSON
     local FileIcon = Library.Utils.Make("ImageLabel", {
-        Size = UDim2.new(0, 24, 0, 24),
+        Size = UDim2.new(0, 26, 0, 26),
         Position = UDim2.new(0, 14, 0.5, 0),
         AnchorPoint = Vector2.new(0, 0.5),
         BackgroundTransparency = 1,
@@ -175,7 +151,7 @@ function Module:CreateFileCard(fileName)
     Library.Utils.Make("TextLabel", { 
         Text = fileName, 
         Size = UDim2.new(1, -110, 0, 20), 
-        Position = UDim2.new(0, 50, 0.5, -10), 
+        Position = UDim2.new(0, 52, 0.5, -9), 
         BackgroundTransparency = 1, 
         Font = Enum.Font.GothamBold, 
         TextSize = 14, 
@@ -183,12 +159,11 @@ function Module:CreateFileCard(fileName)
         Parent = Card 
     }, { TextColor3 = "Text" })
 
-    -- Подпись как на макете
     local timeStr = os.date("%H:%M:%S")
     Library.Utils.Make("TextLabel", { 
         Text = "Last-saved " .. timeStr, 
         Size = UDim2.new(1, -110, 0, 15), 
-        Position = UDim2.new(0, 50, 0.5, 8), 
+        Position = UDim2.new(0, 52, 0.5, 9), 
         BackgroundTransparency = 1, 
         Font = Enum.Font.Gotham, 
         TextSize = 11, 
@@ -196,29 +171,31 @@ function Module:CreateFileCard(fileName)
         Parent = Card 
     }, { TextColor3 = "SubText" })
 
+    -- Строгая аккуратная кнопка "•••"
     local OptionsBtn = Library.Utils.Make("TextButton", { 
         Text = "•••", 
-        Size = UDim2.new(0, 34, 0, 26), 
+        Size = UDim2.new(0, 32, 0, 24), 
         AnchorPoint = Vector2.new(1, 0.5), 
-        Position = UDim2.new(1, -14, 0.5, 0), 
+        Position = UDim2.new(1, -12, 0.5, 0), 
         Font = Enum.Font.GothamBold, 
-        TextSize = 14,
+        TextSize = 12,
         AutoButtonColor = false,
+        BackgroundTransparency = 0.5,
         Parent = Card 
     }, { BackgroundColor3 = "Sidebar", TextColor3 = "SubText" })
     Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 6), Parent = OptionsBtn })
-    local OptStroke = Library.Utils.Make("UIStroke", { Thickness = 1, Transparency = 0.5, Parent = OptionsBtn }, { Color = "Stroke" })
+    local OptStroke = Library.Utils.Make("UIStroke", { Thickness = 1, Transparency = 0.6, Parent = OptionsBtn }, { Color = "Stroke" })
 
-    -- === ЛОГИКА НАВЕДЕНИЯ КАК В МАКЕТЕ ===
+    -- === ЛОГИКА НЕОНА ===
     Library:Connect(Card.MouseEnter, function()
-        -- Появляется белая рамка и слегка подсвечивается фон
-        Library.Utils.TBT(GlowStroke, 0.2, {Transparency = 0.3}, Enum.EasingStyle.Sine)
-        Library.Utils.TBT(Card, 0.2, {BackgroundTransparency = 0.6}, Enum.EasingStyle.Sine)
+        -- Настоящий неон: утолщаем линию, делаем её 100% непрозрачно белой, фон делаем плотнее
+        Library.Utils.TBT(GlowStroke, 0.2, {Transparency = 0.1, Thickness = 2}, Enum.EasingStyle.Quint)
+        Library.Utils.TBT(Card, 0.2, {BackgroundTransparency = 0.1}, Enum.EasingStyle.Quint)
     end)
     Library:Connect(Card.MouseLeave, function()
-        -- Карточка снова исчезает в фоне
-        Library.Utils.TBT(GlowStroke, 0.2, {Transparency = 1}, Enum.EasingStyle.Sine)
-        Library.Utils.TBT(Card, 0.2, {BackgroundTransparency = 1}, Enum.EasingStyle.Sine)
+        -- Плавный возврат в спокойное состояние
+        Library.Utils.TBT(GlowStroke, 0.2, {Transparency = 0.8, Thickness = 1}, Enum.EasingStyle.Quint)
+        Library.Utils.TBT(Card, 0.2, {BackgroundTransparency = 0.4}, Enum.EasingStyle.Quint)
     end)
 
     local optScale = Instance.new("UIScale", OptionsBtn)
@@ -230,14 +207,14 @@ function Module:CreateFileCard(fileName)
     Library:Connect(OptionsBtn.MouseLeave, function() 
         Library.Utils.TBT(optScale, 0.2, {Scale = 1}) 
         Library.Utils.TBT(OptionsBtn, 0.2, {TextColor3 = Library.CurrentTheme.SubText}) 
-        Library.Utils.TBT(OptStroke, 0.2, {Transparency = 0.5})
+        Library.Utils.TBT(OptStroke, 0.2, {Transparency = 0.6})
     end)
 
     Library:Connect(OptionsBtn.MouseButton1Click, function()
         local t = Library.Utils.TBT(optScale, 0.1, {Scale = 0.9})
         t.Completed:Connect(function() Library.Utils.TBT(optScale, 0.2, {Scale = 1}, Enum.EasingStyle.Bounce) end)
         
-        print("Нажали троеточие на файле: " .. fileName)
+        print("Открываем Dropdown для: " .. fileName)
     end)
 end
 
