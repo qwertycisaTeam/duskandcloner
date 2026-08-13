@@ -46,29 +46,33 @@ function Module:Init(Library, Window, Tab)
     })
 
     -- ==========================================
-    -- КНОПКА BUILD (ИДЕАЛЬНАЯ КОПИЯ ИЗ ПАРСЕРА)
+    -- КНОПКА BUILD (ТОЧНАЯ КОПИЯ ИЗ ПАРСЕРА)
     -- ==========================================
     local BuildBtn = Library.Utils.Make("TextButton", {
         Text = "🔨 BUILD SELECTED HOUSE",
-        Size = UDim2.new(1, 0, 0, 36), -- Вернул размер точно как у Export
+        Size = UDim2.new(1, 0, 0, 36),
         Font = Enum.Font.GothamBold,
-        TextSize = 13, -- Вернул размер шрифта
+        TextSize = 13,
         AutoButtonColor = false,
         Parent = Tab.Page
     }, { BackgroundColor3 = "Accent", TextColor3 = "Text" }) 
     Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 8), Parent = BuildBtn })
-    
-    -- УМНОЕ ЗАТЕМНЕНИЕ ДЛЯ БЕЛОЙ ТЕМЫ
-    -- Если фон интерфейса светлый (R > 0.8), делаем кнопку строгой темной
+
+    -- Умное затемнение для белой темы
     if Library.CurrentTheme.Background.R > 0.8 then 
-        BuildBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        BuildBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45) -- Темно-серый
         BuildBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        Library.ThemeObjects[BuildBtn] = nil -- Отвязываем от авто-обновления цвета
+        Library.ThemeObjects[BuildBtn] = nil -- Отвязываем от авто-перекраски
+    else
+        BuildBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        if Library.ThemeObjects[BuildBtn] then 
+            Library.ThemeObjects[BuildBtn].TextColor3 = nil 
+        end
     end
 
     local BuildScale = Instance.new("UIScale", BuildBtn)
 
-    -- Анимация наведения 1-в-1
+    -- Анимация наведения как у парсера
     Library:Connect(BuildBtn.MouseEnter, function() 
         Library.Utils.TBT(BuildBtn, 0.2, {BackgroundTransparency = 0.2}) 
     end)
@@ -76,7 +80,6 @@ function Module:Init(Library, Window, Tab)
         Library.Utils.TBT(BuildBtn, 0.2, {BackgroundTransparency = 0}) 
     end)
     
-    -- Логика нажатия
     Library:Connect(BuildBtn.MouseButton1Click, function()
         local t = Library.Utils.TBT(BuildScale, 0.1, {Scale = 0.95})
         t.Completed:Connect(function() Library.Utils.TBT(BuildScale, 0.2, {Scale = 1}, Enum.EasingStyle.Bounce) end)
