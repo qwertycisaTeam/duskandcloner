@@ -48,7 +48,7 @@ function Module:Init(Library, Window, Tab)
 
     -- Маленькая квадратная кнопка обновления
     local RefreshBtn = Library.Utils.Make("TextButton", {
-        Text = "",
+        Text = "🔃",
         Size = UDim2.new(0, 26, 0, 26),
         AnchorPoint = Vector2.new(1, 0.5),
         Position = UDim2.new(1, -5, 0.5, 0),
