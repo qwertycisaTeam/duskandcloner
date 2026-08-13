@@ -5,7 +5,6 @@ local Module = {}
 
 local FolderName = "DuskAndShine_Houses"
 
--- Функция получения списка домов для Dropdown
 local function GetSavedHouses()
     if not isfolder(FolderName) then makefolder(FolderName) end
     local houses = {}
@@ -21,15 +20,11 @@ end
 function Module:Init(Library, Window, Tab)
     local LocalPlayer = Players.LocalPlayer
     local SelectedHouse = nil
-    local CurrentBuildDelay = 0.05 -- По умолчанию 50мс (0.05 сек)
+    local CurrentBuildDelay = 0.05 
     local CopyTextures = true
     
-    -- ==========================================
-    -- 1. СИСТЕМА АВТО-БИЛДЕРА
-    -- ==========================================
     Tab:CreateSection({ Name = "🏠 Auto-Builder System" })
 
-    -- Выбор дома из папки
     local HouseDropdown = Tab:CreateDropdown({
         Name = "Select House Schematic",
         Options = GetSavedHouses(),
@@ -39,7 +34,6 @@ function Module:Init(Library, Window, Tab)
         end
     })
 
-    -- Кнопка обновления списка
     Tab:CreateButton({
         Name = "🔄 Refresh File List",
         Callback = function()
@@ -52,42 +46,38 @@ function Module:Init(Library, Window, Tab)
     })
 
     -- ==========================================
-    -- КАСТОМНАЯ НЕОНОВАЯ КНОПКА BUILD
+    -- КНОПКА BUILD (ИДЕАЛЬНАЯ КОПИЯ ИЗ ПАРСЕРА)
     -- ==========================================
     local BuildBtn = Library.Utils.Make("TextButton", {
         Text = "🔨 BUILD SELECTED HOUSE",
-        Size = UDim2.new(1, 0, 0, 44), -- Чуть выше стандартной кнопки, чтобы выглядела массивно
+        Size = UDim2.new(1, 0, 0, 36), -- Вернул размер точно как у Export
         Font = Enum.Font.GothamBold,
-        TextSize = 14,
+        TextSize = 13, -- Вернул размер шрифта
         AutoButtonColor = false,
         Parent = Tab.Page
-    }, { BackgroundColor3 = "Section", TextColor3 = "Text" })
+    }, { BackgroundColor3 = "Accent", TextColor3 = "Text" }) 
     Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 8), Parent = BuildBtn })
     
-    -- Обводка (Неон)
-    local GlowStroke = Library.Utils.Make("UIStroke", { 
-        Thickness = 1, 
-        Transparency = 0.6, 
-        Parent = BuildBtn 
-    }, { Color = "Stroke" })
+    -- УМНОЕ ЗАТЕМНЕНИЕ ДЛЯ БЕЛОЙ ТЕМЫ
+    -- Если фон интерфейса светлый (R > 0.8), делаем кнопку строгой темной
+    if Library.CurrentTheme.Background.R > 0.8 then 
+        BuildBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        BuildBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        Library.ThemeObjects[BuildBtn] = nil -- Отвязываем от авто-обновления цвета
+    end
 
     local BuildScale = Instance.new("UIScale", BuildBtn)
 
-    -- Анимации наведения (Тот самый эффект из менеджера)
-    Library:Connect(BuildBtn.MouseEnter, function()
-        GlowStroke.Color = Color3.fromRGB(255, 255, 255)
-        Library.Utils.TBT(GlowStroke, 0.2, {Transparency = 0, Thickness = 2}, Enum.EasingStyle.Quint)
-        Library.Utils.TBT(BuildBtn, 0.2, {BackgroundTransparency = 0.2}, Enum.EasingStyle.Quint)
+    -- Анимация наведения 1-в-1
+    Library:Connect(BuildBtn.MouseEnter, function() 
+        Library.Utils.TBT(BuildBtn, 0.2, {BackgroundTransparency = 0.2}) 
     end)
-    Library:Connect(BuildBtn.MouseLeave, function()
-        GlowStroke.Color = Library.CurrentTheme.Stroke
-        Library.Utils.TBT(GlowStroke, 0.2, {Transparency = 0.6, Thickness = 1}, Enum.EasingStyle.Quint)
-        Library.Utils.TBT(BuildBtn, 0.2, {BackgroundTransparency = 0}, Enum.EasingStyle.Quint)
+    Library:Connect(BuildBtn.MouseLeave, function() 
+        Library.Utils.TBT(BuildBtn, 0.2, {BackgroundTransparency = 0}) 
     end)
     
-    -- Логика по клику (Твой парсер и билдер)
+    -- Логика нажатия
     Library:Connect(BuildBtn.MouseButton1Click, function()
-        -- Красивый отскок при клике
         local t = Library.Utils.TBT(BuildScale, 0.1, {Scale = 0.95})
         t.Completed:Connect(function() Library.Utils.TBT(BuildScale, 0.2, {Scale = 1}, Enum.EasingStyle.Bounce) end)
         
@@ -114,7 +104,6 @@ function Module:Init(Library, Window, Tab)
             local ACTUALLY_BUILD = true
             local MICRO_SHIFT_Y = 0 
             
-            -- ================== ЛОГИКА AMBIANCE (ОСВЕЩЕНИЕ) ==================
             local function loadAmbiance(ambianceData)
                 if not ambianceData then return end
                 
@@ -160,7 +149,6 @@ function Module:Init(Library, Window, Tab)
             if savedHouse.ambiance then loadAmbiance(savedHouse.ambiance) end
             if not ACTUALLY_BUILD then return end
             
-            -- ================== ЛОГИКА ЗАСТРОЙКИ (МЕБЕЛЬ) ==================
             Library:Notify("Постройка", "Начинаю закупку предметов...", 3)
             
             local rawFurniture = savedHouse.furniture or savedHouse
@@ -222,7 +210,7 @@ function Module:Init(Library, Window, Tab)
     end)
 
     -- ==========================================
-    -- 2. НАСТРОЙКИ РЕПЛИКАТОРА
+    -- РЕПЛИКАТОР (НАСТРОЙКИ)
     -- ==========================================
     Tab:CreateSection({ Name = "⚙️ Replicator Settings" })
 
