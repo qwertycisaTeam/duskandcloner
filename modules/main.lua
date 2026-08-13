@@ -1,35 +1,85 @@
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Module = {}
 
+local FolderName = "DuskAndShine_Houses"
+
+-- Функция получения списка домов для Dropdown
+local function GetSavedHouses()
+    if not isfolder(FolderName) then makefolder(FolderName) end
+    local houses = {}
+    local files = listfiles(FolderName)
+    
+    for _, path in ipairs(files) do
+        local fileName = path:match("([^/\\]+)%.json$")
+        if fileName then table.insert(houses, fileName) end
+    end
+    return houses
+end
+
 function Module:Init(Library, Window, Tab)
-    local Players = game:GetService("Players")
     local LocalPlayer = Players.LocalPlayer
+    local SelectedHouse = nil
+    local CurrentBuildDelay = 0.05 -- По умолчанию 50мс (0.05 сек)
+    local CopyTextures = true
     
     -- ==========================================
-    -- 1. ОСНОВНЫЕ ДЕЙСТВИЯ (ACTIONS)
+    -- 1. СИСТЕМА АВТО-БИЛДЕРА
     -- ==========================================
-    
-    -- КНОПКА ВСТАВКИ
-    Tab:CreatePreviewButton({
-        Image = "rbxassetid://131271299361465", 
-        Height = 150, 
+    Tab:CreateSection({ Name = "🏠 Auto-Builder System" })
+
+    -- Выбор дома из папки
+    local HouseDropdown = Tab:CreateDropdown({
+        Name = "Select House Schematic",
+        Options = GetSavedHouses(),
+        CurrentOption = "",
+        Callback = function(Option)
+            SelectedHouse = Option
+        end
+    })
+
+    -- Кнопка обновления списка (если добавил файл через Файловый Менеджер)
+    Tab:CreateButton({
+        Name = "🔄 Refresh File List",
         Callback = function()
-            -- Запускаем в отдельном потоке, чтобы UI не завис на время постройки
+            local houses = GetSavedHouses()
+            if HouseDropdown.Refresh then
+                HouseDropdown:Refresh(houses)
+            end
+            Library:Notify("Builder", "List of saved houses updated!", 2)
+        end
+    })
+
+    -- ГЛАВНАЯ КНОПКА ПОСТРОЙКИ
+    Tab:CreateButton({
+        Name = "🔨 BUILD SELECTED HOUSE",
+        Callback = function()
+            if not SelectedHouse or SelectedHouse == "" then
+                return Library:Notify("Ошибка", "Сначала выбери дом в меню!", 3)
+            end
+            
+            local filePath = FolderName .. "/" .. SelectedHouse .. ".json"
+            if not isfile(filePath) then
+                return Library:Notify("Ошибка", "Файл не найден на диске!", 3)
+            end
+
+            -- Запускаем процесс в отдельном потоке
             task.spawn(function()
-                print("Paste structure executed!")
-                local HttpService = game:GetService("HttpService")
-                local ReplicatedStorage = game:GetService("ReplicatedStorage")
+                Library:Notify("Запуск", "Читаем файл: " .. SelectedHouse, 2)
                 
+                local success, fileData = pcall(function() return readfile(filePath) end)
+                if not success then return Library:Notify("Ошибка", "Не удалось прочитать файл!", 3) end
+                
+                local decodeSuccess, savedHouse = pcall(function() return HttpService:JSONDecode(fileData) end)
+                if not decodeSuccess or not savedHouse.furniture then
+                    return Library:Notify("Ошибка", "Файл поврежден или имеет неверный формат!", 3)
+                end
+
                 local ACTUALLY_BUILD = true
                 local MICRO_SHIFT_Y = 0 
                 
-                -- Читаем ТОТ ЖЕ файл, куда только что сохраняли
-                local success, fileData = pcall(function() return readfile("AdoptMeHouse_Save.json") end)
-                if not success then 
-                    return Library:Notify("Ошибка", "Файл сохранения не найден!", 3)
-                end
-                
-                local savedHouse = HttpService:JSONDecode(fileData)
-                
+                -- ================== ЛОГИКА AMBIANCE (ОСВЕЩЕНИЕ) ==================
                 local function loadAmbiance(ambianceData)
                     if not ambianceData then return end
                     
@@ -73,13 +123,15 @@ function Module:Init(Library, Window, Tab)
                 end
                 
                 if savedHouse.ambiance then loadAmbiance(savedHouse.ambiance) end
-                
                 if not ACTUALLY_BUILD then return end
+                
+                -- ================== ЛОГИКА ЗАСТРОЙКИ (МЕБЕЛЬ) ==================
                 Library:Notify("Постройка", "Начинаю закупку предметов...", 3)
                 
                 local rawFurniture = savedHouse.furniture or savedHouse
                 local pendingChanges = {}
                 
+                -- Сортировка по высоте (чтобы строить снизу вверх)
                 table.sort(rawFurniture, function(a, b)
                     return a.cframe[2] < b.cframe[2]
                 end)
@@ -107,7 +159,6 @@ function Module:Init(Library, Window, Tab)
                     
                     if buildSuccess and type(response) == "table" and response.success and response.results and response.results[1] and response.results[1].unique then
                         local createdItem = response.results[1]
-                        
                         local changeArgs = {
                             unique = createdItem.unique,
                             cframe = localCFrame
@@ -118,7 +169,8 @@ function Module:Init(Library, Window, Tab)
                         table.insert(pendingChanges, changeArgs)
                     end
                     
-                    task.wait(0.2)
+                    -- ИСПОЛЬЗУЕМ ЗАДЕРЖКУ ИЗ СЛАЙДЕРА!
+                    task.wait(CurrentBuildDelay)
                 end
                 
                 Library:Notify("Постройка", "Применяю размеры и цвета...", 3)
@@ -132,28 +184,26 @@ function Module:Init(Library, Window, Tab)
                         task.wait(0.5) 
                     end
                 end
-                Library:Notify("Постройка", "Дом успешно скопирован!", 5)
+                Library:Notify("Успех", "Дом " .. SelectedHouse .. " успешно построен!", 5)
             end)
         end
     })
 
     -- ==========================================
-    -- 2. НАСТРОЙКИ РЕПЛИКАТОРА (SETTINGS)
+    -- 2. НАСТРОЙКИ РЕПЛИКАТОРА
     -- ==========================================
-    Tab:CreateSection({ Name = "Replicator Settings" })
+    Tab:CreateSection({ Name = "⚙️ Replicator Settings" })
 
-    -- Тоггл для включения/выключения копирования обоев и полов
     Tab:CreateToggle({
-        Name = "Copy Textures",
-        Description = "Копировать обои и покрытие полов",
+        Name = "Copy Textures (Wallpapers/Floors)",
+        Description = "Копировать обои и покрытие полов (в разработке)",
         Default = true,
         Flag = "Replicator_CopyTextures",
         Callback = function(state)
-            -- state возвращает true или false
+            CopyTextures = state
         end
     })
 
-    -- Ползунок для регулировки скорости постройки (чтобы не кикало за спам ремутами)
     Tab:CreateSlider({
         Name = "Build Delay (ms)",
         Min = 10,
@@ -161,18 +211,8 @@ function Module:Init(Library, Window, Tab)
         Default = 50,
         Flag = "Replicator_BuildDelay",
         Callback = function(value)
-            -- value возвращает выбранную задержку
-        end
-    })
-
-    -- Дропдаун для выбора пресетов, если захочешь сохранять дома в файлы
-    Tab:CreateDropdown({
-        Name = "Saved Presets",
-        Options = {"None", "Modern Mansion", "Cozy Cabin", "Tiny Home"},
-        Default = "None",
-        Flag = "Replicator_Preset",
-        Callback = function(option)
-            Library:Notify("Preset Loaded", "Выбран пресет: " .. option, 3)
+            -- Переводим миллисекунды в секунды для task.wait()
+            CurrentBuildDelay = value / 1000 
         end
     })
 end
