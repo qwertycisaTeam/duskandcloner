@@ -154,7 +154,7 @@ function Module:CreateFileCard(fileName)
         Position = UDim2.new(0, 16, 0.5, 0),
         AnchorPoint = Vector2.new(0, 0.5),
         BackgroundTransparency = 1,
-        Image = "rbxassetid://99263938121768", 
+        Image = "rbxassetid://105856032975609", 
         Parent = Card
     })
     Library.ThemeObjects[FileIcon] = { ImageColor3 = "Text" }
