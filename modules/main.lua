@@ -23,9 +23,76 @@ function Module:Init(Library, Window, Tab)
     local CurrentBuildDelay = 0.05 
     local CopyTextures = true
     
-    Tab:CreateSection({ Name = "🏠 Auto-Builder System" })
+    -- Переменная под дропдаун, чтобы кнопка рефреша могла к нему обращаться
+    local HouseDropdown 
 
-    local HouseDropdown = Tab:CreateDropdown({
+    -- ==========================================
+    -- КАСТОМНАЯ ШАПКА С МИКРО-КНОПКОЙ REFRESH
+    -- ==========================================
+    local SectionContainer = Library.Utils.Make("Frame", {
+        Size = UDim2.new(1, 0, 0, 30),
+        BackgroundTransparency = 1,
+        Parent = Tab.Page
+    })
+    
+    Library.Utils.Make("TextLabel", {
+        Text = "🏠 Auto-Builder System",
+        Size = UDim2.new(1, -40, 1, 0),
+        Position = UDim2.new(0, 5, 0, 0),
+        BackgroundTransparency = 1,
+        Font = Enum.Font.GothamBold,
+        TextSize = 13,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Parent = SectionContainer
+    }, { TextColor3 = "Text" })
+
+    -- Маленькая квадратная кнопка обновления
+    local RefreshBtn = Library.Utils.Make("TextButton", {
+        Text = "",
+        Size = UDim2.new(0, 26, 0, 26),
+        AnchorPoint = Vector2.new(1, 0.5),
+        Position = UDim2.new(1, -5, 0.5, 0),
+        AutoButtonColor = false,
+        Parent = SectionContainer
+    }, { BackgroundColor3 = "Sidebar" })
+    Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 6), Parent = RefreshBtn })
+    local RefStroke = Library.Utils.Make("UIStroke", { Thickness = 1, Transparency = 0.5, Parent = RefreshBtn }, { Color = "Stroke" })
+    
+    local RefIcon = Library.Utils.Make("ImageLabel", {
+        Size = UDim2.new(0, 14, 0, 14),
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.new(0.5, 0, 0.5, 0),
+        BackgroundTransparency = 1,
+        Image = "rbxassetid://10873923769",
+        Parent = RefreshBtn
+    }, { ImageColor3 = "Text" })
+    
+    local refScale = Instance.new("UIScale", RefreshBtn)
+    
+    Library:Connect(RefreshBtn.MouseEnter, function() 
+        Library.Utils.TBT(RefStroke, 0.2, {Transparency = 0})
+        Library.Utils.TBT(RefreshBtn, 0.2, {BackgroundColor3 = Library.CurrentTheme.Section})
+    end)
+    Library:Connect(RefreshBtn.MouseLeave, function() 
+        Library.Utils.TBT(RefStroke, 0.2, {Transparency = 0.5})
+        Library.Utils.TBT(RefreshBtn, 0.2, {BackgroundColor3 = Library.CurrentTheme.Sidebar})
+    end)
+    
+    Library:Connect(RefreshBtn.MouseButton1Click, function()
+        local t = Library.Utils.TBT(refScale, 0.1, {Scale = 0.9})
+        t.Completed:Connect(function() Library.Utils.TBT(refScale, 0.2, {Scale = 1}, Enum.EasingStyle.Bounce) end)
+        Library.Utils.TBT(RefIcon, 0.5, {Rotation = 360}); task.delay(0.5, function() RefIcon.Rotation = 0 end)
+        
+        if HouseDropdown and HouseDropdown.Refresh then
+            HouseDropdown:Refresh(GetSavedHouses())
+        end
+        Library:Notify("Builder", "List of saved houses updated!", 2)
+    end)
+
+    -- ==========================================
+    -- ВЫБОР ФАЙЛА
+    -- ==========================================
+    HouseDropdown = Tab:CreateDropdown({
         Name = "Select House Schematic",
         Options = GetSavedHouses(),
         CurrentOption = "",
@@ -34,31 +101,26 @@ function Module:Init(Library, Window, Tab)
         end
     })
 
-    Tab:CreateButton({
-        Name = "🔄 Refresh File List",
-        Callback = function()
-            local houses = GetSavedHouses()
-            if HouseDropdown.Refresh then
-                HouseDropdown:Refresh(houses)
-            end
-            Library:Notify("Builder", "List of saved houses updated!", 2)
-        end
+    -- ==========================================
+    -- КНОПКА BUILD (ИДЕАЛЬНАЯ И НЕПРОБИВАЕМАЯ)
+    -- ==========================================
+    local BuildContainer = Library.Utils.Make("Frame", {
+        Size = UDim2.new(1, 0, 0, 36),
+        BackgroundTransparency = 1,
+        Parent = Tab.Page
     })
 
-    -- ==========================================
-    -- КНОПКА BUILD (С ЖЕЛЕЗОБЕТОННО ЧЕРНЫМ ТЕКСТОМ)
-    -- ==========================================
     local BuildBtn = Library.Utils.Make("TextButton", {
         Text = "🔨 BUILD SELECTED HOUSE",
-        Size = UDim2.new(1, 0, 0, 36),
+        Size = UDim2.new(1, 0, 1, 0),
         Font = Enum.Font.GothamBold,
         TextSize = 13,
         AutoButtonColor = false,
-        Parent = Tab.Page
+        Parent = BuildContainer 
     }, { BackgroundColor3 = "Accent" }) 
     Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 8), Parent = BuildBtn })
 
-    -- Жестко задаем черный текст и запрещаем библиотеке его перекрашивать
+    -- Жестко черный текст
     BuildBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
     if Library.ThemeObjects[BuildBtn] then 
         Library.ThemeObjects[BuildBtn].TextColor3 = nil 
@@ -66,7 +128,6 @@ function Module:Init(Library, Window, Tab)
 
     local BuildScale = Instance.new("UIScale", BuildBtn)
 
-    -- Анимация наведения
     Library:Connect(BuildBtn.MouseEnter, function() 
         Library.Utils.TBT(BuildBtn, 0.2, {BackgroundTransparency = 0.2}) 
     end)
@@ -74,7 +135,6 @@ function Module:Init(Library, Window, Tab)
         Library.Utils.TBT(BuildBtn, 0.2, {BackgroundTransparency = 0}) 
     end)
     
-    -- Логика нажатия
     Library:Connect(BuildBtn.MouseButton1Click, function()
         local t = Library.Utils.TBT(BuildScale, 0.1, {Scale = 0.95})
         t.Completed:Connect(function() Library.Utils.TBT(BuildScale, 0.2, {Scale = 1}, Enum.EasingStyle.Bounce) end)
