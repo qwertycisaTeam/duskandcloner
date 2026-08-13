@@ -108,7 +108,6 @@ function Module:Init(Library, Window, Tab)
         t.Completed:Connect(function() Library.Utils.TBT(ParseScale, 0.2, {Scale = 1}, Enum.EasingStyle.Bounce) end)
         
         task.spawn(function()
-            Library:Notify("Экспорт", "Чтение данных ClientData...", 2)
             local Fsys = game:GetService("ReplicatedStorage"):WaitForChild("Fsys")
             local loadFsys = require(Fsys).load
             local ClientData = loadFsys("ClientData")
