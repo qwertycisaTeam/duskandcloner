@@ -31,7 +31,7 @@ function Module:Init(Library, Window, Tab)
     local HouseDropdown 
 
     -- ==========================================
-    -- ШАПКА И РЕФРЕШ (Убрали текст Auto-Builder)
+    -- ШАПКА И РЕФРЕШ (Текст Auto-Builder удален)
     -- ==========================================
     local SectionContainer = Library.Utils.Make("Frame", {
         Size = UDim2.new(1, 0, 0, 26),
@@ -101,7 +101,7 @@ function Module:Init(Library, Window, Tab)
 
     -- Основная кнопка
     local BuildBtn = Library.Utils.Make("TextButton", {
-        Text = "BUILD SELECTED HOUSE", -- Убрали эмодзи
+        Text = "BUILD SELECTED HOUSE", -- Убрали смайлик
         Size = UDim2.new(1, 0, 1, 0),
         Font = Enum.Font.GothamBold, -- Более чистый и выразительный шрифт
         TextSize = 13, 
@@ -136,7 +136,7 @@ function Module:Init(Library, Window, Tab)
         Parent = BuildBtn 
     })
 
-    -- 2. ПЛАВНОЕ РАССЕЯНИЕ (Один слой неона)
+    -- 2. ПЛАВНОЕ РАССЕЯНИЕ (Один слой "выпирающего" неона)
     local Glow = Library.Utils.Make("Frame", { 
         Size = UDim2.new(1, 4, 1, 4), 
         Position = UDim2.new(0.5, 0, 0.5, 0),
