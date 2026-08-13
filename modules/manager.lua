@@ -2,7 +2,7 @@ local HttpService = game:GetService("HttpService")
 local Module = {}
 
 -- ==========================================
--- ПОЛНАЯ ЛОГИКА ФАЙЛОВОЙ СИСТЕМЫ
+-- ЛОГИКА ФАЙЛОВОЙ СИСТЕМЫ
 -- ==========================================
 Module.FolderName = "DuskAndShine_Houses"
 
@@ -23,9 +23,7 @@ end
 
 function Module:LoadHouse(name)
     local path = self.FolderName .. "/" .. name .. ".json"
-    if isfile(path) then
-        return HttpService:JSONDecode(readfile(path))
-    end
+    if isfile(path) then return HttpService:JSONDecode(readfile(path)) end
     return nil
 end
 
@@ -56,8 +54,9 @@ end
 function Module:Init(Library, Window, Tab)
     self.Library = Library
     self.Tab = Tab
-    self.ActiveDropdown = nil -- Храним открытое меню, чтобы закрывать старое
+    self.ActiveDropdown = nil -- Хранилище для открытого меню
 
+    -- 1. ШАПКА
     local HeaderPanel = Library.Utils.Make("Frame", { Size = UDim2.new(1, 0, 0, 45), BackgroundTransparency = 1, Parent = Tab.Page })
     Library.Utils.Make("TextLabel", {
         Text = '<b><font color="#ffffff">FILE MANAGER:</font></b> <font color="#9696a0">House Schematics</font>',
@@ -67,18 +66,21 @@ function Module:Init(Library, Window, Tab)
 
     local RefreshBtn = Library.Utils.Make("TextButton", { Text = "", Size = UDim2.new(0, 95, 0, 26), AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -20, 0.5, 0), AutoButtonColor = false, Parent = HeaderPanel }, { BackgroundColor3 = "Section" })
     Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 6), Parent = RefreshBtn })
-    Library.Utils.Make("UIStroke", { Thickness = 1, Transparency = 0.5, Parent = RefreshBtn }, { Color = "Stroke" })
+    local RefStroke = Library.Utils.Make("UIStroke", { Thickness = 1, Transparency = 0.5, Parent = RefreshBtn }, { Color = "Stroke" })
 
     local RefContent = Library.Utils.Make("Frame", { Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Parent = RefreshBtn })
     Library.Utils.Make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 6), Parent = RefContent })
     local RefIcon = Library.Utils.Make("ImageLabel", { Size = UDim2.new(0, 14, 0, 14), BackgroundTransparency = 1, Image = "rbxassetid://10873923769", Parent = RefContent }, { ImageColor3 = "Text" })
     Library.Utils.Make("TextLabel", { Text = "REFRESH", AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.new(0, 0, 1, 0), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 11, Parent = RefContent }, { TextColor3 = "Text" })
 
+    Library:Connect(RefreshBtn.MouseEnter, function() Library.Utils.TBT(RefStroke, 0.2, {Transparency = 0}); Library.Utils.TBT(RefreshBtn, 0.2, {BackgroundColor3 = Library.CurrentTheme.Sidebar}) end)
+    Library:Connect(RefreshBtn.MouseLeave, function() Library.Utils.TBT(RefStroke, 0.2, {Transparency = 0.5}); Library.Utils.TBT(RefreshBtn, 0.2, {BackgroundColor3 = Library.CurrentTheme.Section}) end)
     Library:Connect(RefreshBtn.MouseButton1Click, function()
         self:RefreshList()
         Library.Utils.TBT(RefIcon, 0.5, {Rotation = 360}); task.delay(0.5, function() RefIcon.Rotation = 0 end)
     end)
 
+    -- 2. КОНТЕЙНЕР
     self.ListContainer = Library.Utils.Make("Frame", { Size = UDim2.new(1, -20, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, Parent = Tab.Page })
     Library.Utils.Make("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder, Parent = self.ListContainer })
 
@@ -86,6 +88,7 @@ function Module:Init(Library, Window, Tab)
 end
 
 function Module:RefreshList()
+    -- Удаляем старое меню при обновлении
     if self.ActiveDropdown then self.ActiveDropdown:Destroy(); self.ActiveDropdown = nil end
 
     for _, child in ipairs(self.ListContainer:GetChildren()) do
@@ -112,13 +115,14 @@ function Module:CreateFileCard(fileName)
 
     local Card = Library.Utils.Make("TextButton", { Text = "", Size = UDim2.new(1, 0, 0, 56), AutoButtonColor = false, BackgroundTransparency = 0, ClipsDescendants = false, Parent = self.ListContainer }, { BackgroundColor3 = "Section" })
     Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 10), Parent = Card })
-    Library.Utils.Make("UIStroke", { Thickness = 1, Transparency = 0.7, Parent = Card }, { Color = "Stroke" })
+    
+    local GlowStroke = Library.Utils.Make("UIStroke", { Thickness = 1, Transparency = 0.7, Parent = Card }, { Color = "Stroke" })
 
     local FileIcon = Library.Utils.Make("ImageLabel", { Size = UDim2.new(0, 26, 0, 26), Position = UDim2.new(0, 14, 0.5, 0), AnchorPoint = Vector2.new(0, 0.5), BackgroundTransparency = 1, Image = "rbxassetid://105856032975609", Parent = Card }, { ImageColor3 = "Text" })
 
     local TitleLbl = Library.Utils.Make("TextLabel", { Text = fileName, Size = UDim2.new(1, -110, 0, 20), Position = UDim2.new(0, 54, 0.5, -10), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, Parent = Card }, { TextColor3 = "Text" })
     
-    -- Текстовое поле для переименования (Скрыто по умолчанию)
+    -- Текстовое поле для переименования
     local RenameBox = Library.Utils.Make("TextBox", {
         Text = fileName, Size = UDim2.new(1, -110, 0, 20), Position = UDim2.new(0, 54, 0.5, -10),
         BackgroundTransparency = 0.5, BackgroundColor3 = Color3.fromRGB(0,0,0),
@@ -132,7 +136,29 @@ function Module:CreateFileCard(fileName)
 
     local OptionsBtn = Library.Utils.Make("TextButton", { Text = "•••", Size = UDim2.new(0, 34, 0, 24), AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Font = Enum.Font.GothamBold, TextSize = 14, AutoButtonColor = false, Parent = Card }, { BackgroundColor3 = "Sidebar", TextColor3 = "SubText" })
     Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 6), Parent = OptionsBtn })
-    Library.Utils.Make("UIStroke", { Thickness = 1, Transparency = 0.5, Parent = OptionsBtn }, { Color = "Stroke" })
+    local OptStroke = Library.Utils.Make("UIStroke", { Thickness = 1, Transparency = 0.5, Parent = OptionsBtn }, { Color = "Stroke" })
+
+    -- Анимации карточки (Неон)
+    Library:Connect(Card.MouseEnter, function()
+        GlowStroke.Color = Color3.fromRGB(255, 255, 255)
+        Library.Utils.TBT(GlowStroke, 0.2, {Transparency = 0, Thickness = 2}, Enum.EasingStyle.Quint)
+        Library.Utils.TBT(Card, 0.2, {BackgroundTransparency = 0.2}, Enum.EasingStyle.Quint)
+    end)
+    Library:Connect(Card.MouseLeave, function()
+        GlowStroke.Color = Library.CurrentTheme.Stroke
+        Library.Utils.TBT(GlowStroke, 0.2, {Transparency = 0.7, Thickness = 1}, Enum.EasingStyle.Quint)
+        Library.Utils.TBT(Card, 0.2, {BackgroundTransparency = 0}, Enum.EasingStyle.Quint)
+    end)
+
+    -- Анимации кнопки
+    Library:Connect(OptionsBtn.MouseEnter, function() 
+        Library.Utils.TBT(OptionsBtn, 0.15, {BackgroundColor3 = Library.CurrentTheme.Section, TextColor3 = Library.CurrentTheme.Accent}) 
+        Library.Utils.TBT(OptStroke, 0.15, {Transparency = 0})
+    end)
+    Library:Connect(OptionsBtn.MouseLeave, function() 
+        Library.Utils.TBT(OptionsBtn, 0.15, {BackgroundColor3 = Library.CurrentTheme.Sidebar, TextColor3 = Library.CurrentTheme.SubText}) 
+        Library.Utils.TBT(OptStroke, 0.15, {Transparency = 0.5})
+    end)
 
     -- === ЛОГИКА ВЫПАДАЮЩЕГО МЕНЮ ===
     local function CreateDropdown()
@@ -141,7 +167,7 @@ function Module:CreateFileCard(fileName)
         local Dropdown = Library.Utils.Make("Frame", {
             Size = UDim2.new(0, 140, 0, 120),
             AnchorPoint = Vector2.new(1, 0),
-            Position = UDim2.new(1, -10, 1, 5), -- Появляется чуть ниже кнопки "•••"
+            Position = UDim2.new(1, -10, 1, 5), -- Сместили меню прямо под кнопку "•••"
             ZIndex = 50,
             Parent = Card
         }, { BackgroundColor3 = "Sidebar" })
@@ -198,7 +224,11 @@ function Module:CreateFileCard(fileName)
     end
 
     Library:Connect(OptionsBtn.MouseButton1Click, function()
-        -- Если меню уже открыто для ЭТОГО файла - закрываем. Иначе открываем новое.
+        -- Отскок без залипания цвета
+        Library.Utils.TBT(OptionsBtn, 0.1, {BackgroundColor3 = Library.CurrentTheme.Text})
+        task.delay(0.1, function() Library.Utils.TBT(OptionsBtn, 0.2, {BackgroundColor3 = Library.CurrentTheme.Section}) end)
+        
+        -- Переключатель меню
         if self.ActiveDropdown and self.ActiveDropdown.Parent == Card then
             self.ActiveDropdown:Destroy()
             self.ActiveDropdown = nil
@@ -207,12 +237,11 @@ function Module:CreateFileCard(fileName)
         end
     end)
 
-    -- Логика применения нового имени
+    -- Логика сохранения нового имени
     Library:Connect(RenameBox.FocusLost, function()
         RenameBox.Visible = false
         TitleLbl.Visible = true
         
-        -- Убираем спецсимволы, оставляем только буквы, цифры и пробелы
         local newName = RenameBox.Text:gsub("[^%w%s%-_]", ""):match("^%s*(.-)%s*$") 
         if newName ~= "" and newName ~= fileName then
             if self:RenameHouse(fileName, newName) then
@@ -220,7 +249,7 @@ function Module:CreateFileCard(fileName)
                 Library:Notify("File Manager", "Renamed to " .. newName, 2)
             end
         else
-            RenameBox.Text = fileName -- Если ввели дичь, сбрасываем обратно
+            RenameBox.Text = fileName
         end
     end)
 end
