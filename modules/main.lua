@@ -23,11 +23,10 @@ function Module:Init(Library, Window, Tab)
     local CurrentBuildDelay = 0.05 
     local CopyTextures = true
     
-    -- Переменная под дропдаун, чтобы кнопка рефреша могла к нему обращаться
     local HouseDropdown 
 
     -- ==========================================
-    -- КАСТОМНАЯ ШАПКА С МИКРО-КНОПКОЙ REFRESH
+    -- ШАПКА И РЕФРЕШ
     -- ==========================================
     local SectionContainer = Library.Utils.Make("Frame", {
         Size = UDim2.new(1, 0, 0, 30),
@@ -46,9 +45,8 @@ function Module:Init(Library, Window, Tab)
         Parent = SectionContainer
     }, { TextColor3 = "Text" })
 
-    -- Маленькая квадратная кнопка обновления
     local RefreshBtn = Library.Utils.Make("TextButton", {
-        Text = "🔃",
+        Text = "",
         Size = UDim2.new(0, 26, 0, 26),
         AnchorPoint = Vector2.new(1, 0.5),
         Position = UDim2.new(1, -5, 0.5, 0),
@@ -89,9 +87,6 @@ function Module:Init(Library, Window, Tab)
         Library:Notify("Builder", "List of saved houses updated!", 2)
     end)
 
-    -- ==========================================
-    -- ВЫБОР ФАЙЛА
-    -- ==========================================
     HouseDropdown = Tab:CreateDropdown({
         Name = "Select House Schematic",
         Options = GetSavedHouses(),
@@ -102,39 +97,66 @@ function Module:Init(Library, Window, Tab)
     })
 
     -- ==========================================
-    -- КНОПКА BUILD (ИДЕАЛЬНАЯ И НЕПРОБИВАЕМАЯ)
+    -- КНОПКА BUILD (С ГРАНЯМИ И НЕОНОВЫМ РАССЕЯНИЕМ)
     -- ==========================================
     local BuildContainer = Library.Utils.Make("Frame", {
-        Size = UDim2.new(1, 0, 0, 36),
+        Size = UDim2.new(1, 0, 0, 42), -- Сделали чуть выше для дыхания
         BackgroundTransparency = 1,
         Parent = Tab.Page
     })
 
+    -- Сама кнопка
     local BuildBtn = Library.Utils.Make("TextButton", {
         Text = "🔨 BUILD SELECTED HOUSE",
         Size = UDim2.new(1, 0, 1, 0),
-        Font = Enum.Font.GothamBold,
-        TextSize = 13,
+        Font = Enum.Font.GothamMedium, -- Более чистый и премиальный шрифт
+        TextSize = 12, -- Чуть меньше для эстетики
         AutoButtonColor = false,
+        ZIndex = 5,
         Parent = BuildContainer 
     }, { BackgroundColor3 = "Accent" }) 
     Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 8), Parent = BuildBtn })
+    
+    -- Белый текст для идеального сочетания со свечением
+    BuildBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    if Library.ThemeObjects[BuildBtn] then Library.ThemeObjects[BuildBtn].TextColor3 = nil end
 
-    -- Жестко черный текст
-    BuildBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
-    if Library.ThemeObjects[BuildBtn] then 
-        Library.ThemeObjects[BuildBtn].TextColor3 = nil 
-    end
+    -- 1. ГРАНИ (Эффект стеклянной фаски)
+    local EdgeStroke = Library.Utils.Make("UIStroke", { 
+        Thickness = 1, 
+        Transparency = 0.5, -- Полупрозрачный белый контур
+        Color = Color3.fromRGB(255, 255, 255),
+        Parent = BuildBtn 
+    })
+
+    -- 2. ПЛАВНОЕ РАССЕЯНИЕ (Neon Aura)
+    -- Слой 1 (Ближний свет)
+    local Glow1 = Library.Utils.Make("Frame", { Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, ZIndex = 3, Parent = BuildBtn })
+    Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 8), Parent = Glow1 })
+    local GlowStroke1 = Library.Utils.Make("UIStroke", { Thickness = 3, Transparency = 0.6, Parent = Glow1 }, { Color = "Accent" })
+    
+    -- Слой 2 (Дальний размытый свет)
+    local Glow2 = Library.Utils.Make("Frame", { Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, ZIndex = 2, Parent = BuildBtn })
+    Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 8), Parent = Glow2 })
+    local GlowStroke2 = Library.Utils.Make("UIStroke", { Thickness = 6, Transparency = 0.8, Parent = Glow2 }, { Color = "Accent" })
 
     local BuildScale = Instance.new("UIScale", BuildBtn)
 
+    -- Анимация наведения (Аура пульсирует и расширяется!)
     Library:Connect(BuildBtn.MouseEnter, function() 
-        Library.Utils.TBT(BuildBtn, 0.2, {BackgroundTransparency = 0.2}) 
+        Library.Utils.TBT(BuildBtn, 0.2, {BackgroundTransparency = 0.1}) 
+        Library.Utils.TBT(EdgeStroke, 0.2, {Transparency = 0.2}) -- Грань становится ярче (блик)
+        Library.Utils.TBT(GlowStroke1, 0.3, {Thickness = 5, Transparency = 0.4}) -- Свечение усиливается
+        Library.Utils.TBT(GlowStroke2, 0.3, {Thickness = 9, Transparency = 0.6})
     end)
     Library:Connect(BuildBtn.MouseLeave, function() 
         Library.Utils.TBT(BuildBtn, 0.2, {BackgroundTransparency = 0}) 
+        Library.Utils.TBT(EdgeStroke, 0.2, {Transparency = 0.5})
+        Library.Utils.TBT(GlowStroke1, 0.3, {Thickness = 3, Transparency = 0.6})
+        Library.Utils.TBT(GlowStroke2, 0.3, {Thickness = 6, Transparency = 0.8})
     end)
     
+    -- Логика нажатия
     Library:Connect(BuildBtn.MouseButton1Click, function()
         local t = Library.Utils.TBT(BuildScale, 0.1, {Scale = 0.95})
         t.Completed:Connect(function() Library.Utils.TBT(BuildScale, 0.2, {Scale = 1}, Enum.EasingStyle.Bounce) end)
