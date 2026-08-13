@@ -56,6 +56,30 @@ function Library:Destroy()
     if oldEco then oldEco:Destroy() end
 end
 
+-- 2. Функция обновления списка (к ней же привяжем кнопку Refresh)
+local function RefreshFileList()
+    -- Тут вызываем метод твоей либы для очистки контейнера от старых кнопок
+    -- FileManagerTab:Clear() 
+
+    -- Получаем актуальный список через наш модуль
+    local houses = FileManager:GetHouses() 
+
+    for _, houseName in ipairs(houses) do
+        -- Отрисовываем кастомную плашку/кнопку для каждого файла
+        FileManagerTab:AddFileCard({
+            Title = houseName,
+            Icon = UI_Icons.JsonFile,
+            OptionsIcon = UI_Icons.Options, -- Наша иконка с тремя точками
+            OnOptionsClick = function()
+                -- Сюда мы позже напишем логику появления твоего дропдауна
+                print("Открываем меню действий для файла:", houseName)
+            end
+        })
+    end
+end
+
+-- Вызываем первичную отрисовку при загрузке скрипта
+RefreshFileList()
 function Library:Connect(signal, callback)
     local connection = signal:Connect(callback)
     table.insert(self.Connections, connection)
