@@ -1,15 +1,4 @@
 local Module = {}
-local UI_Icons = {
-    Delete = "rbxassetid://103348299780330",      -- korzina
-    Rename = "rbxassetid://104417156882773",    -- karandash
-    Copy = "rbxassetid://115843248520941",         -- buferobmena
-    Price = "rbxassetid://125651659356206",        -- moneta
-    Furniture = "rbxassetid://72936320954395",    -- sofayarlik
-    Options = "rbxassetid://96935793442177",   -- yarlik
-    Explorer = "rbxassetid://111285083640153", -- Provodnik
-    JsonFile = "rbxassetid://99263938121768"        -- json
-}
-
 local FileManager = {}
 local folderName = "DuskAndShine_Houses"
 
