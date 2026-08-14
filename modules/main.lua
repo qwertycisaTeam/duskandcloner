@@ -39,15 +39,33 @@ function Module:Init(Library, Window, Tab)
         Parent = Tab.Page
     })
     
-    local RefreshBtn = Library.Utils.Make("TextButton", {
-        Text = "",
-        Size = UDim2.new(0, 26, 0, 26),
-        AnchorPoint = Vector2.new(1, 0.5),
-        Position = UDim2.new(1, -5, 0.5, 0),
-        AutoButtonColor = false,
-        Parent = SectionContainer
-    }, { BackgroundColor3 = "Sidebar" })
-    Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 6), Parent = RefreshBtn })
+    Library:Connect(RefreshBtn.MouseButton1Click, function()
+        local t = Library.Utils.TBT(refScale, 0.1, {Scale = 0.9})
+        t.Completed:Connect(function() Library.Utils.TBT(refScale, 0.2, {Scale = 1}, Enum.EasingStyle.Bounce) end)
+        Library.Utils.TBT(RefIcon, 0.5, {Rotation = 360}); task.delay(0.5, function() RefIcon.Rotation = 0 end)
+        
+        if HouseDropdown then
+            local newList = GetSavedHouses()
+            
+            -- [ФИКС]: Принудительно перезаписываем внутреннюю таблицу библиотеки
+            HouseDropdown.Options = newList 
+            
+            -- Пробуем разные методы обновления, чтобы точно пробило твою UI-либу
+            if type(HouseDropdown.Refresh) == "function" then
+                -- Второй аргумент (true) в некоторых либах запрещает сброс текущего выбора
+                pcall(function() HouseDropdown:Refresh(newList, true) end)
+            elseif type(HouseDropdown.SetValues) == "function" then
+                pcall(function() HouseDropdown:SetValues(newList) end)
+            elseif type(HouseDropdown.SetOptions) == "function" then
+                pcall(function() HouseDropdown:SetOptions(newList) end)
+            end
+            
+            -- Зануляем выбранный дом, чтобы не было фантомных построек
+            SelectedHouse = nil 
+        end
+        
+        Library:Notify("Builder", "Список домов успешно обновлен!", 2)
+    end)
     local RefStroke = Library.Utils.Make("UIStroke", { Thickness = 1, Transparency = 0.5, Parent = RefreshBtn }, { Color = "Stroke" })
     
     local RefIcon = Library.Utils.Make("ImageLabel", {
