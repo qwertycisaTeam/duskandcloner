@@ -239,21 +239,11 @@ function Module:CreateFileCard(fileName)
         Font = Enum.Font.GothamBold, 
         TextSize = 14, 
         TextXAlignment = Enum.TextXAlignment.Left,
-        ClipDescendants = true, -- ВАЖНО: Физически отрезает любой визуал за рамками коробки
+        ClipsDescendants = true, -- ИСПРАВЛЕНО: добавлена буква 's'
         ClearTextOnFocus = false, 
         Visible = false, 
         Parent = Card
     }, { TextColor3 = "Accent" })
-    Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 4), Parent = RenameBox })
-
-    -- ВАЖНО: Жесткий ограничитель ввода в реальном времени
-    RenameBox:GetPropertyChangedSignal("Text"):Connect(function()
-        -- Если длина текста превышает 28 символов
-        if #RenameBox.Text > 28 then
-            -- Откатываем текст до 28 символов (не дает юзеру печатать дальше)
-            RenameBox.Text = RenameBox.Text:sub(1, 28)
-        end
-    end)
 
     local timeStr = os.date("%H:%M:%S")
     Library.Utils.Make("TextLabel", { Text = "Last-saved " .. timeStr, Size = UDim2.new(1, -110, 0, 15), Position = UDim2.new(0, 54, 0.5, 8), BackgroundTransparency = 1, Font = Enum.Font.Gotham, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left, Parent = Card }, { TextColor3 = "SubText" })
