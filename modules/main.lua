@@ -101,9 +101,9 @@ function Module:Init(Library, Window, Tab)
 
     -- Основная кнопка
     local BuildBtn = Library.Utils.Make("TextButton", {
-        Text = "BUILD SELECTED HOUSE", -- Убрали смайлик
+        Text = "BUILD SELECTED HOUSE", 
         Size = UDim2.new(1, 0, 1, 0),
-        Font = Enum.Font.GothamBold, -- Более чистый и выразительный шрифт
+        Font = Enum.Font.GothamBold, 
         TextSize = 13, 
         AutoButtonColor = false,
         ZIndex = 5,
@@ -154,7 +154,7 @@ function Module:Init(Library, Window, Tab)
 
     local BuildScale = Instance.new("UIScale", BuildBtn)
 
-    -- Анимация наведения (Блик вспыхивает, неон расширяется)
+    -- Анимация наведения
     Library:Connect(BuildBtn.MouseEnter, function() 
         Library.Utils.TBT(BuildBtn, 0.2, {BackgroundTransparency = 0.1}) 
         Library.Utils.TBT(EdgeStroke, 0.2, {Transparency = 0}) 
@@ -236,7 +236,35 @@ function Module:Init(Library, Window, Tab)
                 if ambianceRemote then pcall(function() ambianceRemote:FireServer(unpack(args)) end) end
             end
             
+            -- [ОБНОВЛЕНИЕ 1]: Загрузка Освещения
             if savedHouse.ambiance then loadAmbiance(savedHouse.ambiance) end
+
+            -- [ОБНОВЛЕНИЕ 2]: Загрузка Частиц (Погода, Листья и т.д.)
+            if savedHouse.particles then
+                local ParticleRemote = ReplicatedStorage:WaitForChild("API"):FindFirstChild("AmbianceAPI/UpdateAmbianceProperties")
+                if ParticleRemote then
+                    pcall(function() ParticleRemote:FireServer({ Custom = savedHouse.particles }) end)
+                end
+            end
+
+            -- [ОБНОВЛЕНИЕ 3]: Загрузка Текстур (Обои и Полы)
+            if CopyTextures and savedHouse.textures then
+                Library:Notify("Постройка", "Применяю обои и полы...", 2)
+                local BuyTextureRemote = ReplicatedStorage:WaitForChild("API"):FindFirstChild("HousingAPI/BuyTexture")
+                if BuyTextureRemote then
+                    for roomName, texData in pairs(savedHouse.textures) do
+                        if texData.walls and texData.walls ~= "" then
+                            pcall(function() BuyTextureRemote:FireServer(roomName, "walls", texData.walls) end)
+                            task.wait(CurrentBuildDelay)
+                        end
+                        if texData.floors and texData.floors ~= "" then
+                            pcall(function() BuyTextureRemote:FireServer(roomName, "floors", texData.floors) end)
+                            task.wait(CurrentBuildDelay)
+                        end
+                    end
+                end
+            end
+
             if not ACTUALLY_BUILD then return end
             
             Library:Notify("Постройка", "Начинаю закупку предметов...", 3)
@@ -306,7 +334,7 @@ function Module:Init(Library, Window, Tab)
 
     Tab:CreateToggle({
         Name = "Copy Textures (Wallpapers/Floors)",
-        Description = "Копировать обои и покрытие полов (в разработке)",
+        Description = "Копировать обои и покрытие полов",
         Default = true,
         Flag = "Replicator_CopyTextures",
         Callback = function(state)
