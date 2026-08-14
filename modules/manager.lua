@@ -228,7 +228,7 @@ function Module:CreateFileCard(fileName)
 
     local FileIcon = Library.Utils.Make("ImageLabel", { Size = UDim2.new(0, 26, 0, 26), Position = UDim2.new(0, 14, 0.5, 0), AnchorPoint = Vector2.new(0, 0.5), BackgroundTransparency = 1, Image = "rbxassetid://105856032975609", Parent = Card }, { ImageColor3 = "Text" })
 
-    local TitleLbl = Library.Utils.Make("TextLabel", { Text = fileName, Size = UDim2.new(1, -110, 0, 20), Position = UDim2.new(0, 54, 0.5, -10), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, Parent = Card }, { TextColor3 = "Text" })
+    local TitleLbl = Library.Utils.Make("TextLabel", { Text = fileName, Size = UDim2.new(1, -110, 0, 20), Position = UDim2.new(0, 54, 0.5, -10), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 14,TextTruncate = Enum.TextTruncate.AtEnd, TextXAlignment = Enum.TextXAlignment.Left, Parent = Card }, { TextColor3 = "Text" })
     
     local RenameBox = Library.Utils.Make("TextBox", {
         Text = fileName, Size = UDim2.new(1, -110, 0, 20), Position = UDim2.new(0, 54, 0.5, -10),
@@ -281,10 +281,23 @@ function Module:CreateFileCard(fileName)
 
     Library:Connect(RenameBox.FocusLost, function()
         RenameBox.Visible = false; TitleLbl.Visible = true
+        
+        -- Очищаем от мусора и обрезаем пробелы по краям
         local newName = RenameBox.Text:gsub("[^%w%s%-_]", ""):match("^%s*(.-)%s*$") 
-        if newName ~= "" and newName ~= fileName then
-            if self:RenameHouse(fileName, newName) then self:RefreshList(); Library:Notify("File Manager", "Renamed to " .. newName, 2) end
-        else RenameBox.Text = fileName end
+        
+        -- ВАЖНО: Ограничиваем длину имени файла до 25 символов (чтобы не сломать UI и систему)
+        if newName then
+            newName = newName:sub(1, 25)
+        end
+        
+        if newName and newName ~= "" and newName ~= fileName then
+            if self:RenameHouse(fileName, newName) then 
+                self:RefreshList() 
+                Library:Notify("File Manager", "Renamed to " .. newName, 2) 
+            end
+        else 
+            RenameBox.Text = fileName 
+        end
     end)
 end
 
