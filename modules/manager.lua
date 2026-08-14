@@ -244,7 +244,20 @@ function Module:CreateFileCard(fileName)
         Visible = false, 
         Parent = Card
     }, { TextColor3 = "Accent" })
+    Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 4), Parent = RenameBox })
 
+    -- ВАЖНО: Плавный ограничитель ввода в реальном времени
+    local lastValidText = fileName
+    RenameBox:GetPropertyChangedSignal("Text"):Connect(function()
+        if #RenameBox.Text > 28 then
+            -- Если переборщили, возвращаем предыдущий сохраненный текст (курсор не сбрасывается в 0)
+            RenameBox.Text = lastValidText 
+        else
+            -- Если всё в норме, запоминаем текущий текст как правильный
+            lastValidText = RenameBox.Text 
+        end
+    end)
+    
     local timeStr = os.date("%H:%M:%S")
     Library.Utils.Make("TextLabel", { Text = "Last-saved " .. timeStr, Size = UDim2.new(1, -110, 0, 15), Position = UDim2.new(0, 54, 0.5, 8), BackgroundTransparency = 1, Font = Enum.Font.Gotham, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left, Parent = Card }, { TextColor3 = "SubText" })
 
