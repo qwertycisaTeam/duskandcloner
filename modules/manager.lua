@@ -91,7 +91,7 @@ function Module:Init(Library, Window, Tab)
     local ParseBtn = Library.Utils.Make("TextButton", {
         Text = "💾 EXPORT CURRENT INTERIOR",
         Size = UDim2.new(1, 0, 0, 36),
-        LayoutOrder = -1, -- Всегда будет наверху списка
+        LayoutOrder = -1, 
         Font = Enum.Font.GothamBold,
         TextSize = 13,
         AutoButtonColor = false,
@@ -113,14 +113,16 @@ function Module:Init(Library, Window, Tab)
             local ClientData = loadFsys("ClientData")
             
             local data = ClientData.get_data()
-            local myPlayerName = Players.LocalPlayer.Name
-            local targetData = data[myPlayerName] or data[next(data)]
+            -- [ИЗМЕНЕНИЕ 1]: Убрал костыль с or data[next(data)], теперь берет строго твой дом
+            local TARGET_OWNER = Players.LocalPlayer.Name 
+            local targetData = data[TARGET_OWNER]
             
-            if not targetData or not targetData.house_interior or not targetData.house_interior.furniture then
-                return Library:Notify("Ошибка", "Данные интерьера не найдены. Вы в доме?", 3)
+            if not targetData or not targetData.house_interior then
+                return Library:Notify("Ошибка", "Данные интерьера не найдены. Вы точно в доме?", 3)
             end
             
-            local rawFurniture = targetData.house_interior.furniture
+            -- [ИЗМЕНЕНИЕ 2]: Парсинг мебели (оставил твой код без изменений)
+            local rawFurniture = targetData.house_interior.furniture or {}
             local parsedFurniture = {}
             local count = 0
             
@@ -149,12 +151,35 @@ function Module:Init(Library, Window, Tab)
                     colors = formattedColors
                 })
             end
+
+            -- [ИЗМЕНЕНИЕ 3]: Добавлен парсинг Текстур (Обои и Полы)
+            local parsedTextures = {}
+            local rawTextures = targetData.house_interior.textures or {}
+            local textureCount = 0
             
+            for roomName, roomData in pairs(rawTextures) do
+                parsedTextures[roomName] = {
+                    floors = roomData.floors or "",
+                    walls = roomData.walls or ""
+                }
+                textureCount = textureCount + 1
+            end
+
+            -- [ИЗМЕНЕНИЕ 4]: Добавлен парсинг Атмосферы и Частиц (Погоды)
+            local rawAmbiance = targetData.house_interior.ambiance or {}
+            local parsedParticles = {}
+            
+            -- Достаем папку Custom с листьями, снегом и т.д.
+            if rawAmbiance.custom_props and rawAmbiance.custom_props.Custom then
+                parsedParticles = rawAmbiance.custom_props.Custom
+            end
+            
+            -- [ИЗМЕНЕНИЕ 5]: Обновленный массив для сохранения
             local saveData = {
                 furniture = parsedFurniture,
-                ambiance = {
-                    Lighting = { ClockTime = game:GetService("Lighting").ClockTime }
-                }
+                textures = parsedTextures,  -- Добавили текстуры
+                ambiance = rawAmbiance,     -- Добавили оригинальную атмосферу (освещение)
+                particles = parsedParticles -- Добавили флаги частиц погоды
             }
             
             -- Генерируем уникальное имя файла с временем
@@ -163,7 +188,7 @@ function Module:Init(Library, Window, Tab)
             
             -- Обновляем интерфейс
             self:RefreshList()
-            Library:Notify("Успех!", "Скопировано " .. tostring(count) .. " предметов. Файл сохранен.", 4)
+            Library:Notify("Успех!", "Скопировано: " .. count .. " предметов и " .. textureCount .. " комнат. Погода сохранена.", 4)
         end)
     end)
 
