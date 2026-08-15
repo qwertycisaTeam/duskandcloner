@@ -218,9 +218,18 @@ function Module:Init(Library, Window, Tab)
                 return Library:Notify("Ошибка", "Данные игрока не найдены!", 3)
             end
             
-            -- Проверка на то, находится ли игрок в доме
-            if not targetData.house_interior or not targetData.house_interior.furniture then
+            -- ФИКС: Железобетонная физическая проверка через Workspace
+            local houseInteriors = workspace:FindFirstChild("HouseInteriors")
+            local blueprint = houseInteriors and houseInteriors:FindFirstChild("blueprint")
+            
+            -- Если папки blueprint нет или в ней 0 объектов, значит игрок точно на улице
+            if not blueprint or #blueprint:GetChildren() == 0 then
                 return Library:Notify("Ошибка", "Сначала зайди в дом, чтобы скопировать интерьер!", 4)
+            end
+            
+            -- Страховка на случай сломанного кэша
+            if not targetData.house_interior or not targetData.house_interior.furniture then
+                return Library:Notify("Ошибка", "Данные интерьера пусты или не прогрузились!", 4)
             end
             
             local rawFurniture = targetData.house_interior.furniture
