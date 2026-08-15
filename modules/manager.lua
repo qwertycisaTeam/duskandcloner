@@ -59,7 +59,9 @@ function Module:Init(Library, Window, Tab)
     self.ActiveFileMenu = nil
     self.ClickCatcher = nil
 
+    -- ==========================================
     -- 1. АДАПТИВНАЯ ШАПКА И РЕФРЕШ
+    -- ==========================================
     local HeaderPanel = Library.Utils.Make("Frame", { 
         Size = UDim2.new(1, 0, 0, 30), 
         BackgroundTransparency = 1, 
@@ -136,7 +138,9 @@ function Module:Init(Library, Window, Tab)
     self.ListContainer = Library.Utils.Make("Frame", { Size = UDim2.new(1, -20, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, Parent = Tab.Page })
     Library.Utils.Make("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder, Parent = self.ListContainer })
 
+    -- ==========================================
     -- 3. ПРЕМИУМ КНОПКА ПАРСЕРА
+    -- ==========================================
     local ParseContainer = Library.Utils.Make("Frame", {
         Size = UDim2.new(1, 0, 0, 42),
         BackgroundTransparency = 1,
@@ -206,6 +210,25 @@ function Module:Init(Library, Window, Tab)
         t.Completed:Connect(function() Library.Utils.TBT(ParseScale, 0.2, {Scale = 1}, Enum.EasingStyle.Bounce) end)
         
         task.spawn(function()
+            -- ЖЕЛЕЗОБЕТОННАЯ ПРОВЕРКА НА УЛИЦУ
+            local char = Players.LocalPlayer.Character
+            local isOutside = true 
+            
+            if char then
+                local root = char:FindFirstChild("HumanoidRootPart")
+                local posY = root and root.Position.Y or char:GetPivot().Position.Y
+                
+                -- В Adopt Me интерьеры спавнятся высоко в небе (обычно Y > 500)
+                if posY > 300 then
+                    isOutside = false
+                end
+            end
+            
+            if isOutside then
+                Library:Notify("Ошибка", "Сначала зайди в дом! (Ты на улице)", 4)
+                return
+            end
+
             local Fsys = game:GetService("ReplicatedStorage"):WaitForChild("Fsys")
             local loadFsys = require(Fsys).load
             local ClientData = loadFsys("ClientData")
@@ -217,17 +240,7 @@ function Module:Init(Library, Window, Tab)
             if not targetData then
                 return Library:Notify("Ошибка", "Данные игрока не найдены!", 3)
             end
-
-            -- ЖЕЛЕЗОБЕТОННАЯ ПРОВЕРКА НА УЛИЦУ (По координате высоты)
-            -- Основная карта внизу (Y < 100), интерьеры высоко в небе (Y > 500)
-            local char = Players.LocalPlayer.Character
-            if char and char.PrimaryPart then
-                if char.PrimaryPart.Position.Y < 200 then
-                    return Library:Notify("Ошибка", "Сначала зайди в дом! (Ты на улице)", 4)
-                end
-            end
             
-            -- Возвращаем старый, самый надежный парсинг из кэша
             if not targetData.house_interior or type(targetData.house_interior.furniture) ~= "table" then
                 return Library:Notify("Ошибка", "Данные интерьера пусты или не прогрузились!", 3)
             end
