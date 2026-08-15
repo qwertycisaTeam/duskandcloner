@@ -248,7 +248,7 @@ function Module:CreateFileCard(fileName)
 
    -- ВАЖНО: Плавный ограничитель ввода в реальном времени + UTF8 + Фильтр символов
     local lastValidText = fileName
-    RenameBox:GetPropertyChangedSignal("Text"):Connect(function()
+    local filteredText = currentText:gsub('[<>:"/\\|?*!@#$%%^&()+=%[%]{};\'.,`~№]', "")
         local currentText = RenameBox.Text
         
         -- 1. Вырезаем запрещенные символы прямо во время печати
