@@ -5,7 +5,6 @@ local Module = {}
 
 local FolderName = "DuskAndShine_Houses"
 
--- Функция только для чтения списка в дропдаун (никаких карточек)
 local function GetSavedHouses()
     if not isfolder(FolderName) then makefolder(FolderName) end
     local houses = {}
@@ -36,20 +35,18 @@ function Module:Init(Library, Window, Tab)
         Parent = Tab.Page
     })
 
-    -- ИСПРАВЛЕННЫЙ ШРИФТ: Без <font color="ffffff">. Цвет задается через TextColor3 = "Text"
     Library.Utils.Make("TextLabel", {
         Text = '<b>UTILITY:</b> <font color="#9696a0">House Builder</font>',
         RichText = true, 
         Size = UDim2.new(1, -40, 1, 0), 
         Position = UDim2.new(0, 5, 0, 0),
         BackgroundTransparency = 1, 
-        Font = Enum.Font.GothamBold, -- Вернул жирный и четкий шрифт
+        Font = Enum.Font.GothamBold,
         TextSize = 14, 
         TextXAlignment = Enum.TextXAlignment.Left, 
         Parent = SectionContainer
     }, { TextColor3 = "Text" })
 
-    -- Кнопка Рефреш
     local RefreshBtn = Library.Utils.Make("TextButton", {
         Size = UDim2.new(0, 26, 0, 26),
         Position = UDim2.new(1, -26, 0, 2),
@@ -123,43 +120,22 @@ function Module:Init(Library, Window, Tab)
         end
     })
 
-    -- Стилизация дропдауна
+    -- Хак: Только исправляем шрифты, не трогая стандартный дизайн либы
     task.spawn(function()
         task.wait(0.1)
         for _, frame in ipairs(Tab.Page:GetChildren()) do
             if frame:IsA("Frame") and frame.Size == UDim2.new(1, 0, 0, 40) then 
-                frame.Size = UDim2.new(1, 0, 0, 60)
-                frame.BackgroundTransparency = 0
-                Library.ThemeObjects[frame] = { BackgroundColor3 = "Section" }
-                frame.BackgroundColor3 = Library.CurrentTheme.Section
-                Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 10), Parent = frame })
-                Library.Utils.Make("UIStroke", { Thickness = 1, Parent = frame }, { Color = "Stroke" })
-
                 local title = frame:FindFirstChildWhichIsA("TextLabel")
                 if title then
-                    title.Position = UDim2.new(0, 20, 0, 0)
                     title.Font = Enum.Font.GothamMedium
-                    title.TextSize = 14
+                    title.TextSize = 13
                 end
 
                 local btn = frame:FindFirstChildWhichIsA("TextButton")
                 if btn then
-                    btn.Size = UDim2.new(0, 150, 0, 30)
-                    btn.Position = UDim2.new(1, -170, 0.5, -15)
                     btn.TextTruncate = Enum.TextTruncate.AtEnd
                     btn.Font = Enum.Font.GothamMedium
-                    
-                    local btnStroke = btn:FindFirstChildWhichIsA("UIStroke")
-                    if btnStroke then
-                        btn.MouseEnter:Connect(function() Library.Utils.TBT(btnStroke, 0.2, {Transparency = 0}) end)
-                        btn.MouseLeave:Connect(function() Library.Utils.TBT(btnStroke, 0.2, {Transparency = 0.5}) end)
-                    end
-                end
-
-                local scroll = frame:FindFirstChildWhichIsA("ScrollingFrame")
-                if scroll then
-                    scroll.Position = UDim2.new(1, -170, 0.5, 18)
-                    scroll.Size = UDim2.new(0, 150, 0, 0)
+                    btn.TextSize = 13
                 end
             end
         end
