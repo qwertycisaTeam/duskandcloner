@@ -113,7 +113,6 @@ function Module:Init(Library, Window, Tab)
             local ClientData = loadFsys("ClientData")
             
             local data = ClientData.get_data()
-            -- [ИЗМЕНЕНИЕ 1]: Убрал костыль с or data[next(data)], теперь берет строго твой дом
             local TARGET_OWNER = Players.LocalPlayer.Name 
             local targetData = data[TARGET_OWNER]
             
@@ -121,7 +120,6 @@ function Module:Init(Library, Window, Tab)
                 return Library:Notify("Ошибка", "Данные интерьера не найдены. Вы точно в доме?", 3)
             end
             
-            -- [ИЗМЕНЕНИЕ 2]: Парсинг мебели (оставил твой код без изменений)
             local rawFurniture = targetData.house_interior.furniture or {}
             local parsedFurniture = {}
             local count = 0
@@ -152,7 +150,6 @@ function Module:Init(Library, Window, Tab)
                 })
             end
 
-            -- [ИЗМЕНЕНИЕ 3]: Добавлен парсинг Текстур (Обои и Полы)
             local parsedTextures = {}
             local rawTextures = targetData.house_interior.textures or {}
             local textureCount = 0
@@ -165,28 +162,23 @@ function Module:Init(Library, Window, Tab)
                 textureCount = textureCount + 1
             end
 
-            -- [ИЗМЕНЕНИЕ 4]: Добавлен парсинг Атмосферы и Частиц (Погоды)
             local rawAmbiance = targetData.house_interior.ambiance or {}
             local parsedParticles = {}
             
-            -- Достаем папку Custom с листьями, снегом и т.д.
             if rawAmbiance.custom_props and rawAmbiance.custom_props.Custom then
                 parsedParticles = rawAmbiance.custom_props.Custom
             end
             
-            -- [ИЗМЕНЕНИЕ 5]: Обновленный массив для сохранения
             local saveData = {
                 furniture = parsedFurniture,
-                textures = parsedTextures,  -- Добавили текстуры
-                ambiance = rawAmbiance,     -- Добавили оригинальную атмосферу (освещение)
-                particles = parsedParticles -- Добавили флаги частиц погоды
+                textures = parsedTextures,  
+                ambiance = rawAmbiance,     
+                particles = parsedParticles 
             }
             
-            -- Генерируем уникальное имя файла с временем
             local newFileName = "AdoptMeHouse_" .. os.date("%H%M%S")
             self:SaveHouse(newFileName, saveData)
             
-            -- Обновляем интерфейс
             self:RefreshList()
             Library:Notify("Успех!", "Скопировано: " .. count .. " предметов и " .. textureCount .. " комнат. Погода сохранена.", 4)
         end)
@@ -239,20 +231,21 @@ function Module:CreateFileCard(fileName)
         Font = Enum.Font.GothamBold, 
         TextSize = 14, 
         TextXAlignment = Enum.TextXAlignment.Left,
-        ClipsDescendants = true, -- ИСПРАВЛЕНО: добавлена буква 's'
+        ClipsDescendants = true,
         ClearTextOnFocus = false, 
         Visible = false, 
         Parent = Card
     }, { TextColor3 = "Accent" })
     Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 4), Parent = RenameBox })
 
-   -- ВАЖНО: Плавный ограничитель ввода в реальном времени + UTF8 + Фильтр символов
+    -- ВАЖНО: Плавный ограничитель ввода в реальном времени + UTF8 + Фильтр символов
     local lastValidText = fileName
-    local filteredText = currentText:gsub('[<>:"/\\|?*!@#$%%^&()+=%[%]{};\'.,`~№]', "")
+    
+    RenameBox:GetPropertyChangedSignal("Text"):Connect(function()
         local currentText = RenameBox.Text
         
-        -- 1. Вырезаем запрещенные символы прямо во время печати
-        local filteredText = currentText:gsub('[<>:"/\\|?*]', "")
+        -- 1. Вырезаем запрещенные символы ОС + все спецсимволы (оставляем буквы, цифры, пробелы)
+        local filteredText = currentText:gsub('[<>:"/\\|?*!@#$%%^&()+=%[%]{};\'.,`~№]', "")
         
         -- Если юзер ввел запрещенный символ, заменяем текст на отфильтрованный
         if currentText ~= filteredText then
@@ -270,33 +263,6 @@ function Module:CreateFileCard(fileName)
         else
             -- Запоминаем валидный текст
             lastValidText = filteredText 
-        end
-    end)
-    
-    local timeStr = os.date("%H:%M:%S")
-    Library.Utils.Make("TextLabel", { Text = "Last-saved " .. timeStr, Size = UDim2.new(1, -110, 0, 15), Position = UDim2.new(0, 54, 0.5, 8), BackgroundTransparency = 1, Font = Enum.Font.Gotham, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left, Parent = Card }, { TextColor3 = "SubText" })
-
-    local OptionsBtn = Library.Utils.Make("TextButton", { Text = "•••", Size = UDim2.new(0, 34, 0, 24), AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Font = Enum.Font.GothamBold, TextSize = 14, AutoButtonColor = false, Parent = Card }, { BackgroundColor3 = "Sidebar", TextColor3 = "SubText" })
-    Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 6), Parent = OptionsBtn })
-    local OptStroke = Library.Utils.Make("UIStroke", { Thickness = 1, Transparency = 0.5, Parent = OptionsBtn }, { Color = "Stroke" })
-
-    -- ... (анимации кнопок OptionsBtn оставляешь как есть) ...
-
-    Library:Connect(RenameBox.FocusLost, function()
-        RenameBox.Visible = false; TitleLbl.Visible = true
-        
-        -- Так как символы фильтруются в реальном времени, тут нам остается 
-        -- только обрезать лишние пробелы по краям
-        local newName = RenameBox.Text:match("^%s*(.-)%s*$") 
-        
-        if newName and newName ~= "" and newName ~= fileName then
-            if self:RenameHouse(fileName, newName) then 
-                self:RefreshList() 
-                Library:Notify("File Manager", "Renamed to " .. newName, 2) 
-            end
-        else 
-            -- Если стерли всё имя — возвращаем старое
-            RenameBox.Text = fileName 
         end
     end)
     
@@ -341,20 +307,12 @@ function Module:CreateFileCard(fileName)
         if self.ActiveDropdown and self.ActiveDropdown.Parent == Card then self.ActiveDropdown:Destroy(); self.ActiveDropdown = nil else CreateDropdown() end
     end)
 
-   Library:Connect(RenameBox.FocusLost, function()
+    Library:Connect(RenameBox.FocusLost, function()
         RenameBox.Visible = false; TitleLbl.Visible = true
         
-        -- Убираем только запрещенные для названий файлов символы (чтобы русский язык работал!)
-        local cleanedText = RenameBox.Text:gsub('[<>:"/\\|?*]', "")
-        -- Обрезаем лишние пробелы по краям
-        local newName = cleanedText:match("^%s*(.-)%s*$") 
-        
-        -- Устанавливаем ограничение в 28 символов
-        if newName then
-            -- Если используешь русские символы (UTF-8), sub может обрезать их криво, 
-            -- но для большинства случаев и английского текста это сработает.
-            newName = newName:sub(1, 28)
-        end
+        -- Так как символы фильтруются в реальном времени, тут нам остается 
+        -- только обрезать лишние пробелы по краям
+        local newName = RenameBox.Text:match("^%s*(.-)%s*$") 
         
         if newName and newName ~= "" and newName ~= fileName then
             if self:RenameHouse(fileName, newName) then 
@@ -362,7 +320,7 @@ function Module:CreateFileCard(fileName)
                 Library:Notify("File Manager", "Renamed to " .. newName, 2) 
             end
         else 
-            -- Если имя пустое или не изменилось — откатываем обратно
+            -- Если стерли всё имя — возвращаем старое
             RenameBox.Text = fileName 
         end
     end)
