@@ -217,20 +217,22 @@ function Module:Init(Library, Window, Tab)
             if not targetData then
                 return Library:Notify("Ошибка", "Данные игрока не найдены!", 3)
             end
-            
-            -- ФИКС 4.0: Игнорируем Workspace полностью! 
-            -- Берем ID текущего экипированного дома и вытаскиваем его из базы всех сохранений
-            local activeHouseId = targetData.player_house and targetData.player_house.unique
-            if not activeHouseId then
-                return Library:Notify("Ошибка", "Зайди в дом для начала работы скрипта!", 3)
+
+            -- ЖЕЛЕЗОБЕТОННАЯ ПРОВЕРКА НА УЛИЦУ (По координате высоты)
+            -- Основная карта внизу (Y < 100), интерьеры высоко в небе (Y > 500)
+            local char = Players.LocalPlayer.Character
+            if char and char.PrimaryPart then
+                if char.PrimaryPart.Position.Y < 200 then
+                    return Library:Notify("Ошибка", "Сначала зайди в дом! (Ты на улице)", 4)
+                end
             end
             
-            local activeHouseData = targetData.housing and targetData.housing[activeHouseId]
-            if not activeHouseData or type(activeHouseData.furniture) ~= "table" then
-                return Library:Notify("Ошибка", "Сохранение дома пустое или не найдено в базе!", 3)
+            -- Возвращаем старый, самый надежный парсинг из кэша
+            if not targetData.house_interior or type(targetData.house_interior.furniture) ~= "table" then
+                return Library:Notify("Ошибка", "Данные интерьера пусты или не прогрузились!", 3)
             end
             
-            local rawFurniture = activeHouseData.furniture
+            local rawFurniture = targetData.house_interior.furniture
             local parsedFurniture = {}
             local count = 0
             
@@ -261,7 +263,7 @@ function Module:Init(Library, Window, Tab)
             end
 
             local parsedTextures = {}
-            local rawTextures = activeHouseData.textures or {}
+            local rawTextures = targetData.house_interior.textures or {}
             local textureCount = 0
             
             for roomName, roomData in pairs(rawTextures) do
@@ -272,7 +274,7 @@ function Module:Init(Library, Window, Tab)
                 textureCount = textureCount + 1
             end
 
-            local rawAmbiance = activeHouseData.ambiance or {}
+            local rawAmbiance = targetData.house_interior.ambiance or {}
             local parsedParticles = {}
             
             if rawAmbiance.custom_props and rawAmbiance.custom_props.Custom then
@@ -290,7 +292,7 @@ function Module:Init(Library, Window, Tab)
             self:SaveHouse(newFileName, saveData)
             
             self:RefreshList()
-            Library:Notify("Успех!", "Скопировано: " .. count .. " предметов и " .. textureCount .. " комнат (Из базы).", 4)
+            Library:Notify("Успех!", "Скопировано: " .. count .. " предметов и " .. textureCount .. " комнат.", 4)
         end)
     end)
 
