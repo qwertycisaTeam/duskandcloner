@@ -115,7 +115,7 @@ function Module:Init(Library, Window, Tab)
     end)
 
     -- ==========================================
-    -- КНОПКА BUILD (С ТЕНЬЮ ДЛЯ БЕЛОЙ ТЕМЫ)
+    -- ИДЕАЛЬНАЯ КНОПКА BUILD (С ДИНАМИЧЕСКИМИ ЦВЕТАМИ)
     -- ==========================================
     local BuildContainer = Library.Utils.Make("Frame", {
         Size = UDim2.new(1, 0, 0, 42),
@@ -123,85 +123,78 @@ function Module:Init(Library, Window, Tab)
         Parent = Tab.Page
     })
 
-    -- Тень под кнопкой
+    -- Объемная мягкая тень
     local Shadow = Library.Utils.Make("ImageLabel", {
-        Size = UDim2.new(1, 14, 1, 14),
-        Position = UDim2.new(0.5, 0, 0.5, 3),
+        Size = UDim2.new(1, 10, 1, 14),
+        Position = UDim2.new(0.5, 0, 0.5, 4),
         AnchorPoint = Vector2.new(0.5, 0.5),
         BackgroundTransparency = 1,
         Image = "rbxassetid://6015045998",
         ImageColor3 = Color3.fromRGB(0, 0, 0),
-        ImageTransparency = 0.7,
+        ImageTransparency = 0.6,
         ZIndex = 1,
         Parent = BuildContainer
     })
 
+    -- Сама кнопка (Фон = Акцентный цвет)
     local BuildBtn = Library.Utils.Make("TextButton", {
-        Text = "🔨 BUILD SELECTED HOUSE", 
+        Text = "", -- Убрали текст отсюда, сделаем его красивым слоем выше
         Size = UDim2.new(1, 0, 1, 0),
-        Font = Enum.Font.GothamBlack, 
-        TextSize = 13, 
         AutoButtonColor = false,
         ZIndex = 5,
         Parent = BuildContainer 
     }, { BackgroundColor3 = "Accent" }) 
     Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 8), Parent = BuildBtn })
-    
-    BuildBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    if Library.ThemeObjects[BuildBtn] then Library.ThemeObjects[BuildBtn].TextColor3 = nil end
 
+    -- ТЕКСТ КНОПКИ (МАГИЯ ЦВЕТА: Привязываем к Background)
+    local BuildText = Library.Utils.Make("TextLabel", {
+        Text = "🔨 BUILD SELECTED HOUSE",
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundTransparency = 1,
+        Font = Enum.Font.GothamBlack, -- Жирный и сочный шрифт
+        TextSize = 13,
+        ZIndex = 6,
+        Parent = BuildBtn
+    }, { TextColor3 = "Background" }) 
+    -- ^ В темной теме текст станет темно-серым, в светлой - белым!
+
+    -- Стеклянный блик (Градиент)
     local Gradient = Instance.new("UIGradient", BuildBtn)
+    Gradient.Rotation = 90
     Gradient.Color = ColorSequence.new({
         ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(210, 210, 210))
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(200, 200, 200))
     })
     Gradient.Transparency = NumberSequence.new({
-        NumberSequenceKeypoint.new(0, 0.05),
-        NumberSequenceKeypoint.new(1, 0.3)
+        NumberSequenceKeypoint.new(0, 0.75), -- Почти прозрачный сверху (дает блик)
+        NumberSequenceKeypoint.new(1, 0.95)  -- Полностью прозрачный снизу
     })
-    Gradient.Rotation = 90
 
+    -- Легкая адаптивная обводка
     local EdgeStroke = Library.Utils.Make("UIStroke", { 
-        Thickness = 1.5, 
-        Transparency = 0.4, 
+        Thickness = 1, 
+        Transparency = 0.5, 
         ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
         Parent = BuildBtn 
     }, { Color = "Stroke" })
 
-    local Glow = Library.Utils.Make("Frame", { 
-        Size = UDim2.new(1, 4, 1, 4), 
-        Position = UDim2.new(0.5, 0, 0.5, 0),
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        BackgroundTransparency = 1, 
-        ZIndex = 2, 
-        Parent = BuildBtn 
-    })
-    Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 8), Parent = Glow })
-    local GlowStroke = Library.Utils.Make("UIStroke", { 
-        Thickness = 3.5, 
-        Transparency = 0.6, 
-        Parent = Glow 
-    }, { Color = "Accent" })
-
     local BuildScale = Instance.new("UIScale", BuildContainer)
 
+    -- Сочные анимации наведения
     Library:Connect(BuildBtn.MouseEnter, function() 
         Library.Utils.TBT(BuildBtn, 0.2, {BackgroundTransparency = 0.1}) 
         Library.Utils.TBT(EdgeStroke, 0.2, {Transparency = 0}) 
-        Library.Utils.TBT(GlowStroke, 0.3, {Thickness = 5, Transparency = 0.4}) 
-        Library.Utils.TBT(Shadow, 0.2, {ImageTransparency = 0.5, Position = UDim2.new(0.5, 0, 0.5, 5)}) 
+        Library.Utils.TBT(Shadow, 0.2, {ImageTransparency = 0.45, Position = UDim2.new(0.5, 0, 0.5, 6)}) 
     end)
     Library:Connect(BuildBtn.MouseLeave, function() 
         Library.Utils.TBT(BuildBtn, 0.2, {BackgroundTransparency = 0}) 
-        Library.Utils.TBT(EdgeStroke, 0.2, {Transparency = 0.4})
-        Library.Utils.TBT(GlowStroke, 0.3, {Thickness = 3.5, Transparency = 0.6})
-        Library.Utils.TBT(Shadow, 0.2, {ImageTransparency = 0.7, Position = UDim2.new(0.5, 0, 0.5, 3)})
+        Library.Utils.TBT(EdgeStroke, 0.2, {Transparency = 0.5})
+        Library.Utils.TBT(Shadow, 0.2, {ImageTransparency = 0.6, Position = UDim2.new(0.5, 0, 0.5, 4)})
     end)
     
+    -- Логика нажатия
     Library:Connect(BuildBtn.MouseButton1Click, function()
-        local t = Library.Utils.TBT(BuildScale, 0.1, {Scale = 0.95})
-        t.Completed:Connect(function() Library.Utils.TBT(BuildScale, 0.2, {Scale = 1}, Enum.EasingStyle.Bounce) end)
-        
+
         if not SelectedHouse or SelectedHouse == "" then
             return Library:Notify("Ошибка", "Сначала выбери дом в меню!", 3)
         end
