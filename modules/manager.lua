@@ -3,16 +3,19 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Module = {}
 
-local FolderName = "DuskAndShine_Houses"
+Module.FolderName = "DuskAndShine_Houses"
 
 -- ==========================================
 -- ЛОГИКА ФАЙЛОВОЙ СИСТЕМЫ
 -- ==========================================
-local function GetSavedHouses()
-    if not isfolder(FolderName) then makefolder(FolderName) end
+function Module:InitFolder()
+    if not isfolder(self.FolderName) then makefolder(self.FolderName) end
+end
+
+function Module:GetHouses()
+    self:InitFolder()
     local houses = {}
-    
-    local success, files = pcall(function() return listfiles(FolderName) end)
+    local success, files = pcall(function() return listfiles(self.FolderName) end)
     if not success or type(files) ~= "table" then return houses end
     
     for _, path in ipairs(files) do
@@ -22,33 +25,25 @@ local function GetSavedHouses()
     return houses
 end
 
-function Module:InitFolder()
-    if not isfolder(FolderName) then makefolder(FolderName) end
-end
-
-function Module:GetHouses()
-    return GetSavedHouses()
-end
-
 function Module:LoadHouse(name)
-    local path = FolderName .. "/" .. name .. ".json"
+    local path = self.FolderName .. "/" .. name .. ".json"
     if isfile(path) then return HttpService:JSONDecode(readfile(path)) end
     return nil
 end
 
 function Module:SaveHouse(name, data)
     self:InitFolder()
-    writefile(FolderName .. "/" .. name .. ".json", HttpService:JSONEncode(data))
+    writefile(self.FolderName .. "/" .. name .. ".json", HttpService:JSONEncode(data))
 end
 
 function Module:DeleteHouse(name)
-    local path = FolderName .. "/" .. name .. ".json"
+    local path = self.FolderName .. "/" .. name .. ".json"
     if isfile(path) then delfile(path) end
 end
 
 function Module:RenameHouse(old, new)
-    local oldPath = FolderName .. "/" .. old .. ".json"
-    local newPath = FolderName .. "/" .. new .. ".json"
+    local oldPath = self.FolderName .. "/" .. old .. ".json"
+    local newPath = self.FolderName .. "/" .. new .. ".json"
     if isfile(oldPath) then
         writefile(newPath, readfile(oldPath))
         delfile(oldPath)
@@ -65,80 +60,58 @@ function Module:Init(Library, Window, Tab)
     self.Tab = Tab
     self.ActiveDropdown = nil 
     self.ActiveFileMenu = nil
-    self.ClickCatcher = nil
-    
-    local LocalPlayer = Players.LocalPlayer
-    local SelectedHouse = nil
-    local CurrentBuildDelay = 0.05 
-    local CopyTextures = true
-    local HouseDropdown 
+    self.ClickCatcher = nil 
 
     -- ==========================================
     -- 1. АДАПТИВНАЯ ШАПКА И РЕФРЕШ
     -- ==========================================
-    local SectionContainer = Library.Utils.Make("Frame", {
-        Size = UDim2.new(1, 0, 0, 24),
-        BackgroundTransparency = 1,
-        Parent = Tab.Page
+    local HeaderPanel = Library.Utils.Make("Frame", { 
+        Size = UDim2.new(1, 0, 0, 30), 
+        BackgroundTransparency = 1, 
+        Parent = Tab.Page 
     })
-
+    
     Library.Utils.Make("TextLabel", {
-        Text = 'UTILITY: <font color="#9696a0">House Builder</font>',
+        Text = '<b>FILE MANAGER:</b> <font color="#9696a0">House Schematics</font>',
         RichText = true, 
         Size = UDim2.new(1, -40, 1, 0), 
         Position = UDim2.new(0, 5, 0, 0),
         BackgroundTransparency = 1, 
-        Font = Enum.Font.GothamMedium, 
-        TextSize = 13, 
+        Font = Enum.Font.Gotham, 
+        TextSize = 14, 
         TextXAlignment = Enum.TextXAlignment.Left, 
-        Parent = SectionContainer
+        Parent = HeaderPanel
     }, { TextColor3 = "Text" })
 
-    local RefreshBtn = Library.Utils.Make("TextButton", {
-        Size = UDim2.new(0, 26, 0, 26),
-        Position = UDim2.new(1, -26, 0, -2),
+    local RefreshBtn = Library.Utils.Make("TextButton", { 
+        Size = UDim2.new(0, 26, 0, 26), 
+        AnchorPoint = Vector2.new(1, 0.5), 
+        Position = UDim2.new(1, 0, 0.5, 0), 
+        AutoButtonColor = false, 
         Text = "",
-        AutoButtonColor = false,
-        Parent = SectionContainer
+        Parent = HeaderPanel 
     }, { BackgroundColor3 = "Sidebar" })
     Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 6), Parent = RefreshBtn })
-
     local RefStroke = Library.Utils.Make("UIStroke", { Thickness = 1, Transparency = 0.5, Parent = RefreshBtn }, { Color = "Stroke" })
-    
-    local RefIcon = Library.Utils.Make("ImageLabel", {
-        Size = UDim2.new(0, 16, 0, 16),
+
+    local RefIcon = Library.Utils.Make("ImageLabel", { 
+        Size = UDim2.new(0, 16, 0, 16), 
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.new(0.5, 0, 0.5, 0),
-        BackgroundTransparency = 1,
-        Image = "rbxassetid://6723921202",
-        Parent = RefreshBtn
+        BackgroundTransparency = 1, 
+        Image = "rbxassetid://6723921202", 
+        Parent = RefreshBtn 
     }, { ImageColor3 = "Text" })
-    
+
     local refScale = Instance.new("UIScale", RefreshBtn)
-    
-    Library:Connect(RefreshBtn.MouseEnter, function() 
-        Library.Utils.TBT(RefStroke, 0.2, {Transparency = 0})
-        Library.Utils.TBT(RefreshBtn, 0.2, {BackgroundColor3 = Library.CurrentTheme.Section})
-    end)
-    Library:Connect(RefreshBtn.MouseLeave, function() 
-        Library.Utils.TBT(RefStroke, 0.2, {Transparency = 0.5})
-        Library.Utils.TBT(RefreshBtn, 0.2, {BackgroundColor3 = Library.CurrentTheme.Sidebar})
-    end)
-    
+
+    Library:Connect(RefreshBtn.MouseEnter, function() Library.Utils.TBT(RefStroke, 0.2, {Transparency = 0}); Library.Utils.TBT(RefreshBtn, 0.2, {BackgroundColor3 = Library.CurrentTheme.Section}) end)
+    Library:Connect(RefreshBtn.MouseLeave, function() Library.Utils.TBT(RefStroke, 0.2, {Transparency = 0.5}); Library.Utils.TBT(RefreshBtn, 0.2, {BackgroundColor3 = Library.CurrentTheme.Sidebar}) end)
     Library:Connect(RefreshBtn.MouseButton1Click, function()
         local t = Library.Utils.TBT(refScale, 0.1, {Scale = 0.9})
         t.Completed:Connect(function() Library.Utils.TBT(refScale, 0.2, {Scale = 1}, Enum.EasingStyle.Bounce) end)
         Library.Utils.TBT(RefIcon, 0.5, {Rotation = 360}); task.delay(0.5, function() RefIcon.Rotation = 0 end)
-        
         self:RefreshList()
-        if HouseDropdown and type(HouseDropdown.Refresh) == "function" then
-            HouseDropdown.Refresh(self:GetHouses())
-            if type(HouseDropdown.SetValue) == "function" then
-                HouseDropdown.SetValue("Select...")
-            end
-            SelectedHouse = nil 
-        end
-        Library:Notify("Builder", "Список домов успешно обновлен!", 2)
     end)
 
     local TopDivider = Library.Utils.Make("Frame", {
@@ -154,24 +127,23 @@ function Module:Init(Library, Window, Tab)
         NumberSequenceKeypoint.new(1, 1)
     })
 
-    -- КОНТЕЙНЕР ДЛЯ КНОПОК И ФАЙЛОВ
-    self.ListContainer = Library.Utils.Make("Frame", { Size = UDim2.new(1, -20, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, Parent = Tab.Page })
-    Library.Utils.Make("UIListLayout", { Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder, Parent = self.ListContainer })
+    -- 2. КОНТЕЙНЕР ДЛЯ КНОПОК И ФАЙЛОВ
+    self.ListContainer = Library.Utils.Make("Frame", { Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, Parent = Tab.Page })
+    Library.Utils.Make("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder, Parent = self.ListContainer })
 
     -- ==========================================
-    -- 2. КНОПКА ПАРСЕРА ADOPT ME
+    -- 3. ПРЕМИУМ КНОПКА ПАРСЕРА (ФИКС СЪЕХАВШЕЙ РАМКИ)
     -- ==========================================
     local ParseContainer = Library.Utils.Make("Frame", {
-        Size = UDim2.new(1, 0, 0, 36),
+        Size = UDim2.new(1, 0, 0, 38),
         BackgroundTransparency = 1,
         LayoutOrder = -1, 
         Parent = self.ListContainer
     })
 
+    -- Убрали AnchorPoint, чтобы обводка не улетала в сторону
     local ParseGlow = Library.Utils.Make("Frame", { 
         Size = UDim2.new(1, 0, 1, 0), 
-        Position = UDim2.new(0.5, 0, 0.5, 0),
-        AnchorPoint = Vector2.new(0.5, 0.5),
         BackgroundTransparency = 1, 
         ZIndex = 1, 
         Parent = ParseContainer 
@@ -188,20 +160,9 @@ function Module:Init(Library, Window, Tab)
     }, { BackgroundColor3 = "Section" }) 
     Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 8), Parent = ParseBtn })
 
-    local ParseIcon = Library.Utils.Make("ImageLabel", {
-        Size = UDim2.new(0, 16, 0, 16),
-        AnchorPoint = Vector2.new(0, 0.5),
-        Position = UDim2.new(0.5, -95, 0.5, 0), 
-        BackgroundTransparency = 1,
-        Image = "rbxassetid://10709770513", 
-        ZIndex = 6,
-        Parent = ParseBtn
-    }, { ImageColor3 = "Accent" })
-
     local ParseText = Library.Utils.Make("TextLabel", {
-        Text = "EXPORT CURRENT INTERIOR",
+        Text = "💾  EXPORT CURRENT INTERIOR",
         Size = UDim2.new(1, 0, 1, 0),
-        Position = UDim2.new(0, 12, 0, 0), 
         BackgroundTransparency = 1,
         Font = Enum.Font.GothamBold,
         TextSize = 13,
@@ -230,11 +191,17 @@ function Module:Init(Library, Window, Tab)
         t.Completed:Connect(function() Library.Utils.TBT(ParseScale, 0.2, {Scale = 1}, Enum.EasingStyle.Bounce) end)
         
         task.spawn(function()
-            -- 🚨 ЖЕЛЕЗОБЕТОННАЯ ПРОВЕРКА ПО КАМЕРЕ (Никаких папок и координат персонажа) 🚨
-            -- На главной карте камера всегда смотрит с высоты 20-100.
-            -- Внутри дома (любого интерьера) камера всегда выше 500+.
+            -- 🚨 ДВОЙНАЯ БРОНЕБОЙНАЯ ПРОВЕРКА НА УЛИЦУ 🚨
+            local isOutside = true
             local camY = workspace.CurrentCamera.CFrame.Position.Y
-            if camY < 300 then
+            local blueprint = workspace:FindFirstChild("HouseInteriors") and workspace.HouseInteriors:FindFirstChild("blueprint")
+            
+            -- Если камера выше 300 (в небе) ИЛИ в папке blueprint сгенерировались стены -> мы в доме
+            if camY > 300 or (blueprint and #blueprint:GetChildren() > 0) then
+                isOutside = false
+            end
+            
+            if isOutside then
                 return Library:Notify("Ошибка", "Сначала зайди в дом! (Ты на улице)", 4)
             end
 
@@ -246,12 +213,8 @@ function Module:Init(Library, Window, Tab)
             local TARGET_OWNER = Players.LocalPlayer.Name 
             local targetData = data[TARGET_OWNER]
             
-            if not targetData then
-                return Library:Notify("Ошибка", "Данные игрока не найдены!", 3)
-            end
-            
-            if not targetData.house_interior or type(targetData.house_interior.furniture) ~= "table" then
-                return Library:Notify("Ошибка", "Данные интерьера пусты или не прогрузились!", 3)
+            if not targetData or not targetData.house_interior or type(targetData.house_interior.furniture) ~= "table" then
+                return Library:Notify("Ошибка", "Данные интерьера не найдены или пусты!", 3)
             end
             
             local rawFurniture = targetData.house_interior.furniture
@@ -298,7 +261,6 @@ function Module:Init(Library, Window, Tab)
 
             local rawAmbiance = targetData.house_interior.ambiance or {}
             local parsedParticles = {}
-            
             if rawAmbiance.custom_props and rawAmbiance.custom_props.Custom then
                 parsedParticles = rawAmbiance.custom_props.Custom
             end
@@ -314,296 +276,9 @@ function Module:Init(Library, Window, Tab)
             self:SaveHouse(newFileName, saveData)
             
             self:RefreshList()
-            if HouseDropdown and type(HouseDropdown.Refresh) == "function" then
-                HouseDropdown.Refresh(self:GetHouses())
-            end
             Library:Notify("Успех!", "Скопировано: " .. count .. " предметов и " .. textureCount .. " комнат.", 4)
         end)
     end)
-
-    -- ==========================================
-    -- 3. ДРОПДАУН И ФИКС ВЫЛЕЗАЮЩЕГО ТЕКСТА
-    -- ==========================================
-    HouseDropdown = Tab:CreateDropdown({
-        Name = "Select House Schematic",
-        Options = self:GetHouses(),
-        CurrentOption = "",
-        Callback = function(Option)
-            SelectedHouse = Option
-        end
-    })
-
-    task.spawn(function()
-        task.wait(0.1)
-        for _, frame in ipairs(Tab.Page:GetChildren()) do
-            if frame:IsA("Frame") and frame.Size == UDim2.new(1, 0, 0, 40) then 
-                local btn = frame:FindFirstChildWhichIsA("TextButton")
-                if btn then
-                    btn.TextTruncate = Enum.TextTruncate.AtEnd
-                    btn.Font = Enum.Font.GothamMedium
-                    
-                    local stroke = frame:FindFirstChildWhichIsA("UIStroke")
-                    if not stroke then
-                        stroke = Library.Utils.Make("UIStroke", { Thickness = 1, Transparency = 0.5, Parent = btn }, { Color = "Stroke" })
-                    end
-                end
-            end
-        end
-    end)
-
-    -- ==========================================
-    -- 4. ПРЕМИУМ КНОПКА BUILD (НЕОНОВЫЙ GHOST-СТИЛЬ)
-    -- ==========================================
-    local BuildContainer = Library.Utils.Make("Frame", {
-        Size = UDim2.new(1, 0, 0, 36),
-        BackgroundTransparency = 1,
-        Parent = Tab.Page
-    })
-
-    local Glow = Library.Utils.Make("Frame", { 
-        Size = UDim2.new(1, 0, 1, 0), 
-        Position = UDim2.new(0.5, 0, 0.5, 0),
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        BackgroundTransparency = 1, 
-        ZIndex = 1, 
-        Parent = BuildContainer 
-    })
-    Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 8), Parent = Glow })
-    local GlowStroke = Library.Utils.Make("UIStroke", { 
-        Thickness = 4, 
-        Transparency = 0.85,
-        Parent = Glow 
-    }, { Color = "Accent" })
-
-    local BuildBtn = Library.Utils.Make("TextButton", {
-        Text = "", 
-        Size = UDim2.new(1, 0, 1, 0),
-        AutoButtonColor = false,
-        ZIndex = 5,
-        Parent = BuildContainer 
-    }, { BackgroundColor3 = "Section" }) 
-    Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 8), Parent = BuildBtn })
-
-    local BuildText = Library.Utils.Make("TextLabel", {
-        Text = "🔨  BUILD SELECTED HOUSE",
-        Size = UDim2.new(1, 0, 1, 0),
-        BackgroundTransparency = 1,
-        Font = Enum.Font.GothamBold,
-        TextSize = 13,
-        ZIndex = 6,
-        Parent = BuildBtn
-    }, { TextColor3 = "Accent" }) 
-
-    local EdgeStroke = Library.Utils.Make("UIStroke", { 
-        Thickness = 1.5, 
-        Transparency = 0.2, 
-        ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-        Parent = BuildBtn 
-    }, { Color = "Accent" })
-
-    local BuildScale = Instance.new("UIScale", BuildContainer)
-
-    Library:Connect(BuildBtn.MouseEnter, function() 
-        Library.Utils.TBT(BuildBtn, 0.3, {BackgroundTransparency = 0.3}) 
-        Library.Utils.TBT(EdgeStroke, 0.3, {Transparency = 0}) 
-        Library.Utils.TBT(GlowStroke, 0.4, {Thickness = 12, Transparency = 0.6}, Enum.EasingStyle.Quint) 
-        Library.Utils.TBT(BuildScale, 0.3, {Scale = 1.05}, Enum.EasingStyle.Back, Enum.EasingDirection.Out) 
-    end)
-    Library:Connect(BuildBtn.MouseLeave, function() 
-        Library.Utils.TBT(BuildBtn, 0.3, {BackgroundTransparency = 0}) 
-        Library.Utils.TBT(EdgeStroke, 0.3, {Transparency = 0.2})
-        Library.Utils.TBT(GlowStroke, 0.4, {Thickness = 4, Transparency = 0.85}, Enum.EasingStyle.Quint)
-        Library.Utils.TBT(BuildScale, 0.3, {Scale = 1}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-    end)
-    
-    Library:Connect(BuildBtn.MouseButton1Click, function()
-        local t = Library.Utils.TBT(BuildScale, 0.1, {Scale = 0.95})
-        t.Completed:Connect(function() Library.Utils.TBT(BuildScale, 0.2, {Scale = 1}, Enum.EasingStyle.Bounce) end)
-        
-        if not SelectedHouse or SelectedHouse == "" then
-            return Library:Notify("Ошибка", "Сначала выбери дом в меню!", 3)
-        end
-        
-        local filePath = FolderName .. "/" .. SelectedHouse .. ".json"
-        if not isfile(filePath) then
-            return Library:Notify("Ошибка", "Файл не найден на диске!", 3)
-        end
-
-        task.spawn(function()
-            -- При постройке тоже проверим, не на улице ли он
-            local camY = workspace.CurrentCamera.CFrame.Position.Y
-            if camY < 300 then
-                return Library:Notify("Ошибка", "Зайди в дом перед постройкой!", 4)
-            end
-
-            Library:Notify("Запуск", "Читаем файл: " .. SelectedHouse, 2)
-            
-            local success, fileData = pcall(function() return readfile(filePath) end)
-            if not success then return Library:Notify("Ошибка", "Не удалось прочитать файл!", 3) end
-            
-            local decodeSuccess, savedHouse = pcall(function() return HttpService:JSONDecode(fileData) end)
-            if not decodeSuccess or not savedHouse.furniture then
-                return Library:Notify("Ошибка", "Файл поврежден или имеет неверный формат!", 3)
-            end
-
-            local ACTUALLY_BUILD = true
-            local MICRO_SHIFT_Y = 0 
-            
-            local function loadAmbiance(ambianceData)
-                if not ambianceData then return end
-                
-                local function toColor3(rgbArray)
-                    if type(rgbArray) ~= "table" or #rgbArray < 3 then return Color3.new(1, 1, 1) end
-                    return Color3.new(rgbArray[1], rgbArray[2], rgbArray[3])
-                end
-                
-                local lData = ambianceData.Lighting or {}
-                local ccData = ambianceData.ColorCorrectionEffect or {}
-                local srData = ambianceData.SunRaysEffect or {}
-                local atmData = ambianceData.Atmosphere or {}
-            
-                local args = {{
-                    base_kind = "sunset", kind = "sunset", priority = 3,
-                    custom_props = {
-                        Lighting = {
-                            ClockTime = lData.ClockTime or 14,
-                            ExposureCompensation = lData.ExposureCompensation or 0,
-                            Ambient = toColor3(lData.Ambient),
-                            OutdoorAmbient = toColor3(lData.OutdoorAmbient),
-                            ColorShift_Top = toColor3(lData.ColorShift_Top)
-                        },
-                        ColorCorrectionEffect = {
-                            TintColor = toColor3(ccData.TintColor),
-                            Saturation = ccData.Saturation or 0,
-                            Contrast = ccData.Contrast or 0
-                        },
-                        SunRaysEffect = { Intensity = srData.Intensity or 0 },
-                        Atmosphere = {
-                            Density = atmData.Density or 0.3, 
-                            Glare = atmData.Glare or 0,
-                            Haze = atmData.Haze or 0, 
-                            Color = toColor3(atmData.Color)
-                        },
-                        Custom = ambianceData.Custom
-                    }
-                }}
-                local ambianceRemote = ReplicatedStorage:WaitForChild("API"):FindFirstChild("AmbianceAPI/UpdateAmbiance")
-                if ambianceRemote then pcall(function() ambianceRemote:FireServer(unpack(args)) end) end
-            end
-            
-            if savedHouse.ambiance then loadAmbiance(savedHouse.ambiance) end
-
-            if savedHouse.particles then
-                local ParticleRemote = ReplicatedStorage:WaitForChild("API"):FindFirstChild("AmbianceAPI/UpdateAmbianceProperties")
-                if ParticleRemote then
-                    pcall(function() ParticleRemote:FireServer({ Custom = savedHouse.particles }) end)
-                end
-            end
-
-            if CopyTextures and savedHouse.textures then
-                Library:Notify("Постройка", "Применяю обои и полы...", 2)
-                local BuyTextureRemote = ReplicatedStorage:WaitForChild("API"):FindFirstChild("HousingAPI/BuyTexture")
-                if BuyTextureRemote then
-                    for roomName, texData in pairs(savedHouse.textures) do
-                        if texData.walls and texData.walls ~= "" then
-                            pcall(function() BuyTextureRemote:FireServer(roomName, "walls", texData.walls) end)
-                            task.wait(CurrentBuildDelay)
-                        end
-                        if texData.floors and texData.floors ~= "" then
-                            pcall(function() BuyTextureRemote:FireServer(roomName, "floors", texData.floors) end)
-                            task.wait(CurrentBuildDelay)
-                        end
-                    end
-                end
-            end
-
-            if not ACTUALLY_BUILD then return end
-            
-            Library:Notify("Постройка", "Начинаю закупку предметов...", 3)
-            
-            local rawFurniture = savedHouse.furniture or savedHouse
-            local pendingChanges = {}
-            
-            table.sort(rawFurniture, function(a, b)
-                return a.cframe[2] < b.cframe[2]
-            end)
-            
-            local downloadApi = ReplicatedStorage:WaitForChild("API"):WaitForChild("DownloadsAPI/Download")
-            local buyFurnituresRemote = ReplicatedStorage:WaitForChild("API"):WaitForChild("HousingAPI/BuyFurnitures")
-            local pushFurnitureEvent = ReplicatedStorage:WaitForChild("API"):WaitForChild("HousingAPI/PushFurnitureChanges")
-            
-            for i, item in ipairs(rawFurniture) do
-                local fId = item.id
-                local baseCFrame = CFrame.new(unpack(item.cframe))
-                local localCFrame = baseCFrame + Vector3.new(0, MICRO_SHIFT_Y, 0)
-                
-                local buyProps = {cframe = localCFrame}
-                if item.colors and #item.colors > 0 then
-                    local c3table = {}
-                    for _, c in ipairs(item.colors) do table.insert(c3table, Color3.new(c[1], c[2], c[3])) end
-                    buyProps.colors = c3table
-                end
-                
-                local currentBatch = {{ kind = fId, properties = buyProps }}
-            
-                pcall(function() downloadApi:InvokeServer("Furniture", fId) end)
-                local buildSuccess, response = pcall(function() return buyFurnituresRemote:InvokeServer(currentBatch) end)
-                
-                if buildSuccess and type(response) == "table" and response.success and response.results and response.results[1] and response.results[1].unique then
-                    local createdItem = response.results[1]
-                    local changeArgs = {
-                        unique = createdItem.unique,
-                        cframe = localCFrame
-                    }
-                    if item.scale and item.scale ~= 1 then changeArgs.scale = item.scale end
-                    if buyProps.colors then changeArgs.colors = buyProps.colors end
-                    
-                    table.insert(pendingChanges, changeArgs)
-                end
-                
-                task.wait(CurrentBuildDelay)
-            end
-            
-            Library:Notify("Постройка", "Применяю размеры и цвета...", 3)
-            
-            local chunk = {}
-            for i, change in ipairs(pendingChanges) do
-                table.insert(chunk, change)
-                if #chunk >= 50 or i == #pendingChanges then
-                    pcall(function() pushFurnitureEvent:FireServer(chunk) end)
-                    chunk = {}
-                    task.wait(0.5) 
-                end
-            end
-            Library:Notify("Успех", "Дом " .. SelectedHouse .. " успешно построен!", 5)
-        end)
-    end)
-
-    -- ==========================================
-    -- 5. РЕПЛИКАТОР (НАСТРОЙКИ)
-    -- ==========================================
-    Tab:CreateDivider({ Text = "Configuration" })
-
-    Tab:CreateToggle({
-        Name = "Copy Textures (Wallpapers/Floors)",
-        Description = "Копировать обои и покрытие полов",
-        Default = true,
-        Flag = "Replicator_CopyTextures",
-        Callback = function(state)
-            CopyTextures = state
-        end
-    })
-
-    Tab:CreateSlider({
-        Name = "Build Delay (ms)",
-        Min = 10,
-        Max = 500,
-        Default = 50,
-        Flag = "Replicator_BuildDelay",
-        Callback = function(value)
-            CurrentBuildDelay = value / 1000 
-        end
-    })
 
     self:RefreshList()
 end
