@@ -246,15 +246,57 @@ function Module:CreateFileCard(fileName)
     }, { TextColor3 = "Accent" })
     Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 4), Parent = RenameBox })
 
-    -- ВАЖНО: Плавный ограничитель ввода в реальном времени
+   -- ВАЖНО: Плавный ограничитель ввода в реальном времени + UTF8 + Фильтр символов
     local lastValidText = fileName
     RenameBox:GetPropertyChangedSignal("Text"):Connect(function()
-        if #RenameBox.Text > 28 then
-            -- Если переборщили, возвращаем предыдущий сохраненный текст (курсор не сбрасывается в 0)
+        local currentText = RenameBox.Text
+        
+        -- 1. Вырезаем запрещенные символы прямо во время печати
+        local filteredText = currentText:gsub('[<>:"/\\|?*]', "")
+        
+        -- Если юзер ввел запрещенный символ, заменяем текст на отфильтрованный
+        if currentText ~= filteredText then
+            RenameBox.Text = filteredText
+            return -- Выходим, скрипт сам запустит это событие заново с новым текстом
+        end
+
+        -- 2. Считаем длину правильно (в символах, а не байтах)
+        local length = utf8.len(filteredText)
+        
+        -- length может быть nil, если юзер вставил какие-то битые символы
+        if not length or length > 28 then
+            -- Откатываем на последний валидный текст (курсор не ломается)
             RenameBox.Text = lastValidText 
         else
-            -- Если всё в норме, запоминаем текущий текст как правильный
-            lastValidText = RenameBox.Text 
+            -- Запоминаем валидный текст
+            lastValidText = filteredText 
+        end
+    end)
+    
+    local timeStr = os.date("%H:%M:%S")
+    Library.Utils.Make("TextLabel", { Text = "Last-saved " .. timeStr, Size = UDim2.new(1, -110, 0, 15), Position = UDim2.new(0, 54, 0.5, 8), BackgroundTransparency = 1, Font = Enum.Font.Gotham, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left, Parent = Card }, { TextColor3 = "SubText" })
+
+    local OptionsBtn = Library.Utils.Make("TextButton", { Text = "•••", Size = UDim2.new(0, 34, 0, 24), AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Font = Enum.Font.GothamBold, TextSize = 14, AutoButtonColor = false, Parent = Card }, { BackgroundColor3 = "Sidebar", TextColor3 = "SubText" })
+    Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 6), Parent = OptionsBtn })
+    local OptStroke = Library.Utils.Make("UIStroke", { Thickness = 1, Transparency = 0.5, Parent = OptionsBtn }, { Color = "Stroke" })
+
+    -- ... (анимации кнопок OptionsBtn оставляешь как есть) ...
+
+    Library:Connect(RenameBox.FocusLost, function()
+        RenameBox.Visible = false; TitleLbl.Visible = true
+        
+        -- Так как символы фильтруются в реальном времени, тут нам остается 
+        -- только обрезать лишние пробелы по краям
+        local newName = RenameBox.Text:match("^%s*(.-)%s*$") 
+        
+        if newName and newName ~= "" and newName ~= fileName then
+            if self:RenameHouse(fileName, newName) then 
+                self:RefreshList() 
+                Library:Notify("File Manager", "Renamed to " .. newName, 2) 
+            end
+        else 
+            -- Если стерли всё имя — возвращаем старое
+            RenameBox.Text = fileName 
         end
     end)
     
