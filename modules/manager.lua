@@ -56,10 +56,9 @@ function Module:Init(Library, Window, Tab)
     self.Library = Library
     self.Tab = Tab
     self.ActiveDropdown = nil 
+    self.ActiveFileMenu = nil
 
-    -- ==========================================
     -- 1. АДАПТИВНАЯ ШАПКА И РЕФРЕШ
-    -- ==========================================
     local HeaderPanel = Library.Utils.Make("Frame", { 
         Size = UDim2.new(1, 0, 0, 30), 
         BackgroundTransparency = 1, 
@@ -132,15 +131,11 @@ function Module:Init(Library, Window, Tab)
         NumberSequenceKeypoint.new(1, 1)
     })
 
-    -- ==========================================
     -- 2. КОНТЕЙНЕР ДЛЯ КНОПОК И ФАЙЛОВ
-    -- ==========================================
     self.ListContainer = Library.Utils.Make("Frame", { Size = UDim2.new(1, -20, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, Parent = Tab.Page })
     Library.Utils.Make("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder, Parent = self.ListContainer })
 
-    -- ==========================================
     -- 3. ПРЕМИУМ КНОПКА ПАРСЕРА
-    -- ==========================================
     local ParseContainer = Library.Utils.Make("Frame", {
         Size = UDim2.new(1, 0, 0, 42),
         BackgroundTransparency = 1,
@@ -290,7 +285,11 @@ function Module:Init(Library, Window, Tab)
 end
 
 function Module:RefreshList()
-    if self.ActiveDropdown then self.ActiveDropdown:Destroy(); self.ActiveDropdown = nil end
+    if self.ActiveDropdown then 
+        self.ActiveDropdown:Destroy()
+        self.ActiveDropdown = nil 
+        self.ActiveFileMenu = nil
+    end
 
     for _, child in ipairs(self.ListContainer:GetChildren()) do
         if child:IsA("TextButton") and child.LayoutOrder ~= -1 then 
@@ -354,19 +353,41 @@ function Module:CreateFileCard(fileName)
     Library:Connect(OptionsBtn.MouseLeave, function() Library.Utils.TBT(OptionsBtn, 0.15, {BackgroundColor3 = Library.CurrentTheme.Sidebar, TextColor3 = Library.CurrentTheme.SubText}); Library.Utils.TBT(OptStroke, 0.15, {Transparency = 0.5}) end)
 
     local function CreateDropdown()
-        if self.ActiveDropdown then self.ActiveDropdown:Destroy() end
+        if self.ActiveDropdown then 
+            self.ActiveDropdown:Destroy() 
+            self.ActiveDropdown = nil 
+        end
+
+        local MainGUI = Card:FindFirstAncestorWhichIsA("ScreenGui")
 
         local Dropdown = Library.Utils.Make("Frame", { 
-            Size = UDim2.new(0, 160, 0, 0),
-            AutomaticSize = Enum.AutomaticSize.Y,
-            AnchorPoint = Vector2.new(1, 0), 
-            Position = UDim2.new(1, -10, 1, 5), 
-            ZIndex = 50, 
-            Parent = Card 
+            Size = UDim2.new(0, 160, 0, 140),
+            ZIndex = 1000, 
+            Parent = MainGUI or Card 
         }, { BackgroundColor3 = "Sidebar" })
         Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 8), Parent = Dropdown })
         Library.Utils.Make("UIStroke", { Thickness = 1, Transparency = 0.2, Parent = Dropdown }, { Color = "Stroke" })
         
+        if MainGUI then
+            local pos = OptionsBtn.AbsolutePosition
+            local size = OptionsBtn.AbsoluteSize
+            Dropdown.Position = UDim2.new(0, pos.X + size.X - 160, 0, pos.Y + size.Y + 6)
+        else
+            Dropdown.AnchorPoint = Vector2.new(1, 0)
+            Dropdown.Position = UDim2.new(1, -12, 1, 6)
+        end
+
+        local scrollConn
+        if MainGUI then
+            scrollConn = Card:GetPropertyChangedSignal("AbsolutePosition"):Connect(function()
+                if self.ActiveDropdown == Dropdown then
+                    Dropdown:Destroy()
+                    self.ActiveDropdown = nil
+                    if scrollConn then scrollConn:Disconnect() end
+                end
+            end)
+        end
+
         local Shadow = Library.Utils.Make("ImageLabel", {
             Size = UDim2.new(1, 40, 1, 40),
             Position = UDim2.new(0.5, 0, 0.5, 4),
@@ -377,14 +398,21 @@ function Module:CreateFileCard(fileName)
             ImageTransparency = 0.7,
             ScaleType = Enum.ScaleType.Slice,
             SliceCenter = Rect.new(20, 20, 280, 280),
-            ZIndex = 49,
+            ZIndex = 999, 
             Parent = Dropdown
         })
 
-        Library.Utils.Make("UIPadding", { PaddingTop = UDim.new(0, 6), PaddingBottom = UDim.new(0, 6), PaddingLeft = UDim.new(0, 6), PaddingRight = UDim.new(0, 6), Parent = Dropdown })
-        Library.Utils.Make("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 4), Parent = Dropdown })
+        local Content = Library.Utils.Make("Frame", {
+            Size = UDim2.new(1, 0, 1, 0),
+            BackgroundTransparency = 1,
+            ZIndex = 1001,
+            Parent = Dropdown
+        })
+        Library.Utils.Make("UIPadding", { PaddingTop = UDim.new(0, 6), PaddingBottom = UDim.new(0, 6), PaddingLeft = UDim.new(0, 6), PaddingRight = UDim.new(0, 6), Parent = Content })
+        Library.Utils.Make("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 4), Parent = Content })
         
         self.ActiveDropdown = Dropdown
+        self.ActiveFileMenu = fileName
 
         local dropScale = Instance.new("UIScale", Dropdown)
         dropScale.Scale = 0.8
@@ -392,19 +420,19 @@ function Module:CreateFileCard(fileName)
         
         local function AddAction(title, iconId, baseColorKey, hoverColorKey, callback)
             local btn = Library.Utils.Make("TextButton", { 
-                Text = "", Size = UDim2.new(1, 0, 0, 30), BackgroundTransparency = 1, ZIndex = 51, AutoButtonColor = false, Parent = Dropdown 
+                Text = "", Size = UDim2.new(1, 0, 0, 29), BackgroundTransparency = 1, ZIndex = 1002, AutoButtonColor = false, Parent = Content 
             })
             Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 6), Parent = btn })
 
             local Icon = Library.Utils.Make("ImageLabel", {
                 Size = UDim2.new(0, 16, 0, 16), AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 8, 0.5, 0),
-                BackgroundTransparency = 1, Image = iconId, ZIndex = 52, Parent = btn
+                BackgroundTransparency = 1, Image = iconId, ZIndex = 1003, Parent = btn
             }, { ImageColor3 = baseColorKey })
 
             local TextLbl = Library.Utils.Make("TextLabel", {
                 Text = title, Size = UDim2.new(1, -34, 1, 0), Position = UDim2.new(0, 34, 0, 0),
                 BackgroundTransparency = 1, Font = Enum.Font.GothamMedium, TextSize = 13,
-                TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 52, Parent = btn
+                TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 1003, Parent = btn
             }, { TextColor3 = baseColorKey })
 
             Library:Connect(btn.MouseEnter, function() 
@@ -422,11 +450,16 @@ function Module:CreateFileCard(fileName)
                 local closeTween = Library.Utils.TBT(dropScale, 0.15, {Scale = 0.8})
                 Library.Utils.TBT(Dropdown, 0.15, {BackgroundTransparency = 1})
                 Library.Utils.TBT(Shadow, 0.15, {ImageTransparency = 1})
-                for _, child in ipairs(Dropdown:GetChildren()) do
+                for _, child in ipairs(Content:GetChildren()) do
                     if child:IsA("TextButton") then Library.Utils.TBT(child, 0.15, {BackgroundTransparency = 1}) end
                 end
                 closeTween.Completed:Connect(function()
-                    Dropdown:Destroy(); self.ActiveDropdown = nil
+                    if scrollConn then scrollConn:Disconnect() end
+                    if self.ActiveDropdown == Dropdown then
+                        Dropdown:Destroy()
+                        self.ActiveDropdown = nil
+                        self.ActiveFileMenu = nil
+                    end
                 end)
                 pcall(callback) 
             end)
@@ -439,8 +472,16 @@ function Module:CreateFileCard(fileName)
     end
 
     Library:Connect(OptionsBtn.MouseButton1Click, function()
-        Library.Utils.TBT(OptionsBtn, 0.1, {BackgroundColor3 = Library.CurrentTheme.Text}); task.delay(0.1, function() Library.Utils.TBT(OptionsBtn, 0.2, {BackgroundColor3 = Library.CurrentTheme.Section}) end)
-        if self.ActiveDropdown and self.ActiveDropdown.Parent == Card then self.ActiveDropdown:Destroy(); self.ActiveDropdown = nil else CreateDropdown() end
+        Library.Utils.TBT(OptionsBtn, 0.1, {BackgroundTransparency = 0.3})
+        task.delay(0.1, function() Library.Utils.TBT(OptionsBtn, 0.2, {BackgroundTransparency = 0}) end)
+        
+        if self.ActiveFileMenu == fileName and self.ActiveDropdown then 
+            self.ActiveDropdown:Destroy()
+            self.ActiveDropdown = nil 
+            self.ActiveFileMenu = nil
+        else 
+            CreateDropdown() 
+        end
     end)
 
     Library:Connect(RenameBox.FocusLost, function()
