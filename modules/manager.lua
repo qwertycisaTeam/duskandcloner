@@ -57,51 +57,148 @@ function Module:Init(Library, Window, Tab)
     self.Tab = Tab
     self.ActiveDropdown = nil 
 
-    -- 1. ШАПКА
-    local HeaderPanel = Library.Utils.Make("Frame", { Size = UDim2.new(1, 0, 0, 45), BackgroundTransparency = 1, Parent = Tab.Page })
-    Library.Utils.Make("TextLabel", {
-        Text = '<b><font color="#ffffff">FILE MANAGER:</font></b> <font color="#9696a0">House Schematics</font>',
-        RichText = true, Size = UDim2.new(1, -120, 1, 0), Position = UDim2.new(0, 5, 0, 0),
-        BackgroundTransparency = 1, Font = Enum.Font.Gotham, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left, Parent = HeaderPanel
+    -- ==========================================
+    -- 1. АДАПТИВНАЯ ШАПКА И РЕФРЕШ
+    -- ==========================================
+    local HeaderPanel = Library.Utils.Make("Frame", { 
+        Size = UDim2.new(1, 0, 0, 30), 
+        BackgroundTransparency = 1, 
+        Parent = Tab.Page 
     })
+    
+    Library.Utils.Make("TextLabel", {
+        Text = '<b>FILE MANAGER:</b> <font color="#9696a0">House Schematics</font>',
+        RichText = true, 
+        Size = UDim2.new(1, -40, 1, 0), 
+        Position = UDim2.new(0, 5, 0, 0),
+        BackgroundTransparency = 1, 
+        Font = Enum.Font.Gotham, 
+        TextSize = 14, 
+        TextXAlignment = Enum.TextXAlignment.Left, 
+        Parent = HeaderPanel
+    }, { TextColor3 = "Text" }) -- Адаптивный цвет
 
-    local RefreshBtn = Library.Utils.Make("TextButton", { Text = "", Size = UDim2.new(0, 95, 0, 26), AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -20, 0.5, 0), AutoButtonColor = false, Parent = HeaderPanel }, { BackgroundColor3 = "Section" })
+    local RefreshBtn = Library.Utils.Make("TextButton", { 
+        Size = UDim2.new(0, 26, 0, 26), 
+        AnchorPoint = Vector2.new(1, 0.5), 
+        Position = UDim2.new(1, 0, 0.5, 0), 
+        AutoButtonColor = false, 
+        Text = "",
+        Parent = HeaderPanel 
+    }, { BackgroundColor3 = "Sidebar" })
     Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 6), Parent = RefreshBtn })
     local RefStroke = Library.Utils.Make("UIStroke", { Thickness = 1, Transparency = 0.5, Parent = RefreshBtn }, { Color = "Stroke" })
 
-    local RefContent = Library.Utils.Make("Frame", { Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Parent = RefreshBtn })
-    Library.Utils.Make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 6), Parent = RefContent })
-    local RefIcon = Library.Utils.Make("ImageLabel", { Size = UDim2.new(0, 14, 0, 14), BackgroundTransparency = 1, Image = "rbxassetid://10873923769", Parent = RefContent }, { ImageColor3 = "Text" })
-    Library.Utils.Make("TextLabel", { Text = "REFRESH", AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.new(0, 0, 1, 0), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 11, Parent = RefContent }, { TextColor3 = "Text" })
+    -- НОВАЯ ИКОНКА РЕФРЕША (Как в билдере)
+    local RefIcon = Library.Utils.Make("ImageLabel", { 
+        Size = UDim2.new(0, 16, 0, 16), 
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.new(0.5, 0, 0.5, 0),
+        BackgroundTransparency = 1, 
+        Image = "rbxassetid://6723921202", 
+        Parent = RefreshBtn 
+    }, { ImageColor3 = "Text" })
 
-    Library:Connect(RefreshBtn.MouseEnter, function() Library.Utils.TBT(RefStroke, 0.2, {Transparency = 0}); Library.Utils.TBT(RefreshBtn, 0.2, {BackgroundColor3 = Library.CurrentTheme.Sidebar}) end)
-    Library:Connect(RefreshBtn.MouseLeave, function() Library.Utils.TBT(RefStroke, 0.2, {Transparency = 0.5}); Library.Utils.TBT(RefreshBtn, 0.2, {BackgroundColor3 = Library.CurrentTheme.Section}) end)
+    local refScale = Instance.new("UIScale", RefreshBtn)
+
+    Library:Connect(RefreshBtn.MouseEnter, function() Library.Utils.TBT(RefStroke, 0.2, {Transparency = 0}); Library.Utils.TBT(RefreshBtn, 0.2, {BackgroundColor3 = Library.CurrentTheme.Section}) end)
+    Library:Connect(RefreshBtn.MouseLeave, function() Library.Utils.TBT(RefStroke, 0.2, {Transparency = 0.5}); Library.Utils.TBT(RefreshBtn, 0.2, {BackgroundColor3 = Library.CurrentTheme.Sidebar}) end)
     Library:Connect(RefreshBtn.MouseButton1Click, function()
-        self:RefreshList()
+        local t = Library.Utils.TBT(refScale, 0.1, {Scale = 0.9})
+        t.Completed:Connect(function() Library.Utils.TBT(refScale, 0.2, {Scale = 1}, Enum.EasingStyle.Bounce) end)
         Library.Utils.TBT(RefIcon, 0.5, {Rotation = 360}); task.delay(0.5, function() RefIcon.Rotation = 0 end)
+        self:RefreshList()
     end)
+
+    -- ЭЛЕГАНТНАЯ РАЗДЕЛИТЕЛЬНАЯ ЛИНИЯ ПОД ШАПКОЙ
+    local TopDivider = Library.Utils.Make("Frame", {
+        Size = UDim2.new(1, 0, 0, 1),
+        BorderSizePixel = 0,
+        Parent = Tab.Page
+    }, { BackgroundColor3 = "Text" })
+    
+    local DivGrad = Instance.new("UIGradient", TopDivider)
+    DivGrad.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 1),
+        NumberSequenceKeypoint.new(0.5, 0.8),
+        NumberSequenceKeypoint.new(1, 1)
+    })
 
     -- 2. КОНТЕЙНЕР ДЛЯ КНОПОК И ФАЙЛОВ
     self.ListContainer = Library.Utils.Make("Frame", { Size = UDim2.new(1, -20, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, Parent = Tab.Page })
     Library.Utils.Make("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder, Parent = self.ListContainer })
 
     -- ==========================================
-    -- 3. КНОПКА ПАРСЕРА ADOPT ME
+    -- 3. ПРЕМИУМ КНОПКА ПАРСЕРА ADOPT ME (GHOST СТИЛЬ)
     -- ==========================================
-    local ParseBtn = Library.Utils.Make("TextButton", {
-        Text = "💾 EXPORT CURRENT INTERIOR",
-        Size = UDim2.new(1, 0, 0, 36),
+    local ParseContainer = Library.Utils.Make("Frame", {
+        Size = UDim2.new(1, 0, 0, 42),
+        BackgroundTransparency = 1,
         LayoutOrder = -1, 
+        Parent = self.ListContainer
+    })
+
+    -- Неоновая Аура (Свечение)
+    local ParseGlow = Library.Utils.Make("Frame", { 
+        Size = UDim2.new(1, 0, 1, 0), 
+        Position = UDim2.new(0.5, 0, 0.5, 0),
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        BackgroundTransparency = 1, 
+        ZIndex = 1, 
+        Parent = ParseContainer 
+    })
+    Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 8), Parent = ParseGlow })
+    local ParseGlowStroke = Library.Utils.Make("UIStroke", { 
+        Thickness = 4, 
+        Transparency = 0.85,
+        Parent = ParseGlow 
+    }, { Color = "Accent" })
+
+    -- Сама кнопка (Фон сливается с секциями)
+    local ParseBtn = Library.Utils.Make("TextButton", {
+        Text = "", 
+        Size = UDim2.new(1, 0, 1, 0),
+        AutoButtonColor = false,
+        ZIndex = 5,
+        Parent = ParseContainer 
+    }, { BackgroundColor3 = "Section" }) 
+    Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 8), Parent = ParseBtn })
+
+    -- Текст 
+    local ParseText = Library.Utils.Make("TextLabel", {
+        Text = "💾 EXPORT CURRENT INTERIOR",
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundTransparency = 1,
         Font = Enum.Font.GothamBold,
         TextSize = 13,
-        AutoButtonColor = false,
-        Parent = self.ListContainer
-    }, { BackgroundColor3 = "Accent", TextColor3 = "Text" })
-    Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 8), Parent = ParseBtn })
-    
-    local ParseScale = Instance.new("UIScale", ParseBtn)
-    Library:Connect(ParseBtn.MouseEnter, function() Library.Utils.TBT(ParseBtn, 0.2, {BackgroundTransparency = 0.2}) end)
-    Library:Connect(ParseBtn.MouseLeave, function() Library.Utils.TBT(ParseBtn, 0.2, {BackgroundTransparency = 0}) end)
+        ZIndex = 6,
+        Parent = ParseBtn
+    }, { TextColor3 = "Accent" }) 
+
+    -- Обводка кнопки
+    local ParseEdgeStroke = Library.Utils.Make("UIStroke", { 
+        Thickness = 1.5, 
+        Transparency = 0.2, 
+        ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+        Parent = ParseBtn 
+    }, { Color = "Accent" })
+
+    -- UIScale для эффекта "вытягивания"
+    local ParseScale = Instance.new("UIScale", ParseContainer)
+
+    -- Анимация наведения (Точно как в Билдере)
+    Library:Connect(ParseBtn.MouseEnter, function() 
+        Library.Utils.TBT(ParseBtn, 0.3, {BackgroundTransparency = 0.3}) 
+        Library.Utils.TBT(ParseEdgeStroke, 0.3, {Transparency = 0}) 
+        Library.Utils.TBT(ParseGlowStroke, 0.4, {Thickness = 12, Transparency = 0.6}, Enum.EasingStyle.Quint) 
+        Library.Utils.TBT(ParseScale, 0.3, {Scale = 1.05}, Enum.EasingStyle.Back, Enum.EasingDirection.Out) 
+    end)
+    Library:Connect(ParseBtn.MouseLeave, function() 
+        Library.Utils.TBT(ParseBtn, 0.3, {BackgroundTransparency = 0}) 
+        Library.Utils.TBT(ParseEdgeStroke, 0.3, {Transparency = 0.2})
+        Library.Utils.TBT(ParseGlowStroke, 0.4, {Thickness = 4, Transparency = 0.85}, Enum.EasingStyle.Quint)
+        Library.Utils.TBT(ParseScale, 0.3, {Scale = 1}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+    end)
     
     Library:Connect(ParseBtn.MouseButton1Click, function()
         local t = Library.Utils.TBT(ParseScale, 0.1, {Scale = 0.95})
@@ -256,12 +353,9 @@ function Module:CreateFileCard(fileName)
         -- 2. Считаем длину правильно (в символах, а не байтах)
         local length = utf8.len(filteredText)
         
-        -- length может быть nil, если юзер вставил какие-то битые символы
         if not length or length > 28 then
-            -- Откатываем на последний валидный текст (курсор не ломается)
             RenameBox.Text = lastValidText 
         else
-            -- Запоминаем валидный текст
             lastValidText = filteredText 
         end
     end)
@@ -310,8 +404,6 @@ function Module:CreateFileCard(fileName)
     Library:Connect(RenameBox.FocusLost, function()
         RenameBox.Visible = false; TitleLbl.Visible = true
         
-        -- Так как символы фильтруются в реальном времени, тут нам остается 
-        -- только обрезать лишние пробелы по краям
         local newName = RenameBox.Text:match("^%s*(.-)%s*$") 
         
         if newName and newName ~= "" and newName ~= fileName then
@@ -320,7 +412,6 @@ function Module:CreateFileCard(fileName)
                 Library:Notify("File Manager", "Renamed to " .. newName, 2) 
             end
         else 
-            -- Если стерли всё имя — возвращаем старое
             RenameBox.Text = fileName 
         end
     end)
