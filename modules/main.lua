@@ -5,7 +5,7 @@ local Module = {}
 
 local FolderName = "DuskAndShine_Houses"
 
--- ИСПРАВЛЕНИЕ ДРОПДАУНА: Безопасное чтение файлов
+-- БЕЗОПАСНОЕ ЧТЕНИЕ ФАЙЛОВ
 local function GetSavedHouses()
     if not isfolder(FolderName) then makefolder(FolderName) end
     local houses = {}
@@ -29,17 +29,30 @@ function Module:Init(Library, Window, Tab)
     local HouseDropdown 
 
     -- ==========================================
-    -- ШАПКА И РЕФРЕШ
+    -- 1. НОВАЯ ШАПКА И РЕФРЕШ
     -- ==========================================
     local SectionContainer = Library.Utils.Make("Frame", {
-        Size = UDim2.new(1, 0, 0, 26),
+        Size = UDim2.new(1, 0, 0, 30),
         BackgroundTransparency = 1,
         Parent = Tab.Page
     })
 
+    -- Красивый заголовок шапки
+    Library.Utils.Make("TextLabel", {
+        Text = '<b><font color="#ffffff">DUSK & SHINE</font></b> <font color="#9696a0">Auto-Builder</font>',
+        RichText = true, 
+        Size = UDim2.new(1, -40, 1, 0), 
+        Position = UDim2.new(0, 5, 0, 0),
+        BackgroundTransparency = 1, 
+        Font = Enum.Font.Gotham, 
+        TextSize = 14, 
+        TextXAlignment = Enum.TextXAlignment.Left, 
+        Parent = SectionContainer
+    })
+
     local RefreshBtn = Library.Utils.Make("TextButton", {
         Size = UDim2.new(0, 26, 0, 26),
-        Position = UDim2.new(1, -26, 0, 0),
+        Position = UDim2.new(1, -26, 0, 2), -- Выравниваем по центру шапки
         Text = "",
         AutoButtonColor = false,
         Parent = SectionContainer
@@ -48,7 +61,7 @@ function Module:Init(Library, Window, Tab)
 
     local RefStroke = Library.Utils.Make("UIStroke", { Thickness = 1, Transparency = 0.5, Parent = RefreshBtn }, { Color = "Stroke" })
     
-    -- НОВАЯ ИКОНКА РЕФРЕША
+    -- НОВАЯ ИКОНКА РЕФРЕША (6723921202)
     local RefIcon = Library.Utils.Make("ImageLabel", {
         Size = UDim2.new(0, 16, 0, 16),
         AnchorPoint = Vector2.new(0.5, 0.5),
@@ -88,8 +101,22 @@ function Module:Init(Library, Window, Tab)
         Library:Notify("Builder", "Список домов успешно обновлен!", 2)
     end)
 
+    -- ЭЛЕГАНТНАЯ РАЗДЕЛИТЕЛЬНАЯ ЛИНИЯ ПОД ШАПКОЙ
+    local TopDivider = Library.Utils.Make("Frame", {
+        Size = UDim2.new(1, 0, 0, 1),
+        BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+        BorderSizePixel = 0,
+        Parent = Tab.Page
+    })
+    local DivGrad = Instance.new("UIGradient", TopDivider)
+    DivGrad.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 1),
+        NumberSequenceKeypoint.new(0.5, 0.7), -- Полупрозрачный центр
+        NumberSequenceKeypoint.new(1, 1)
+    })
+
     -- ==========================================
-    -- ДРОПДАУН И ФИКС ВЫЛЕЗАЮЩЕГО ТЕКСТА
+    -- 2. ДРОПДАУН И ФИКС ВЫЛЕЗАЮЩЕГО ТЕКСТА
     -- ==========================================
     HouseDropdown = Tab:CreateDropdown({
         Name = "Select House Schematic",
@@ -100,7 +127,7 @@ function Module:Init(Library, Window, Tab)
         end
     })
 
-    -- ТОТ САМЫЙ ХАК: Находим кнопку после того, как либа её создала, и чиним текст
+    -- Хак: Находим кнопку после того, как либа её создала, и чиним текст
     task.spawn(function()
         task.wait(0.1)
         for _, frame in ipairs(Tab.Page:GetChildren()) do
@@ -108,14 +135,14 @@ function Module:Init(Library, Window, Tab)
                 local btn = frame:FindFirstChildWhichIsA("TextButton")
                 if btn then
                     btn.TextTruncate = Enum.TextTruncate.AtEnd
-                    btn.Font = Enum.Font.GothamMedium -- Делает текст мягче и читаемее
+                    btn.Font = Enum.Font.GothamMedium
                 end
             end
         end
     end)
 
     -- ==========================================
-    -- ПРЕМИУМ КНОПКА BUILD (НЕОНОВЫЙ GHOST-СТИЛЬ)
+    -- 3. ПРЕМИУМ КНОПКА BUILD (НЕОНОВЫЙ GHOST-СТИЛЬ СО СКЕЙЛОМ)
     -- ==========================================
     local BuildContainer = Library.Utils.Make("Frame", {
         Size = UDim2.new(1, 0, 0, 42),
@@ -123,7 +150,7 @@ function Module:Init(Library, Window, Tab)
         Parent = Tab.Page
     })
 
-    -- ВЕРНУЛИ АУРУ (Свечение, которое работает на всех темах)
+    -- Неоновая Аура (Свечение)
     local Glow = Library.Utils.Make("Frame", { 
         Size = UDim2.new(1, 0, 1, 0), 
         Position = UDim2.new(0.5, 0, 0.5, 0),
@@ -139,7 +166,7 @@ function Module:Init(Library, Window, Tab)
         Parent = Glow 
     }, { Color = "Accent" })
 
-    -- Сама кнопка (Мягкий фон, сливающийся с секциями)
+    -- Сама кнопка (Фон сливается с секциями)
     local BuildBtn = Library.Utils.Make("TextButton", {
         Text = "", 
         Size = UDim2.new(1, 0, 1, 0),
@@ -149,7 +176,7 @@ function Module:Init(Library, Window, Tab)
     }, { BackgroundColor3 = "Section" }) 
     Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 8), Parent = BuildBtn })
 
-    -- ТЕКСТ КНОПКИ (GothamBold вместо Black — больше воздуха, нет ряби)
+    -- Текст (GothamBold — больше воздуха, нет ряби)
     local BuildText = Library.Utils.Make("TextLabel", {
         Text = "🔨 BUILD SELECTED HOUSE",
         Size = UDim2.new(1, 0, 1, 0),
@@ -160,7 +187,7 @@ function Module:Init(Library, Window, Tab)
         Parent = BuildBtn
     }, { TextColor3 = "Accent" }) 
 
-    -- Обводка кнопки (Стиль Ghost)
+    -- Обводка кнопки
     local EdgeStroke = Library.Utils.Make("UIStroke", { 
         Thickness = 1.5, 
         Transparency = 0.2, 
@@ -168,20 +195,29 @@ function Module:Init(Library, Window, Tab)
         Parent = BuildBtn 
     }, { Color = "Accent" })
 
+    -- UIScale для эффекта "вытягивания"
     local BuildScale = Instance.new("UIScale", BuildContainer)
 
-    -- АНИМАЦИИ: При наведении кнопка загорается неоном
+    -- Экстремальная, но плавная анимация наведения
     Library:Connect(BuildBtn.MouseEnter, function() 
-        Library.Utils.TBT(BuildBtn, 0.2, {BackgroundTransparency = 0.4}) -- Делает фон глубже
-        Library.Utils.TBT(EdgeStroke, 0.2, {Transparency = 0}) -- Обводка становится яркой
-        Library.Utils.TBT(GlowStroke, 0.3, {Thickness = 7, Transparency = 0.5}) -- Аура вспыхивает и расширяется
-        Library.Utils.TBT(BuildScale, 0.2, {Scale = 1.02}) -- Кнопка плавно тянется к мышке
+        Library.Utils.TBT(BuildBtn, 0.3, {BackgroundTransparency = 0.3}) 
+        Library.Utils.TBT(EdgeStroke, 0.3, {Transparency = 0}) 
+        
+        -- Неон плавно вытягивается далеко за пределы кнопки
+        Library.Utils.TBT(GlowStroke, 0.4, {Thickness = 12, Transparency = 0.6}, Enum.EasingStyle.Quint) 
+        
+        -- Кнопка масштабируется ПОВЕРХ интерфейса, не двигая соседей
+        Library.Utils.TBT(BuildScale, 0.3, {Scale = 1.05}, Enum.EasingStyle.Back, Enum.EasingDirection.Out) 
     end)
     Library:Connect(BuildBtn.MouseLeave, function() 
-        Library.Utils.TBT(BuildBtn, 0.2, {BackgroundTransparency = 0}) 
-        Library.Utils.TBT(EdgeStroke, 0.2, {Transparency = 0.2})
-        Library.Utils.TBT(GlowStroke, 0.3, {Thickness = 4, Transparency = 0.85})
-        Library.Utils.TBT(BuildScale, 0.2, {Scale = 1})
+        Library.Utils.TBT(BuildBtn, 0.3, {BackgroundTransparency = 0}) 
+        Library.Utils.TBT(EdgeStroke, 0.3, {Transparency = 0.2})
+        
+        -- Неон сжимается обратно
+        Library.Utils.TBT(GlowStroke, 0.4, {Thickness = 4, Transparency = 0.85}, Enum.EasingStyle.Quint)
+        
+        -- Возврат к нормальному размеру
+        Library.Utils.TBT(BuildScale, 0.3, {Scale = 1}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
     end)
     
     -- Логика нажатия
@@ -190,7 +226,6 @@ function Module:Init(Library, Window, Tab)
         t.Completed:Connect(function() Library.Utils.TBT(BuildScale, 0.2, {Scale = 1}, Enum.EasingStyle.Bounce) end)
         
         if not SelectedHouse or SelectedHouse == "" then
-
             return Library:Notify("Ошибка", "Сначала выбери дом в меню!", 3)
         end
         
@@ -344,8 +379,10 @@ function Module:Init(Library, Window, Tab)
     end)
 
     -- ==========================================
-    -- РЕПЛИКАТОР (НАСТРОЙКИ)
+    -- 4. РЕПЛИКАТОР (НАСТРОЙКИ)
     -- ==========================================
+    
+    -- Визуальный разделитель
     Tab:CreateDivider({ Text = "Configuration" })
     
     Tab:CreateSection({ Name = "⚙️ Replicator Settings" })
