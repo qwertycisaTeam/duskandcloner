@@ -57,6 +57,7 @@ function Module:Init(Library, Window, Tab)
     self.Tab = Tab
     self.ActiveDropdown = nil 
     self.ActiveFileMenu = nil
+    self.ClickCatcher = nil -- Добавили глобальный ловец кликов
 
     -- 1. АДАПТИВНАЯ ШАПКА И РЕФРЕШ
     local HeaderPanel = Library.Utils.Make("Frame", { 
@@ -290,6 +291,10 @@ function Module:RefreshList()
         self.ActiveDropdown = nil 
         self.ActiveFileMenu = nil
     end
+    if self.ClickCatcher then
+        self.ClickCatcher:Destroy()
+        self.ClickCatcher = nil
+    end
 
     for _, child in ipairs(self.ListContainer:GetChildren()) do
         if child:IsA("TextButton") and child.LayoutOrder ~= -1 then 
@@ -352,50 +357,90 @@ function Module:CreateFileCard(fileName)
     Library:Connect(OptionsBtn.MouseEnter, function() Library.Utils.TBT(OptionsBtn, 0.15, {BackgroundColor3 = Library.CurrentTheme.Section, TextColor3 = Library.CurrentTheme.Accent}); Library.Utils.TBT(OptStroke, 0.15, {Transparency = 0}) end)
     Library:Connect(OptionsBtn.MouseLeave, function() Library.Utils.TBT(OptionsBtn, 0.15, {BackgroundColor3 = Library.CurrentTheme.Sidebar, TextColor3 = Library.CurrentTheme.SubText}); Library.Utils.TBT(OptStroke, 0.15, {Transparency = 0.5}) end)
 
-    local function CreateDropdown()
-        if self.ActiveDropdown then 
-            self.ActiveDropdown:Destroy() 
-            self.ActiveDropdown = nil 
+    local function CloseDropdown()
+        if self.ActiveDropdown then
+            local drop = self.ActiveDropdown
+            local closeTween = Library.Utils.TBT(drop:FindFirstChild("UIScale"), 0.15, {Scale = 0.8})
+            Library.Utils.TBT(drop, 0.15, {BackgroundTransparency = 1})
+            
+            if drop:FindFirstChild("DropShadow") then Library.Utils.TBT(drop.DropShadow, 0.15, {ImageTransparency = 1}) end
+            if drop:FindFirstChild("DropStroke") then Library.Utils.TBT(drop.DropStroke, 0.15, {Transparency = 1}) end
+            
+            for _, child in ipairs(drop.Content:GetChildren()) do
+                if child:IsA("TextButton") then 
+                    Library.Utils.TBT(child, 0.15, {BackgroundTransparency = 1})
+                    for _, d in ipairs(child:GetChildren()) do
+                        if d:IsA("TextLabel") then Library.Utils.TBT(d, 0.15, {TextTransparency = 1}) end
+                        if d:IsA("ImageLabel") then Library.Utils.TBT(d, 0.15, {ImageTransparency = 1}) end
+                    end
+                end
+            end
+            
+            closeTween.Completed:Connect(function()
+                drop:Destroy()
+            end)
+            self.ActiveDropdown = nil
+            self.ActiveFileMenu = nil
         end
+        if self.ClickCatcher then
+            self.ClickCatcher:Destroy()
+            self.ClickCatcher = nil
+        end
+    end
+
+    local function CreateDropdown()
+        if self.ActiveDropdown then CloseDropdown() end
 
         local MainGUI = Card:FindFirstAncestorWhichIsA("ScreenGui")
 
+        -- Click Catcher для закрытия по клику вне меню
+        self.ClickCatcher = Library.Utils.Make("TextButton", {
+            Size = UDim2.new(10, 0, 10, 0),
+            Position = UDim2.new(0.5, 0, 0.5, 0),
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            BackgroundTransparency = 1,
+            Text = "",
+            ZIndex = 998,
+            Parent = MainGUI or Card
+        })
+        Library:Connect(self.ClickCatcher.MouseButton1Click, CloseDropdown)
+
         local Dropdown = Library.Utils.Make("Frame", { 
-            Size = UDim2.new(0, 160, 0, 140),
+            Size = UDim2.new(0, 160, 0, 152),
+            BackgroundTransparency = 1, -- Старт невидимым
             ZIndex = 1000, 
             Parent = MainGUI or Card 
         }, { BackgroundColor3 = "Sidebar" })
         Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 8), Parent = Dropdown })
-        Library.Utils.Make("UIStroke", { Thickness = 1, Transparency = 0.2, Parent = Dropdown }, { Color = "Stroke" })
+        local dropStroke = Library.Utils.Make("UIStroke", { Name = "DropStroke", Thickness = 1, Transparency = 1, Parent = Dropdown }, { Color = "Stroke" })
         
+        -- Выпадаем вправо и вниз от кнопки "..."
         if MainGUI then
             local pos = OptionsBtn.AbsolutePosition
             local size = OptionsBtn.AbsoluteSize
-            Dropdown.Position = UDim2.new(0, pos.X + size.X - 160, 0, pos.Y + size.Y + 6)
+            Dropdown.Position = UDim2.new(0, pos.X, 0, pos.Y + size.Y + 6)
         else
-            Dropdown.AnchorPoint = Vector2.new(1, 0)
-            Dropdown.Position = UDim2.new(1, -12, 1, 6)
+            Dropdown.AnchorPoint = Vector2.new(0, 0)
+            Dropdown.Position = UDim2.new(1, -34, 1, 6)
         end
 
         local scrollConn
         if MainGUI then
             scrollConn = Card:GetPropertyChangedSignal("AbsolutePosition"):Connect(function()
-                if self.ActiveDropdown == Dropdown then
-                    Dropdown:Destroy()
-                    self.ActiveDropdown = nil
-                    if scrollConn then scrollConn:Disconnect() end
-                end
+                CloseDropdown()
+                if scrollConn then scrollConn:Disconnect() end
             end)
         end
 
         local Shadow = Library.Utils.Make("ImageLabel", {
+            Name = "DropShadow",
             Size = UDim2.new(1, 40, 1, 40),
             Position = UDim2.new(0.5, 0, 0.5, 4),
             AnchorPoint = Vector2.new(0.5, 0.5),
             BackgroundTransparency = 1,
             Image = "rbxassetid://13192800046",
             ImageColor3 = Color3.new(0, 0, 0),
-            ImageTransparency = 0.7,
+            ImageTransparency = 1, -- Старт невидимым
             ScaleType = Enum.ScaleType.Slice,
             SliceCenter = Rect.new(20, 20, 280, 280),
             ZIndex = 999, 
@@ -403,6 +448,7 @@ function Module:CreateFileCard(fileName)
         })
 
         local Content = Library.Utils.Make("Frame", {
+            Name = "Content",
             Size = UDim2.new(1, 0, 1, 0),
             BackgroundTransparency = 1,
             ZIndex = 1001,
@@ -416,9 +462,14 @@ function Module:CreateFileCard(fileName)
 
         local dropScale = Instance.new("UIScale", Dropdown)
         dropScale.Scale = 0.8
-        Library.Utils.TBT(dropScale, 0.2, {Scale = 1}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
         
-        local function AddAction(title, iconId, baseColorKey, hoverColorKey, callback)
+        -- Анимация появления
+        Library.Utils.TBT(dropScale, 0.25, {Scale = 1}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+        Library.Utils.TBT(Dropdown, 0.15, {BackgroundTransparency = 0})
+        Library.Utils.TBT(dropStroke, 0.15, {Transparency = 0.2})
+        Library.Utils.TBT(Shadow, 0.2, {ImageTransparency = 0.6})
+        
+        local function AddAction(title, iconId, baseColorKey, hoverColorKey, isDelete, callback)
             local btn = Library.Utils.Make("TextButton", { 
                 Text = "", Size = UDim2.new(1, 0, 0, 29), BackgroundTransparency = 1, ZIndex = 1002, AutoButtonColor = false, Parent = Content 
             })
@@ -426,49 +477,71 @@ function Module:CreateFileCard(fileName)
 
             local Icon = Library.Utils.Make("ImageLabel", {
                 Size = UDim2.new(0, 16, 0, 16), AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 8, 0.5, 0),
-                BackgroundTransparency = 1, Image = iconId, ZIndex = 1003, Parent = btn
+                BackgroundTransparency = 1, Image = iconId, ImageTransparency = 1, ZIndex = 1003, Parent = btn
             }, { ImageColor3 = baseColorKey })
 
             local TextLbl = Library.Utils.Make("TextLabel", {
                 Text = title, Size = UDim2.new(1, -34, 1, 0), Position = UDim2.new(0, 34, 0, 0),
-                BackgroundTransparency = 1, Font = Enum.Font.GothamMedium, TextSize = 13,
+                BackgroundTransparency = 1, Font = Enum.Font.GothamMedium, TextSize = 13, TextTransparency = 1,
                 TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 1003, Parent = btn
             }, { TextColor3 = baseColorKey })
 
+            -- Плавное проявление контента внутри меню
+            Library.Utils.TBT(Icon, 0.15, {ImageTransparency = 0})
+            Library.Utils.TBT(TextLbl, 0.15, {TextTransparency = 0})
+
+            -- Логика для кнопки Delete (двойное нажатие + всегда красная)
+            local isConfirming = false
+            
             Library:Connect(btn.MouseEnter, function() 
-                Library.Utils.TBT(btn, 0.15, {BackgroundTransparency = 0.85}, Enum.EasingStyle.Quint) 
-                Library.Utils.TBT(TextLbl, 0.15, {TextColor3 = Library.CurrentTheme[hoverColorKey]}, Enum.EasingStyle.Quint)
-                Library.Utils.TBT(Icon, 0.15, {ImageColor3 = Library.CurrentTheme[hoverColorKey]}, Enum.EasingStyle.Quint)
+                if isDelete then
+                    Library.Utils.TBT(btn, 0.15, {BackgroundTransparency = 0.85}, Enum.EasingStyle.Quint)
+                else
+                    Library.Utils.TBT(btn, 0.15, {BackgroundTransparency = 0.85}, Enum.EasingStyle.Quint) 
+                    Library.Utils.TBT(TextLbl, 0.15, {TextColor3 = Library.CurrentTheme[hoverColorKey]}, Enum.EasingStyle.Quint)
+                    Library.Utils.TBT(Icon, 0.15, {ImageColor3 = Library.CurrentTheme[hoverColorKey]}, Enum.EasingStyle.Quint)
+                end
             end)
+            
             Library:Connect(btn.MouseLeave, function() 
                 Library.Utils.TBT(btn, 0.15, {BackgroundTransparency = 1}, Enum.EasingStyle.Quint) 
-                Library.Utils.TBT(TextLbl, 0.15, {TextColor3 = Library.CurrentTheme[baseColorKey]}, Enum.EasingStyle.Quint)
-                Library.Utils.TBT(Icon, 0.15, {ImageColor3 = Library.CurrentTheme[baseColorKey]}, Enum.EasingStyle.Quint)
+                if not isDelete then
+                    Library.Utils.TBT(TextLbl, 0.15, {TextColor3 = Library.CurrentTheme[baseColorKey]}, Enum.EasingStyle.Quint)
+                    Library.Utils.TBT(Icon, 0.15, {ImageColor3 = Library.CurrentTheme[baseColorKey]}, Enum.EasingStyle.Quint)
+                end
             end)
 
             Library:Connect(btn.MouseButton1Click, function() 
-                local closeTween = Library.Utils.TBT(dropScale, 0.15, {Scale = 0.8})
-                Library.Utils.TBT(Dropdown, 0.15, {BackgroundTransparency = 1})
-                Library.Utils.TBT(Shadow, 0.15, {ImageTransparency = 1})
-                for _, child in ipairs(Content:GetChildren()) do
-                    if child:IsA("TextButton") then Library.Utils.TBT(child, 0.15, {BackgroundTransparency = 1}) end
-                end
-                closeTween.Completed:Connect(function()
-                    if scrollConn then scrollConn:Disconnect() end
-                    if self.ActiveDropdown == Dropdown then
-                        Dropdown:Destroy()
-                        self.ActiveDropdown = nil
-                        self.ActiveFileMenu = nil
+                if isDelete then
+                    if not isConfirming then
+                        isConfirming = true
+                        TextLbl.Text = "Are you sure?"
+                        task.delay(3, function()
+                            if isConfirming and TextLbl then
+                                isConfirming = false
+                                TextLbl.Text = title
+                            end
+                        end)
+                        return -- Не закрываем меню
                     end
-                end)
-                pcall(callback) 
+                end
+                
+                -- Выполняем действие и закрываем
+                pcall(callback)
+                CloseDropdown()
             end)
         end
 
-        AddAction("Rename", "rbxassetid://10709772863", "SubText", "Text", function() TitleLbl.Visible = false; RenameBox.Visible = true; RenameBox.Text = fileName; RenameBox:CaptureFocus() end)
-        AddAction("Duplicate", "rbxassetid://10709772421", "SubText", "Text", function() local data = self:LoadHouse(fileName); if data then self:SaveHouse(fileName .. "_copy", data); self:RefreshList(); Library:Notify("File Manager", "Duplicated: " .. fileName, 2) end end)
-        AddAction("Copy Code", "rbxassetid://10709771146", "SubText", "Accent", function() local data = self:LoadHouse(fileName); if data and setclipboard then setclipboard(HttpService:JSONEncode(data)); Library:Notify("Copied", "JSON code copied to clipboard!", 2) end end)
-        AddAction("Delete File", "rbxassetid://10709771804", "SubText", "Red", function() self:DeleteHouse(fileName); self:RefreshList(); Library:Notify("Deleted", fileName .. " has been removed.", 2) end)
+        AddAction("Rename", "rbxassetid://10709772863", "SubText", "Text", false, function() TitleLbl.Visible = false; RenameBox.Visible = true; RenameBox.Text = fileName; RenameBox:CaptureFocus() end)
+        AddAction("Duplicate", "rbxassetid://10709772421", "SubText", "Text", false, function() local data = self:LoadHouse(fileName); if data then self:SaveHouse(fileName .. "_copy", data); self:RefreshList(); Library:Notify("File Manager", "Duplicated: " .. fileName, 2) end end)
+        AddAction("Copy Code", "rbxassetid://10709771146", "SubText", "Accent", false, function() local data = self:LoadHouse(fileName); if data and setclipboard then setclipboard(HttpService:JSONEncode(data)); Library:Notify("Copied", "JSON code copied to clipboard!", 2) end end)
+        
+        -- Разделительная полоса перед Delete
+        local div = Library.Utils.Make("Frame", { Size = UDim2.new(1, -12, 0, 1), Position = UDim2.new(0, 6, 0, 0), BackgroundTransparency = 0.8, ZIndex = 1002, Parent = Content }, { BackgroundColor3 = "Stroke" })
+        Library.Utils.TBT(div, 0.15, {BackgroundTransparency = 0.8}) -- анимка
+        
+        -- Delete всегда красный
+        AddAction("Delete File", "rbxassetid://10709771804", "Red", "Red", true, function() self:DeleteHouse(fileName); self:RefreshList(); Library:Notify("Deleted", fileName .. " has been removed.", 2) end)
     end
 
     Library:Connect(OptionsBtn.MouseButton1Click, function()
@@ -476,9 +549,7 @@ function Module:CreateFileCard(fileName)
         task.delay(0.1, function() Library.Utils.TBT(OptionsBtn, 0.2, {BackgroundTransparency = 0}) end)
         
         if self.ActiveFileMenu == fileName and self.ActiveDropdown then 
-            self.ActiveDropdown:Destroy()
-            self.ActiveDropdown = nil 
-            self.ActiveFileMenu = nil
+            CloseDropdown()
         else 
             CreateDropdown() 
         end
