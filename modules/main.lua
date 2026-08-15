@@ -31,41 +31,24 @@ function Module:Init(Library, Window, Tab)
     local HouseDropdown 
 
     -- ==========================================
-    -- ШАПКА И РЕФРЕШ (Текст Auto-Builder удален)
+    -- ШАПКА И РЕФРЕШ
     -- ==========================================
     local SectionContainer = Library.Utils.Make("Frame", {
         Size = UDim2.new(1, 0, 0, 26),
         BackgroundTransparency = 1,
         Parent = Tab.Page
     })
-    
-    Library:Connect(RefreshBtn.MouseButton1Click, function()
-        local t = Library.Utils.TBT(refScale, 0.1, {Scale = 0.9})
-        t.Completed:Connect(function() Library.Utils.TBT(refScale, 0.2, {Scale = 1}, Enum.EasingStyle.Bounce) end)
-        Library.Utils.TBT(RefIcon, 0.5, {Rotation = 360}); task.delay(0.5, function() RefIcon.Rotation = 0 end)
-        
-        if HouseDropdown then
-            local newList = GetSavedHouses()
-            
-            -- [ФИКС]: Принудительно перезаписываем внутреннюю таблицу библиотеки
-            HouseDropdown.Options = newList 
-            
-            -- Пробуем разные методы обновления, чтобы точно пробило твою UI-либу
-            if type(HouseDropdown.Refresh) == "function" then
-                -- Второй аргумент (true) в некоторых либах запрещает сброс текущего выбора
-                pcall(function() HouseDropdown:Refresh(newList, true) end)
-            elseif type(HouseDropdown.SetValues) == "function" then
-                pcall(function() HouseDropdown:SetValues(newList) end)
-            elseif type(HouseDropdown.SetOptions) == "function" then
-                pcall(function() HouseDropdown:SetOptions(newList) end)
-            end
-            
-            -- Зануляем выбранный дом, чтобы не было фантомных построек
-            SelectedHouse = nil 
-        end
-        
-        Library:Notify("Builder", "Список домов успешно обновлен!", 2)
-    end)
+
+    -- 1. ВОССТАНАВЛИВАЕМ КНОПКУ, КОТОРУЮ ТЫ СЛУЧАЙНО УДАЛИЛ!
+    local RefreshBtn = Library.Utils.Make("TextButton", {
+        Size = UDim2.new(0, 26, 0, 26),
+        Position = UDim2.new(1, -26, 0, 0), -- Прижимаем вправо
+        Text = "",
+        AutoButtonColor = false,
+        Parent = SectionContainer
+    }, { BackgroundColor3 = "Sidebar" })
+    Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 6), Parent = RefreshBtn })
+
     local RefStroke = Library.Utils.Make("UIStroke", { Thickness = 1, Transparency = 0.5, Parent = RefreshBtn }, { Color = "Stroke" })
     
     local RefIcon = Library.Utils.Make("ImageLabel", {
@@ -79,6 +62,7 @@ function Module:Init(Library, Window, Tab)
     
     local refScale = Instance.new("UIScale", RefreshBtn)
     
+    -- Анимации наведения
     Library:Connect(RefreshBtn.MouseEnter, function() 
         Library.Utils.TBT(RefStroke, 0.2, {Transparency = 0})
         Library.Utils.TBT(RefreshBtn, 0.2, {BackgroundColor3 = Library.CurrentTheme.Section})
@@ -88,17 +72,30 @@ function Module:Init(Library, Window, Tab)
         Library.Utils.TBT(RefreshBtn, 0.2, {BackgroundColor3 = Library.CurrentTheme.Sidebar})
     end)
     
+    -- 2. ОСТАВЛЯЕМ ТОЛЬКО ОДИН ПРАВИЛЬНЫЙ КЛИК
     Library:Connect(RefreshBtn.MouseButton1Click, function()
         local t = Library.Utils.TBT(refScale, 0.1, {Scale = 0.9})
         t.Completed:Connect(function() Library.Utils.TBT(refScale, 0.2, {Scale = 1}, Enum.EasingStyle.Bounce) end)
         Library.Utils.TBT(RefIcon, 0.5, {Rotation = 360}); task.delay(0.5, function() RefIcon.Rotation = 0 end)
         
-        if HouseDropdown and HouseDropdown.Refresh then
-            HouseDropdown:Refresh(GetSavedHouses())
+        if HouseDropdown and type(HouseDropdown.Refresh) == "function" then
+            local newList = GetSavedHouses()
+            
+            -- [ФИКС]: Используем ТОЧКУ (.), а не двоеточие (:), так как библиотека не использует self
+            HouseDropdown.Refresh(newList)
+            
+            -- Опционально: сбрасываем текст на кнопке дропдауна
+            if type(HouseDropdown.SetValue) == "function" then
+                HouseDropdown.SetValue("Select...")
+            end
+            
+            SelectedHouse = nil 
         end
-        Library:Notify("Builder", "List of saved houses updated!", 2)
+        
+        Library:Notify("Builder", "Список домов успешно обновлен!", 2)
     end)
 
+    -- 3. СОЗДАНИЕ ДРОПДАУНА
     HouseDropdown = Tab:CreateDropdown({
         Name = "Select House Schematic",
         Options = GetSavedHouses(),
