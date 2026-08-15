@@ -57,7 +57,7 @@ function Module:Init(Library, Window, Tab)
     self.Tab = Tab
     self.ActiveDropdown = nil 
     self.ActiveFileMenu = nil
-    self.ClickCatcher = nil -- Добавили глобальный ловец кликов
+    self.ClickCatcher = nil
 
     -- 1. АДАПТИВНАЯ ШАПКА И РЕФРЕШ
     local HeaderPanel = Library.Utils.Make("Frame", { 
@@ -214,11 +214,16 @@ function Module:Init(Library, Window, Tab)
             local TARGET_OWNER = Players.LocalPlayer.Name 
             local targetData = data[TARGET_OWNER]
             
-            if not targetData or not targetData.house_interior then
-                return Library:Notify("Ошибка", "Данные интерьера не найдены. Вы точно в доме?", 3)
+            if not targetData then
+                return Library:Notify("Ошибка", "Данные игрока не найдены!", 3)
             end
             
-            local rawFurniture = targetData.house_interior.furniture or {}
+            -- Проверка на то, находится ли игрок в доме
+            if not targetData.house_interior or not targetData.house_interior.furniture then
+                return Library:Notify("Ошибка", "Сначала зайди в дом, чтобы скопировать интерьер!", 4)
+            end
+            
+            local rawFurniture = targetData.house_interior.furniture
             local parsedFurniture = {}
             local count = 0
             
@@ -393,7 +398,6 @@ function Module:CreateFileCard(fileName)
 
         local MainGUI = Card:FindFirstAncestorWhichIsA("ScreenGui")
 
-        -- Click Catcher для закрытия по клику вне меню
         self.ClickCatcher = Library.Utils.Make("TextButton", {
             Size = UDim2.new(10, 0, 10, 0),
             Position = UDim2.new(0.5, 0, 0.5, 0),
@@ -407,14 +411,13 @@ function Module:CreateFileCard(fileName)
 
         local Dropdown = Library.Utils.Make("Frame", { 
             Size = UDim2.new(0, 160, 0, 152),
-            BackgroundTransparency = 1, -- Старт невидимым
+            BackgroundTransparency = 1,
             ZIndex = 1000, 
             Parent = MainGUI or Card 
         }, { BackgroundColor3 = "Sidebar" })
         Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 8), Parent = Dropdown })
         local dropStroke = Library.Utils.Make("UIStroke", { Name = "DropStroke", Thickness = 1, Transparency = 1, Parent = Dropdown }, { Color = "Stroke" })
         
-        -- Выпадаем вправо и вниз от кнопки "..."
         if MainGUI then
             local pos = OptionsBtn.AbsolutePosition
             local size = OptionsBtn.AbsoluteSize
@@ -440,7 +443,7 @@ function Module:CreateFileCard(fileName)
             BackgroundTransparency = 1,
             Image = "rbxassetid://13192800046",
             ImageColor3 = Color3.new(0, 0, 0),
-            ImageTransparency = 1, -- Старт невидимым
+            ImageTransparency = 1,
             ScaleType = Enum.ScaleType.Slice,
             SliceCenter = Rect.new(20, 20, 280, 280),
             ZIndex = 999, 
@@ -463,7 +466,6 @@ function Module:CreateFileCard(fileName)
         local dropScale = Instance.new("UIScale", Dropdown)
         dropScale.Scale = 0.8
         
-        -- Анимация появления
         Library.Utils.TBT(dropScale, 0.25, {Scale = 1}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
         Library.Utils.TBT(Dropdown, 0.15, {BackgroundTransparency = 0})
         Library.Utils.TBT(dropStroke, 0.15, {Transparency = 0.2})
@@ -486,11 +488,9 @@ function Module:CreateFileCard(fileName)
                 TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 1003, Parent = btn
             }, { TextColor3 = baseColorKey })
 
-            -- Плавное проявление контента внутри меню
             Library.Utils.TBT(Icon, 0.15, {ImageTransparency = 0})
             Library.Utils.TBT(TextLbl, 0.15, {TextTransparency = 0})
 
-            -- Логика для кнопки Delete (двойное нажатие + всегда красная)
             local isConfirming = false
             
             Library:Connect(btn.MouseEnter, function() 
@@ -522,11 +522,9 @@ function Module:CreateFileCard(fileName)
                                 TextLbl.Text = title
                             end
                         end)
-                        return -- Не закрываем меню
+                        return
                     end
                 end
-                
-                -- Выполняем действие и закрываем
                 pcall(callback)
                 CloseDropdown()
             end)
@@ -536,11 +534,9 @@ function Module:CreateFileCard(fileName)
         AddAction("Duplicate", "rbxassetid://10709772421", "SubText", "Text", false, function() local data = self:LoadHouse(fileName); if data then self:SaveHouse(fileName .. "_copy", data); self:RefreshList(); Library:Notify("File Manager", "Duplicated: " .. fileName, 2) end end)
         AddAction("Copy Code", "rbxassetid://10709771146", "SubText", "Accent", false, function() local data = self:LoadHouse(fileName); if data and setclipboard then setclipboard(HttpService:JSONEncode(data)); Library:Notify("Copied", "JSON code copied to clipboard!", 2) end end)
         
-        -- Разделительная полоса перед Delete
         local div = Library.Utils.Make("Frame", { Size = UDim2.new(1, -12, 0, 1), Position = UDim2.new(0, 6, 0, 0), BackgroundTransparency = 0.8, ZIndex = 1002, Parent = Content }, { BackgroundColor3 = "Stroke" })
-        Library.Utils.TBT(div, 0.15, {BackgroundTransparency = 0.8}) -- анимка
+        Library.Utils.TBT(div, 0.15, {BackgroundTransparency = 0.8})
         
-        -- Delete всегда красный
         AddAction("Delete File", "rbxassetid://10709771804", "Red", "Red", true, function() self:DeleteHouse(fileName); self:RefreshList(); Library:Notify("Deleted", fileName .. " has been removed.", 2) end)
     end
 
