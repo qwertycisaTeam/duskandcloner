@@ -76,7 +76,7 @@ function Module:Init(Library, Window, Tab)
         TextSize = 14, 
         TextXAlignment = Enum.TextXAlignment.Left, 
         Parent = HeaderPanel
-    }, { TextColor3 = "Text" }) -- Адаптивный цвет
+    }, { TextColor3 = "Text" })
 
     local RefreshBtn = Library.Utils.Make("TextButton", { 
         Size = UDim2.new(0, 26, 0, 26), 
@@ -87,9 +87,9 @@ function Module:Init(Library, Window, Tab)
         Parent = HeaderPanel 
     }, { BackgroundColor3 = "Sidebar" })
     Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 6), Parent = RefreshBtn })
+    
     local RefStroke = Library.Utils.Make("UIStroke", { Thickness = 1, Transparency = 0.5, Parent = RefreshBtn }, { Color = "Stroke" })
 
-    -- НОВАЯ ИКОНКА РЕФРЕША (Как в билдере)
     local RefIcon = Library.Utils.Make("ImageLabel", { 
         Size = UDim2.new(0, 16, 0, 16), 
         AnchorPoint = Vector2.new(0.5, 0.5),
@@ -97,20 +97,29 @@ function Module:Init(Library, Window, Tab)
         BackgroundTransparency = 1, 
         Image = "rbxassetid://6723921202", 
         Parent = RefreshBtn 
-    }, { ImageColor3 = "Text" })
+    }, { ImageColor3 = "SubText" })
 
     local refScale = Instance.new("UIScale", RefreshBtn)
 
-    Library:Connect(RefreshBtn.MouseEnter, function() Library.Utils.TBT(RefStroke, 0.2, {Transparency = 0}); Library.Utils.TBT(RefreshBtn, 0.2, {BackgroundColor3 = Library.CurrentTheme.Section}) end)
-    Library:Connect(RefreshBtn.MouseLeave, function() Library.Utils.TBT(RefStroke, 0.2, {Transparency = 0.5}); Library.Utils.TBT(RefreshBtn, 0.2, {BackgroundColor3 = Library.CurrentTheme.Sidebar}) end)
+    Library:Connect(RefreshBtn.MouseEnter, function() 
+        Library.Utils.TBT(RefStroke, 0.2, {Transparency = 0})
+        Library.Utils.TBT(RefreshBtn, 0.2, {BackgroundColor3 = Library.CurrentTheme.Section})
+        Library.Utils.TBT(RefIcon, 0.2, {ImageColor3 = Library.CurrentTheme.Accent})
+    end)
+    Library:Connect(RefreshBtn.MouseLeave, function() 
+        Library.Utils.TBT(RefStroke, 0.2, {Transparency = 0.5})
+        Library.Utils.TBT(RefreshBtn, 0.2, {BackgroundColor3 = Library.CurrentTheme.Sidebar})
+        Library.Utils.TBT(RefIcon, 0.2, {ImageColor3 = Library.CurrentTheme.SubText})
+    end)
+    
     Library:Connect(RefreshBtn.MouseButton1Click, function()
         local t = Library.Utils.TBT(refScale, 0.1, {Scale = 0.9})
         t.Completed:Connect(function() Library.Utils.TBT(refScale, 0.2, {Scale = 1}, Enum.EasingStyle.Bounce) end)
         Library.Utils.TBT(RefIcon, 0.5, {Rotation = 360}); task.delay(0.5, function() RefIcon.Rotation = 0 end)
+        
         self:RefreshList()
     end)
 
-    -- ЭЛЕГАНТНАЯ РАЗДЕЛИТЕЛЬНАЯ ЛИНИЯ ПОД ШАПКОЙ
     local TopDivider = Library.Utils.Make("Frame", {
         Size = UDim2.new(1, 0, 0, 1),
         BorderSizePixel = 0,
@@ -124,7 +133,9 @@ function Module:Init(Library, Window, Tab)
         NumberSequenceKeypoint.new(1, 1)
     })
 
+    -- ==========================================
     -- 2. КОНТЕЙНЕР ДЛЯ КНОПОК И ФАЙЛОВ
+    -- ==========================================
     self.ListContainer = Library.Utils.Make("Frame", { Size = UDim2.new(1, -20, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, Parent = Tab.Page })
     Library.Utils.Make("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder, Parent = self.ListContainer })
 
@@ -138,7 +149,6 @@ function Module:Init(Library, Window, Tab)
         Parent = self.ListContainer
     })
 
-    -- Неоновая Аура (Свечение)
     local ParseGlow = Library.Utils.Make("Frame", { 
         Size = UDim2.new(1, 0, 1, 0), 
         Position = UDim2.new(0.5, 0, 0.5, 0),
@@ -154,7 +164,6 @@ function Module:Init(Library, Window, Tab)
         Parent = ParseGlow 
     }, { Color = "Accent" })
 
-    -- Сама кнопка (Фон сливается с секциями)
     local ParseBtn = Library.Utils.Make("TextButton", {
         Text = "", 
         Size = UDim2.new(1, 0, 1, 0),
@@ -164,7 +173,6 @@ function Module:Init(Library, Window, Tab)
     }, { BackgroundColor3 = "Section" }) 
     Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 8), Parent = ParseBtn })
 
-    -- Текст 
     local ParseText = Library.Utils.Make("TextLabel", {
         Text = "💾 EXPORT CURRENT INTERIOR",
         Size = UDim2.new(1, 0, 1, 0),
@@ -175,7 +183,6 @@ function Module:Init(Library, Window, Tab)
         Parent = ParseBtn
     }, { TextColor3 = "Accent" }) 
 
-    -- Обводка кнопки
     local ParseEdgeStroke = Library.Utils.Make("UIStroke", { 
         Thickness = 1.5, 
         Transparency = 0.2, 
@@ -183,10 +190,8 @@ function Module:Init(Library, Window, Tab)
         Parent = ParseBtn 
     }, { Color = "Accent" })
 
-    -- UIScale для эффекта "вытягивания"
     local ParseScale = Instance.new("UIScale", ParseContainer)
 
-    -- Анимация наведения (Точно как в Билдере)
     Library:Connect(ParseBtn.MouseEnter, function() 
         Library.Utils.TBT(ParseBtn, 0.3, {BackgroundTransparency = 0.3}) 
         Library.Utils.TBT(ParseEdgeStroke, 0.3, {Transparency = 0}) 
@@ -335,22 +340,17 @@ function Module:CreateFileCard(fileName)
     }, { TextColor3 = "Accent" })
     Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 4), Parent = RenameBox })
 
-    -- ВАЖНО: Плавный ограничитель ввода в реальном времени + UTF8 + Фильтр символов
     local lastValidText = fileName
     
     RenameBox:GetPropertyChangedSignal("Text"):Connect(function()
         local currentText = RenameBox.Text
-        
-        -- 1. Вырезаем запрещенные символы ОС + все спецсимволы (оставляем буквы, цифры, пробелы)
         local filteredText = currentText:gsub('[<>:"/\\|?*!@#$%%^&()+=%[%]{};\'.,`~№]', "")
         
-        -- Если юзер ввел запрещенный символ, заменяем текст на отфильтрованный
         if currentText ~= filteredText then
             RenameBox.Text = filteredText
-            return -- Выходим, скрипт сам запустит это событие заново с новым текстом
+            return 
         end
 
-        -- 2. Считаем длину правильно (в символах, а не байтах)
         local length = utf8.len(filteredText)
         
         if not length or length > 28 then
@@ -376,24 +376,101 @@ function Module:CreateFileCard(fileName)
     local function CreateDropdown()
         if self.ActiveDropdown then self.ActiveDropdown:Destroy() end
 
-        local Dropdown = Library.Utils.Make("Frame", { Size = UDim2.new(0, 140, 0, 120), AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -10, 1, 5), ZIndex = 50, Parent = Card }, { BackgroundColor3 = "Sidebar" })
-        Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 6), Parent = Dropdown })
-        Library.Utils.Make("UIStroke", { Thickness = 1, Parent = Dropdown }, { Color = "Stroke" })
-        Library.Utils.Make("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder, Parent = Dropdown })
+        local Dropdown = Library.Utils.Make("Frame", { 
+            Size = UDim2.new(0, 150, 0, 0),
+            AutomaticSize = Enum.AutomaticSize.Y,
+            AnchorPoint = Vector2.new(1, 0), 
+            Position = UDim2.new(1, -10, 1, 5), 
+            ZIndex = 50, 
+            ClipsDescendants = true,
+            Parent = Card 
+        }, { BackgroundColor3 = "Sidebar" })
+        Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 8), Parent = Dropdown })
+        Library.Utils.Make("UIStroke", { Thickness = 1, Transparency = 0.3, Parent = Dropdown }, { Color = "Stroke" })
+        
+        Library.Utils.Make("UIPadding", {
+            PaddingTop = UDim.new(0, 6),
+            PaddingBottom = UDim.new(0, 6),
+            PaddingLeft = UDim.new(0, 6),
+            PaddingRight = UDim.new(0, 6),
+            Parent = Dropdown
+        })
+        Library.Utils.Make("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 2), Parent = Dropdown })
         
         self.ActiveDropdown = Dropdown
 
-        local function AddAction(text, colorKey, callback)
-            local btn = Library.Utils.Make("TextButton", { Text = "  " .. text, Size = UDim2.new(1, 0, 0, 30), BackgroundTransparency = 1, Font = Enum.Font.GothamMedium, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 51, Parent = Dropdown }, { TextColor3 = colorKey })
-            Library:Connect(btn.MouseEnter, function() Library.Utils.TBT(btn, 0.15, {BackgroundTransparency = 0.9}) end)
-            Library:Connect(btn.MouseLeave, function() Library.Utils.TBT(btn, 0.15, {BackgroundTransparency = 1}) end)
-            Library:Connect(btn.MouseButton1Click, function() Dropdown:Destroy(); self.ActiveDropdown = nil; pcall(callback) end)
+        local dropScale = Instance.new("UIScale", Dropdown)
+        dropScale.Scale = 0.8
+        Library.Utils.TBT(dropScale, 0.25, {Scale = 1}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+        
+        local function AddAction(title, iconId, colorKey, hoverColorKey, callback)
+            local btn = Library.Utils.Make("TextButton", { 
+                Text = "", 
+                Size = UDim2.new(1, 0, 0, 32), 
+                BackgroundTransparency = 1, 
+                ZIndex = 51, 
+                AutoButtonColor = false,
+                Parent = Dropdown 
+            })
+            Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 6), Parent = btn })
+
+            local Icon = Library.Utils.Make("ImageLabel", {
+                Size = UDim2.new(0, 16, 0, 16),
+                AnchorPoint = Vector2.new(0, 0.5),
+                Position = UDim2.new(0, 8, 0.5, 0),
+                BackgroundTransparency = 1,
+                Image = iconId,
+                ZIndex = 52,
+                Parent = btn
+            }, { ImageColor3 = colorKey })
+
+            local TextLbl = Library.Utils.Make("TextLabel", {
+                Text = title,
+                Size = UDim2.new(1, -32, 1, 0),
+                Position = UDim2.new(0, 32, 0, 0),
+                BackgroundTransparency = 1,
+                Font = Enum.Font.GothamMedium,
+                TextSize = 13,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                ZIndex = 52,
+                Parent = btn
+            }, { TextColor3 = colorKey })
+
+            Library:Connect(btn.MouseEnter, function() 
+                Library.Utils.TBT(btn, 0.2, {BackgroundTransparency = 0.8}, Enum.EasingStyle.Quint) 
+                Library.Utils.TBT(TextLbl, 0.2, {TextColor3 = Library.CurrentTheme[hoverColorKey] or Color3.fromRGB(255,255,255)}, Enum.EasingStyle.Quint)
+                Library.Utils.TBT(Icon, 0.2, {ImageColor3 = Library.CurrentTheme[hoverColorKey] or Color3.fromRGB(255,255,255)}, Enum.EasingStyle.Quint)
+            end)
+            Library:Connect(btn.MouseLeave, function() 
+                Library.Utils.TBT(btn, 0.2, {BackgroundTransparency = 1}, Enum.EasingStyle.Quint) 
+                Library.Utils.TBT(TextLbl, 0.2, {TextColor3 = Library.CurrentTheme[colorKey]}, Enum.EasingStyle.Quint)
+                Library.Utils.TBT(Icon, 0.2, {ImageColor3 = Library.CurrentTheme[colorKey]}, Enum.EasingStyle.Quint)
+            end)
+
+            Library:Connect(btn.MouseButton1Click, function() 
+                local closeTween = Library.Utils.TBT(dropScale, 0.15, {Scale = 0.8})
+                Library.Utils.TBT(Dropdown, 0.15, {BackgroundTransparency = 1})
+                closeTween.Completed:Connect(function()
+                    Dropdown:Destroy()
+                    self.ActiveDropdown = nil
+                end)
+                pcall(callback) 
+            end)
         end
 
-        AddAction("✏️ Rename", "Text", function() TitleLbl.Visible = false; RenameBox.Visible = true; RenameBox.Text = fileName; RenameBox:CaptureFocus() end)
-        AddAction("📄 Duplicate", "Text", function() local data = self:LoadHouse(fileName); if data then self:SaveHouse(fileName .. "_copy", data); self:RefreshList(); Library:Notify("File Manager", "Duplicated: " .. fileName, 2) end end)
-        AddAction("📋 Copy Code", "Text", function() local data = self:LoadHouse(fileName); if data and setclipboard then setclipboard(HttpService:JSONEncode(data)); Library:Notify("Copied", "JSON code copied to clipboard!", 2) end end)
-        AddAction("🗑️ Delete File", "Red", function() self:DeleteHouse(fileName); self:RefreshList(); Library:Notify("Deleted", fileName .. " has been removed.", 2) end)
+        -- ID иконок нужно будет заменить на твои актуальные из Роблокса
+        AddAction("Rename", "rbxassetid://11552554707", "SubText", "Text", function() 
+            TitleLbl.Visible = false; RenameBox.Visible = true; RenameBox.Text = fileName; RenameBox:CaptureFocus() 
+        end)
+        AddAction("Duplicate", "rbxassetid://11552809117", "SubText", "Text", function() 
+            local data = self:LoadHouse(fileName); if data then self:SaveHouse(fileName .. "_copy", data); self:RefreshList(); Library:Notify("File Manager", "Duplicated: " .. fileName, 2) end 
+        end)
+        AddAction("Copy Code", "rbxassetid://10631627960", "SubText", "Accent", function() 
+            local data = self:LoadHouse(fileName); if data and setclipboard then setclipboard(HttpService:JSONEncode(data)); Library:Notify("Copied", "JSON code copied to clipboard!", 2) end 
+        end)
+        AddAction("Delete File", "rbxassetid://11552825838", "Red", "Red", function() 
+            self:DeleteHouse(fileName); self:RefreshList(); Library:Notify("Deleted", fileName .. " has been removed.", 2) 
+        end)
     end
 
     Library:Connect(OptionsBtn.MouseButton1Click, function()
