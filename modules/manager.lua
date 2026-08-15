@@ -222,7 +222,7 @@ function Module:Init(Library, Window, Tab)
             -- Берем ID текущего экипированного дома и вытаскиваем его из базы всех сохранений
             local activeHouseId = targetData.player_house and targetData.player_house.unique
             if not activeHouseId then
-                return Library:Notify("Ошибка", "Не удалось найти активный дом в ClientData!", 3)
+                return Library:Notify("Ошибка", "Зайди в дом для начала работы скрипта!", 3)
             end
             
             local activeHouseData = targetData.housing and targetData.housing[activeHouseId]
