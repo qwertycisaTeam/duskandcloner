@@ -24,7 +24,7 @@ function Module:Init(Library, Window, Tab)
     local SelectedHouse = nil
     local CurrentBuildDelay = 0.05 
     local CopyTextures = true
-    local HouseDropdown = {} -- Теперь это таблица с методами для нашего кастомного дропдауна
+    local HouseDropdown 
 
     -- ==========================================
     -- 1. АДАПТИВНАЯ ШАПКА И РЕФРЕШ
@@ -109,164 +109,46 @@ function Module:Init(Library, Window, Tab)
     })
 
     -- ==========================================
-    -- 2. ПРЕМИАЛЬНЫЙ ДРОПДАУН ВЫБОРА ДОМА
+    -- 2. ДРОПДАУН ВЫБОРА ДОМА
     -- ==========================================
-    local DropContainer = Library.Utils.Make("Frame", {
-        Size = UDim2.new(1, 0, 0, 42),
-        BackgroundTransparency = 1,
-        ZIndex = 10,
-        Parent = Tab.Page
+    HouseDropdown = Tab:CreateDropdown({
+        Name = "Select House Schematic",
+        Options = GetSavedHouses(),
+        CurrentOption = "",
+        Callback = function(Option)
+            SelectedHouse = Option
+        end
     })
 
-    local DropBg = Library.Utils.Make("Frame", {
-        Size = UDim2.new(1, 0, 1, 0),
-        Parent = DropContainer
-    }, { BackgroundColor3 = "Section" })
-    Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 8), Parent = DropBg })
-    local DropStroke = Library.Utils.Make("UIStroke", { Thickness = 1.5, Transparency = 0.5, Parent = DropBg }, { Color = "Stroke" })
+    -- Улучшенный хак: фиксим шрифты и добавляем объем (убираем плоскость)
+    task.spawn(function()
+        task.wait(0.1)
+        for _, frame in ipairs(Tab.Page:GetChildren()) do
+            if frame:IsA("Frame") and frame.Size == UDim2.new(1, 0, 0, 40) then 
+                local title = frame:FindFirstChildWhichIsA("TextLabel")
+                if title then
+                    title.Font = Enum.Font.GothamMedium
+                    title.TextSize = 13
+                end
 
-    local DropText = Library.Utils.Make("TextLabel", {
-        Text = "Select...",
-        Size = UDim2.new(1, -40, 1, 0),
-        Position = UDim2.new(0, 14, 0, 0),
-        BackgroundTransparency = 1,
-        Font = Enum.Font.GothamMedium,
-        TextSize = 13,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        Parent = DropBg
-    }, { TextColor3 = "Text" })
-
-    -- Векторный шеврон
-    local Chevron = Library.Utils.Make("ImageLabel", {
-        Size = UDim2.new(0, 16, 0, 16),
-        AnchorPoint = Vector2.new(1, 0.5),
-        Position = UDim2.new(1, -14, 0.5, 0),
-        BackgroundTransparency = 1,
-        Image = "rbxassetid://10002373418", 
-        Parent = DropBg
-    }, { ImageColor3 = "SubText" })
-
-    local DropBtn = Library.Utils.Make("TextButton", {
-        Size = UDim2.new(1, 0, 1, 0),
-        BackgroundTransparency = 1,
-        Text = "",
-        Parent = DropBg
-    })
-
-    -- Контейнер самого списка
-    local ListFrame = Library.Utils.Make("Frame", {
-        Size = UDim2.new(1, 0, 0, 0),
-        Position = UDim2.new(0, 0, 1, 6),
-        AutomaticSize = Enum.AutomaticSize.Y,
-        Visible = false,
-        ZIndex = 20,
-        Parent = DropContainer
-    }, { BackgroundColor3 = "Sidebar" })
-    Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 8), Parent = ListFrame })
-    Library.Utils.Make("UIStroke", { Thickness = 1, Transparency = 0.3, Parent = ListFrame }, { Color = "Stroke" })
-
-    -- Мягкая Drop Shadow (9-Slice)
-    local Shadow = Library.Utils.Make("ImageLabel", {
-        Size = UDim2.new(1, 30, 1, 30),
-        Position = UDim2.new(0.5, 0, 0.5, 4),
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        BackgroundTransparency = 1,
-        Image = "rbxassetid://13192800046",
-        ImageColor3 = Color3.new(0, 0, 0),
-        ImageTransparency = 0.4,
-        ScaleType = Enum.ScaleType.Slice,
-        SliceCenter = Rect.new(20, 20, 280, 280),
-        ZIndex = 19,
-        Parent = ListFrame
-    })
-
-    Library.Utils.Make("UIPadding", { 
-        PaddingTop = UDim.new(0, 6), 
-        PaddingBottom = UDim.new(0, 6), 
-        PaddingLeft = UDim.new(0, 6), 
-        PaddingRight = UDim.new(0, 6), 
-        Parent = ListFrame 
-    })
-    Library.Utils.Make("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 2), Parent = ListFrame })
-
-    local listScale = Instance.new("UIScale", ListFrame)
-    local isDropOpen = false
-
-    local function ToggleDropdown()
-        isDropOpen = not isDropOpen
-        if isDropOpen then
-            ListFrame.Visible = true
-            listScale.Scale = 0.8
-            Library.Utils.TBT(Chevron, 0.3, {Rotation = 180}, Enum.EasingStyle.Quint)
-            Library.Utils.TBT(listScale, 0.3, {Scale = 1}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-            Library.Utils.TBT(DropStroke, 0.3, {Color = Library.CurrentTheme.Accent, Transparency = 0})
-        else
-            Library.Utils.TBT(Chevron, 0.3, {Rotation = 0}, Enum.EasingStyle.Quint)
-            Library.Utils.TBT(DropStroke, 0.3, {Color = Library.CurrentTheme.Stroke, Transparency = 0.5})
-            local closeT = Library.Utils.TBT(listScale, 0.2, {Scale = 0.8}, Enum.EasingStyle.Quint)
-            closeT.Completed:Connect(function()
-                if not isDropOpen then ListFrame.Visible = false end
-            end)
+                local btn = frame:FindFirstChildWhichIsA("TextButton")
+                if btn then
+                    btn.TextTruncate = Enum.TextTruncate.AtEnd
+                    btn.Font = Enum.Font.GothamMedium
+                    btn.TextSize = 13
+                    
+                    if not btn:FindFirstChildWhichIsA("UIStroke") then
+                        Library.Utils.Make("UIStroke", {
+                            Thickness = 1,
+                            Transparency = 0.5,
+                            ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+                            Parent = btn
+                        }, { Color = "Stroke" })
+                    end
+                end
+            end
         end
-    end
-
-    Library:Connect(DropBtn.MouseButton1Click, ToggleDropdown)
-
-    function HouseDropdown.SetValue(value)
-        DropText.Text = value
-        SelectedHouse = (value ~= "Select..." and value ~= "") and value or nil
-    end
-
-    function HouseDropdown.Refresh(options)
-        for _, child in ipairs(ListFrame:GetChildren()) do
-            if child:IsA("TextButton") then child:Destroy() end
-        end
-
-        if #options == 0 then
-            Library.Utils.Make("TextLabel", {
-                Text = "No saved houses found",
-                Size = UDim2.new(1, 0, 0, 30),
-                BackgroundTransparency = 1,
-                Font = Enum.Font.GothamMedium,
-                TextSize = 13,
-                ZIndex = 21,
-                Parent = ListFrame
-            }, { TextColor3 = "SubText" })
-            return
-        end
-
-        for _, opt in ipairs(options) do
-            local optBtn = Library.Utils.Make("TextButton", {
-                Text = "  " .. opt,
-                Size = UDim2.new(1, 0, 0, 30),
-                BackgroundTransparency = 1,
-                AutoButtonColor = false,
-                Font = Enum.Font.GothamMedium,
-                TextSize = 13,
-                TextXAlignment = Enum.TextXAlignment.Left,
-                ZIndex = 21,
-                Parent = ListFrame
-            }, { TextColor3 = "Text" })
-            Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 6), Parent = optBtn })
-
-            Library:Connect(optBtn.MouseEnter, function() 
-                Library.Utils.TBT(optBtn, 0.15, {BackgroundTransparency = 0.8}, Enum.EasingStyle.Quint)
-                Library.Utils.TBT(optBtn, 0.15, {TextColor3 = Library.CurrentTheme.Accent}, Enum.EasingStyle.Quint)
-            end)
-            Library:Connect(optBtn.MouseLeave, function() 
-                Library.Utils.TBT(optBtn, 0.15, {BackgroundTransparency = 1}, Enum.EasingStyle.Quint)
-                Library.Utils.TBT(optBtn, 0.15, {TextColor3 = Library.CurrentTheme.Text}, Enum.EasingStyle.Quint)
-            end)
-
-            Library:Connect(optBtn.MouseButton1Click, function()
-                HouseDropdown.SetValue(opt)
-                ToggleDropdown()
-            end)
-        end
-    end
-
-    -- Инициализируем дропдаун текущими файлами
-    HouseDropdown.Refresh(GetSavedHouses())
+    end)
 
     -- ==========================================
     -- 3. ПРЕМИУМ КНОПКА BUILD (НЕОНОВАЯ)
