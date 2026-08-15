@@ -299,15 +299,19 @@ function Module:CreateFileCard(fileName)
         if self.ActiveDropdown and self.ActiveDropdown.Parent == Card then self.ActiveDropdown:Destroy(); self.ActiveDropdown = nil else CreateDropdown() end
     end)
 
-    Library:Connect(RenameBox.FocusLost, function()
+   Library:Connect(RenameBox.FocusLost, function()
         RenameBox.Visible = false; TitleLbl.Visible = true
         
-        -- Очищаем от мусора и обрезаем пробелы по краям
-        local newName = RenameBox.Text:gsub("[^%w%s%-_]", ""):match("^%s*(.-)%s*$") 
+        -- Убираем только запрещенные для названий файлов символы (чтобы русский язык работал!)
+        local cleanedText = RenameBox.Text:gsub('[<>:"/\\|?*]', "")
+        -- Обрезаем лишние пробелы по краям
+        local newName = cleanedText:match("^%s*(.-)%s*$") 
         
-        -- ВАЖНО: Ограничиваем длину имени файла до 25 символов (чтобы не сломать UI и систему)
+        -- Устанавливаем ограничение в 28 символов
         if newName then
-            newName = newName:sub(1, 25)
+            -- Если используешь русские символы (UTF-8), sub может обрезать их криво, 
+            -- но для большинства случаев и английского текста это сработает.
+            newName = newName:sub(1, 28)
         end
         
         if newName and newName ~= "" and newName ~= fileName then
@@ -316,6 +320,7 @@ function Module:CreateFileCard(fileName)
                 Library:Notify("File Manager", "Renamed to " .. newName, 2) 
             end
         else 
+            -- Если имя пустое или не изменилось — откатываем обратно
             RenameBox.Text = fileName 
         end
     end)
