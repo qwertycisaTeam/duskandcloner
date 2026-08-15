@@ -184,7 +184,7 @@ function Module:Init(Library, Window, Tab)
     Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 8), Parent = BuildBtn })
 
     local BuildText = Library.Utils.Make("TextLabel", {
-        Text = "🔨 BUILD SELECTED HOUSE",
+        Text = "BUILD SELECTED HOUSE",
         Size = UDim2.new(1, 0, 1, 0),
         BackgroundTransparency = 1,
         Font = Enum.Font.GothamBold,
