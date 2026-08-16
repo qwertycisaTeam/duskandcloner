@@ -88,7 +88,7 @@ function Module:Init(Library, Window, Tab)
         Position = UDim2.new(1, -26, 0, 2),
         Text = "",
         AutoButtonColor = false,
-        Parent = SectionContainer
+        Parent = HeaderPanel
     }, { BackgroundColor3 = "Sidebar" })
     Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 6), Parent = RefreshBtn })
 
@@ -121,14 +121,7 @@ function Module:Init(Library, Window, Tab)
         t.Completed:Connect(function() Library.Utils.TBT(refScale, 0.2, {Scale = 1}, Enum.EasingStyle.Bounce) end)
         Library.Utils.TBT(RefIcon, 0.5, {Rotation = 360}); task.delay(0.5, function() RefIcon.Rotation = 0 end)
         
-        if HouseDropdown and type(HouseDropdown.Refresh) == "function" then
-            HouseDropdown.Refresh(GetSavedHouses())
-            if type(HouseDropdown.SetValue) == "function" then
-                HouseDropdown.SetValue("Select...")
-            end
-            SelectedHouse = nil 
-        end
-        Library:Notify("Builder", "Список домов успешно обновлен!", 2)
+       self:RefreshList()
     end)
 
     local TopDivider = Library.Utils.Make("Frame", {
