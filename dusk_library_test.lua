@@ -496,6 +496,7 @@ function Library:CreateWindow(config)
         Tabs = {}, 
         CurrentTab = nil,
         ToggleMenu = ToggleMinimize
+        MainUIScale = MainUIScale
     }
 
     function Window:SetOnlineStatus(countText)
