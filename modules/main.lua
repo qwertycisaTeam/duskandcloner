@@ -1,167 +1,410 @@
-local HttpService = game:GetService("HttpService")
-local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Module = {}
 
-local FolderName = "DuskAndShine_Houses"
-
-local function GetSavedHouses()
-    if not isfolder(FolderName) then makefolder(FolderName) end
-    local houses = {}
-    
-    local success, files = pcall(function() return listfiles(FolderName) end)
-    if not success or type(files) ~= "table" then return houses end
-    
-    for _, path in ipairs(files) do
-        local fileName = path:match("([^/\\]+)%.[jJ][sS][oO][nN]$")
-        if fileName then table.insert(houses, fileName) end
-    end
-    return houses
-end
-
 function Module:Init(Library, Window, Tab)
+    local Players = game:GetService("Players")
     local LocalPlayer = Players.LocalPlayer
-    local SelectedHouse = nil
-    local CurrentBuildDelay = 0.05 
-    local CopyTextures = true
-    local HouseDropdown 
+    local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+    local TweenService = game:GetService("TweenService")
+    local Screen = PlayerGui:WaitForChild("DuskShine_Mega", 10)
 
     -- ==========================================
-    -- 1. АДАПТИВНАЯ ШАПКА И РЕФРЕШ
+    -- УМНОЕ АВТО-СОХРАНЕНИЕ (Без лагов и спама)
     -- ==========================================
-    local SectionContainer = Library.Utils.Make("Frame", {
-        Size = UDim2.new(1, 0, 0, 30),
-        BackgroundTransparency = 1,
-        Parent = Tab.Page
-    })
-
-    Library.Utils.Make("TextLabel", {
-        Text = '<b>UTILITY:</b> <font color="#9696a0">House Builder</font>',
-        RichText = true, 
-        Size = UDim2.new(1, -40, 1, 0), 
-        Position = UDim2.new(0, 5, 0, 0),
-        BackgroundTransparency = 1, 
-        Font = Enum.Font.GothamBold,
-        TextSize = 14, 
-        TextXAlignment = Enum.TextXAlignment.Left, 
-        Parent = SectionContainer
-    }, { TextColor3 = "Text" })
-
-    local RefreshBtn = Library.Utils.Make("TextButton", {
-        Size = UDim2.new(0, 26, 0, 26),
-        Position = UDim2.new(1, -26, 0, 2),
-        Text = "",
-        AutoButtonColor = false,
-        Parent = SectionContainer
-    }, { BackgroundColor3 = "Sidebar" })
-    Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 6), Parent = RefreshBtn })
-
-    local RefStroke = Library.Utils.Make("UIStroke", { Thickness = 1, Transparency = 0.5, Parent = RefreshBtn }, { Color = "Stroke" })
-    
-    local RefIcon = Library.Utils.Make("ImageLabel", {
-        Size = UDim2.new(0, 16, 0, 16),
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        Position = UDim2.new(0.5, 0, 0.5, 0),
-        BackgroundTransparency = 1,
-        Image = "rbxassetid://6723921202",
-        Parent = RefreshBtn
-    }, { ImageColor3 = "SubText" })
-    
-    local refScale = Instance.new("UIScale", RefreshBtn)
-    
-    Library:Connect(RefreshBtn.MouseEnter, function() 
-        Library.Utils.TBT(RefStroke, 0.2, {Transparency = 0})
-        Library.Utils.TBT(RefreshBtn, 0.2, {BackgroundColor3 = Library.CurrentTheme.Section})
-        Library.Utils.TBT(RefIcon, 0.2, {ImageColor3 = Library.CurrentTheme.Accent})
-    end)
-    Library:Connect(RefreshBtn.MouseLeave, function() 
-        Library.Utils.TBT(RefStroke, 0.2, {Transparency = 0.5})
-        Library.Utils.TBT(RefreshBtn, 0.2, {BackgroundColor3 = Library.CurrentTheme.Sidebar})
-        Library.Utils.TBT(RefIcon, 0.2, {ImageColor3 = Library.CurrentTheme.SubText})
-    end)
-    
-    Library:Connect(RefreshBtn.MouseButton1Click, function()
-        local t = Library.Utils.TBT(refScale, 0.1, {Scale = 0.9})
-        t.Completed:Connect(function() Library.Utils.TBT(refScale, 0.2, {Scale = 1}, Enum.EasingStyle.Bounce) end)
-        Library.Utils.TBT(RefIcon, 0.5, {Rotation = 360}); task.delay(0.5, function() RefIcon.Rotation = 0 end)
+    local saveTick = 0
+    local function AutoSave()
+        saveTick = tick()
+        local currentTick = saveTick
         
-        if HouseDropdown and type(HouseDropdown.Refresh) == "function" then
-            HouseDropdown.Refresh(GetSavedHouses())
-            if type(HouseDropdown.SetValue) == "function" then
-                HouseDropdown.SetValue("Select...")
+        -- Ждем полсекунды. Если за это время функцию вызвали еще раз
+        -- (например, при перетаскивании ползунка), старый вызов отменится.
+        task.delay(0.5, function()
+            if saveTick == currentTick then
+                if Library and type(Library.SaveConfig) == "function" then
+                    Library:SaveConfig("DuskShine_Settings")
+                end
             end
-            SelectedHouse = nil 
+        end)
+    end
+
+    -- ==========================================
+    -- АВТО-КАЛИБРОВКА (ПЕРВЫЙ ЗАПУСК)
+    -- ==========================================
+    if not getgenv().UIScaleSize then
+        local camera = workspace.CurrentCamera
+        local screenWidth = camera and camera.ViewportSize.X or 1920
+        getgenv().UIScaleSize = math.clamp(math.floor((screenWidth / 1920) * 100), 45, 100)
+        AutoSave()
+    end
+
+    -- ==========================================
+    -- ДВИЖОК ЧАСТИЦ
+    -- ==========================================
+    local ParticleFrame = Library.Utils.Make("Frame", {
+        Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, ZIndex = 1, 
+        ClipsDescendants = true, Parent = Window.MainFrame
+    })
+
+    local function SpawnParticle()
+        if not getgenv().MenuParticlesEnabled then return end
+        
+        local pType = getgenv().ParticleType or "Old Vanilla"
+        local p
+        local fallTime = math.random(4, 8)
+        local rotSpeed = math.random(-40, 40)
+        
+        if pType == "Old Vanilla" then
+            p = Instance.new("Frame")
+            p.BackgroundColor3 = Color3.new(1, 1, 1)
+            p.BorderSizePixel = 0
+            p.Size = UDim2.new(0, math.random(3, 6), 0, math.random(3, 6))
+            
+        elseif pType == "Snow" then
+            p = Instance.new("Frame")
+            p.BackgroundColor3 = Color3.new(1, 1, 1)
+            p.BorderSizePixel = 0
+            local s = math.random(4, 9)
+            p.Size = UDim2.new(0, s, 0, s)
+            Library.Utils.Make("UICorner", {CornerRadius = UDim.new(1, 0), Parent = p})
+            
+        elseif pType == "Bubbles" then
+            p = Instance.new("Frame")
+            p.BackgroundTransparency = 1
+            p.BorderSizePixel = 0
+            local s = math.random(8, 16)
+            p.Size = UDim2.new(0, s, 0, s)
+            Library.Utils.Make("UICorner", {CornerRadius = UDim.new(1, 0), Parent = p})
+            local stroke = Instance.new("UIStroke", p)
+            stroke.Color = Color3.new(1, 1, 1)
+            stroke.Thickness = 1.2
+            
+        elseif pType == "Sakura Petals" then
+            p = Instance.new("Frame")
+            p.BackgroundColor3 = Color3.fromRGB(255, 183, 197)
+            p.BorderSizePixel = 0
+            p.Size = UDim2.new(0, math.random(5, 10), 0, math.random(4, 7))
+            Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0.5, 0), Parent = p})
+
+        elseif pType == "Stars" then
+            p = Instance.new("ImageLabel")
+            p.BackgroundTransparency = 1
+            p.Image = "rbxassetid://6031225815"
+            p.Size = UDim2.new(0, math.random(12, 20), 0, math.random(12, 20))
+            if Library.CurrentTheme then p.ImageColor3 = Library.CurrentTheme.Accent end
         end
-        Library:Notify("Builder", "Список домов успешно обновлен!", 2)
+        
+        p.ZIndex = 1
+        p.Position = UDim2.new(math.random(), 0, -0.1, 0)
+        p.Rotation = math.random(0, 360)
+        p.Parent = ParticleFrame
+
+        local targetProps = {
+            Position = UDim2.new(p.Position.X.Scale, 0, 1.1, 0),
+            Rotation = p.Rotation + (rotSpeed * fallTime)
+        }
+        
+        if pType == "Bubbles" then
+            local stroke = p:FindFirstChildOfClass("UIStroke")
+            if stroke then 
+                stroke.Transparency = math.random(2, 6) / 10
+                TweenService:Create(stroke, TweenInfo.new(fallTime, Enum.EasingStyle.Linear), {Transparency = 1}):Play() 
+            end
+        elseif pType == "Stars" then
+            p.ImageTransparency = math.random(2, 6) / 10
+            targetProps.ImageTransparency = 1 
+        else
+            p.BackgroundTransparency = math.random(2, 6) / 10
+            targetProps.BackgroundTransparency = 1
+        end
+        
+        local t = TweenService:Create(p, TweenInfo.new(fallTime, Enum.EasingStyle.Linear), targetProps)
+        t:Play()
+        t.Completed:Connect(function() p:Destroy() end)
+    end
+
+    task.spawn(function()
+        while task.wait(0.15) do
+            if Window.MainFrame.Visible then SpawnParticle() end
+        end
     end)
 
-    local TopDivider = Library.Utils.Make("Frame", {
-        Size = UDim2.new(1, 0, 0, 1),
-        BorderSizePixel = 0,
-        Parent = Tab.Page
-    }, { BackgroundColor3 = "Text" })
-    
-    local DivGrad = Instance.new("UIGradient", TopDivider)
-    DivGrad.Transparency = NumberSequence.new({
-        NumberSequenceKeypoint.new(0, 1),
-        NumberSequenceKeypoint.new(0.5, 0.8),
-        NumberSequenceKeypoint.new(1, 1)
+    -- ==========================================
+    -- UI SETTINGS
+    -- ==========================================
+    Tab:CreateSection({ Name = "UI Settings & Particles" })
+
+    Tab:CreateToggle({
+        Name = "Menu Particles",
+        Description = "Falling effects in the background\nof the menu.",
+        Flag = "MenuParticlesEnabled",
+        Default = getgenv().MenuParticlesEnabled or false,
+        Callback = function(state)
+            getgenv().MenuParticlesEnabled = state
+            AutoSave()
+        end
     })
 
-    -- ==========================================
-    -- 2. ДРОПДАУН ВЫБОРА ДОМА
-    -- ==========================================
-    HouseDropdown = Tab:CreateDropdown({
-        Name = "Select House Schematic",
-        Options = GetSavedHouses(),
-        CurrentOption = "",
-        Callback = function(Option)
-            SelectedHouse = Option
+    Tab:CreateDropdown({
+        Name = "Particle Style",
+        Options = {"Old Vanilla", "Stars", "Snow", "Sakura Petals", "Bubbles"},
+        Default = getgenv().ParticleType or "Old Vanilla",
+        Flag = "ParticleType",
+        Callback = function(val)
+            getgenv().ParticleType = val
+            AutoSave()
+        end
+    })
+
+    Tab:CreateDropdown({
+        Name = "Minimize Button Style",
+        Options = {"Top Bar", "Floating Logo"},
+        Default = Library.Settings.CloserType or "Top Bar",
+        Flag = "CloserType",
+        Callback = function(val)
+            Library.Settings.CloserType = val
+            getgenv().CloserType = val
+            AutoSave()
+        end
+    })
+
+    Tab:CreateSlider({
+        Name = "UI Scale (%)",
+        Min = 25, Max = 100,
+        Default = getgenv().UIScaleSize or 50,
+        Flag = "UIScaleSize",
+        Callback = function(val)
+            getgenv().UIScaleSize = val
+            local UIScaleObj = Screen and Screen:FindFirstChildOfClass("UIScale")
+            if UIScaleObj then UIScaleObj.Scale = val / 100 end
+            AutoSave()
+        end
+    })
+
+    Tab:CreateColorPicker({
+        Name = "UI Accent Color",
+        Default = Library.CurrentTheme.Accent or Color3.fromRGB(255, 255, 255),
+        Flag = "ThemeAccent",
+        Callback = function(col)
+            Library.CurrentTheme.Accent = col
+            Library.Themes.Dark.Accent = col
+            Library.Themes.Light.Accent = col
+
+            for element, props in pairs(Library.ThemeObjects) do
+                if element and element.Parent then
+                    for propName, themeKey in pairs(props) do
+                        if themeKey == "Accent" then
+                            TweenService:Create(element, TweenInfo.new(0.3), {[propName] = col}):Play()
+                            local grad = element:FindFirstChild("DuskShine_Gradient")
+                            if grad then
+                                local glow = Color3.new(math.clamp(col.R + 0.35, 0, 1), math.clamp(col.G + 0.35, 0, 1), math.clamp(col.B + 0.35, 0, 1))
+                                grad.Color = ColorSequence.new({
+                                    ColorSequenceKeypoint.new(0, col),
+                                    ColorSequenceKeypoint.new(0.5, glow),
+                                    ColorSequenceKeypoint.new(1, col)
+                                })
+                            end
+                        end
+                    end
+                end
+            end
+            AutoSave()
+        end
+    })
+
+    local Lighting = game:GetService("Lighting")
+    local DuskBlur = Lighting:FindFirstChild("DuskMenuBlur") or Instance.new("BlurEffect", Lighting)
+    DuskBlur.Name = "DuskMenuBlur"
+    DuskBlur.Size = 0
+    DuskBlur.Enabled = false
+
+    Window.MainFrame:GetPropertyChangedSignal("Visible"):Connect(function()
+        if getgenv().MenuBlurEnabled then
+            if Window.MainFrame.Visible then
+                DuskBlur.Enabled = true
+                TweenService:Create(DuskBlur, TweenInfo.new(0.3), {Size = 24}):Play()
+            else
+                local t = TweenService:Create(DuskBlur, TweenInfo.new(0.3), {Size = 0})
+                t:Play()
+                t.Completed:Connect(function() DuskBlur.Enabled = false end)
+            end
+        end
+    end)
+
+    Tab:CreateToggle({
+        Name = "Menu Blur",
+        Description = "Blur background when menu is open.",
+        Flag = "MenuBlurEnabled",
+        Default = getgenv().MenuBlurEnabled or false,
+        Callback = function(state)
+            getgenv().MenuBlurEnabled = state
+            if state and Window.MainFrame.Visible then
+                DuskBlur.Enabled = true
+                TweenService:Create(DuskBlur, TweenInfo.new(0.3), {Size = 24}):Play()
+            elseif not state then
+                local t = TweenService:Create(DuskBlur, TweenInfo.new(0.3), {Size = 0})
+                t:Play()
+                t.Completed:Connect(function() DuskBlur.Enabled = false end)
+            end
+            AutoSave()
         end
     })
 
     -- ==========================================
-    -- АВТО-УЛУЧШЕНИЕ ДРОПДАУНОВ (ПЕРЕНЕСЕНО С НАСТРОЕК)
+    -- GLOBAL SETTINGS
+    -- ==========================================
+    Tab:CreateSection({ Name = "Global Settings" })
+
+    Tab:CreateToggle({
+        Name = "Auto-Update Kicker",
+        Description = "Kicks you from the server if a\nnew script version is found.",
+        Flag = "AutoUpdateKicker",
+        Default = getgenv().AutoUpdateKicker or false,
+        Callback = function(state)
+            getgenv().AutoUpdateKicker = state
+            AutoSave()
+        end
+    })
+
+    Tab:CreateToggle({
+        Name = "Anonymous Mode",
+        Description = "Hides your identity to prevent\nstreaming snipes.",
+        Flag = "AnonymousMode",
+        Default = getgenv().AnonymousMode or false,
+        Callback = function(state)
+            getgenv().AnonymousMode = state
+            Library.Settings.AnonymousMode = state
+            
+            for _, avatarData in ipairs(Library.AnonItems.Avatars) do
+                if state then
+                    avatarData.ImageObj.ImageTransparency = 1
+                    avatarData.ImageObj.BackgroundTransparency = 0
+                    avatarData.ImageObj.BackgroundColor3 = Color3.new(0,0,0)
+                    avatarData.Letter.Visible = true
+                else
+                    avatarData.ImageObj.ImageTransparency = 0
+                    avatarData.ImageObj.BackgroundTransparency = 1
+                    avatarData.Letter.Visible = false
+                end
+            end
+            
+            for _, nameData in ipairs(Library.AnonItems.Names) do
+                nameData.Obj.Text = string.format(nameData.Format, state and "Hidden User" or LocalPlayer.DisplayName)
+            end
+            
+            AutoSave()
+        end
+    })
+
+    Tab:CreateKeybind({
+        Name = "Toggle Menu Key",
+        Default = getgenv().ToggleUIKey or Enum.KeyCode.RightControl,
+        Flag = "ToggleUIKey",
+        Callback = function(key)
+            getgenv().ToggleUIKey = key
+            AutoSave()
+        end
+    })
+
+    -- ==========================================
+    -- ФИКС КРАША (ЧИСТЫЙ БИНД ЧЕРЕЗ ФУНКЦИЮ ЛИБЫ)
+    -- ==========================================
+    table.insert(Library.Connections, game:GetService("UserInputService").InputBegan:Connect(function(input, processed)
+        if not processed and input.KeyCode == getgenv().ToggleUIKey then
+            task.spawn(function()
+                if Window.ToggleMenu then
+                    Window:ToggleMenu()
+                end
+            end)
+        end
+    end))
+
+    -- ==========================================
+    -- PERFORMANCE
+    -- ==========================================
+    Tab:CreateSection({ Name = "Performance" })
+
+    Tab:CreateSlider({
+        Name = "FPS Limit (0 = Uncapped)",
+        Min = 0, Max = 120,
+        Default = getgenv().FPSLimit or 0,
+        Flag = "FPSLimit",
+        Callback = function(val)
+            getgenv().FPSLimit = val
+            if not getgenv().EcoModeEnabled and setfpscap then
+                pcall(function() setfpscap(val) end)
+            end
+            AutoSave()
+        end
+    })
+
+    Tab:CreateToggle({
+        Name = "Extreme Performance (NoRender)",
+        Description = "Kills 3D rendering, shadows,\nand textures for MAX FPS.",
+        Flag = "PerformanceModeEnabled",
+        Default = getgenv().PerformanceModeEnabled or false,
+        Callback = function(state)
+            getgenv().PerformanceModeEnabled = state
+            
+            local Lighting = game:GetService("Lighting")
+            local Terrain = workspace:FindFirstChildOfClass("Terrain")
+            
+            if state then
+                Lighting.GlobalShadows = false
+                Lighting.FogEnd = 9e9
+                Lighting.ShadowSoftness = 0
+                Lighting.Brightness = 0
+                if Terrain then
+                    Terrain.WaterWaveSize = 0
+                    Terrain.WaterWaveSpeed = 0
+                    Terrain.WaterReflectance = 0
+                    Terrain.WaterTransparency = 0
+                end
+                pcall(function() settings().Rendering.QualityLevel = Enum.QualityLevel.Level01 end)
+            else
+                Lighting.GlobalShadows = true
+                Lighting.Brightness = 1
+                pcall(function() settings().Rendering.QualityLevel = Enum.QualityLevel.Automatic end)
+            end
+            AutoSave()
+        end
+    })
+
+    -- ==========================================
+    -- АВТО-УЛУЧШЕНИЕ ИНТЕРФЕЙСА (Дропдауны и Тогглы)
     -- ==========================================
     task.spawn(function()
-        task.wait(0.2)
+        task.wait(0.2) 
         for _, frame in ipairs(Tab.Page:GetChildren()) do
+            
+            -- ПРОКАЧКА ДРОПДАУНОВ 
             if frame:IsA("Frame") and frame.Size == UDim2.new(1, 0, 0, 40) then 
-                local title = frame:FindFirstChildWhichIsA("TextLabel")
-                if title then
-                    title.Font = Enum.Font.GothamMedium
-                    title.TextSize = 13
-                end
-
                 local btn = frame:FindFirstChildWhichIsA("TextButton")
                 if btn then
-                    btn.TextTruncate = Enum.TextTruncate.AtEnd
-                    btn.Font = Enum.Font.GothamMedium
-                    btn.TextSize = 13
+                    -- Удален хардкод цвета фона, чтобы он адаптировался под тему!
+                    btn.BackgroundColor3 = Library.CurrentTheme.Sidebar
+                    Library.ThemeObjects[btn] = { BackgroundColor3 = "Sidebar" }
                     
-                    -- Добавляем контрастный фон
-                    btn.BackgroundColor3 = Color3.fromRGB(32, 32, 38)
-                    
-                    -- Усиливаем обводку
+                    -- Динамическая обводка, привязанная к теме
                     local stroke = btn:FindFirstChildWhichIsA("UIStroke") or Instance.new("UIStroke", btn)
                     stroke.Thickness = 1
-                    stroke.Transparency = 0
-                    stroke.Color = Color3.fromRGB(70, 70, 80)
+                    stroke.Transparency = 0.4
                     stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+                    Library.ThemeObjects[stroke] = { Color = "Stroke" }
+                    stroke.Color = Library.CurrentTheme.Stroke
                     
-                    -- Добавляем 3D-глубину снизу
+                    -- Универсальная тень снизу (полупрозрачная, смотрится на любой теме)
                     if not btn:FindFirstChild("DepthGlow") then
                         local depth = Instance.new("Frame", btn)
                         depth.Name = "DepthGlow"
                         depth.Size = UDim2.new(1, 0, 0, 3)
                         depth.Position = UDim2.new(0, 0, 1, -3)
-                        depth.BackgroundColor3 = Color3.fromRGB(20, 20, 24)
+                        depth.BackgroundColor3 = Color3.new(0, 0, 0)
+                        depth.BackgroundTransparency = 0.6 -- Универсальная прозрачность
                         depth.BorderSizePixel = 0
                         local dc = Instance.new("UICorner", depth)
                         dc.CornerRadius = UDim.new(0, 6)
                     end
                     
-                    -- Добавляем иконку стрелочки вниз
+                    -- Динамическая стрелочка, привязанная к тексту темы
                     if not btn:FindFirstChild("DropArrow") then
                         local arrow = Instance.new("ImageLabel", btn)
                         arrow.Name = "DropArrow"
@@ -170,260 +413,25 @@ function Module:Init(Library, Window, Tab)
                         arrow.AnchorPoint = Vector2.new(1, 0.5)
                         arrow.BackgroundTransparency = 1
                         arrow.Image = "rbxassetid://6031091004"
-                        arrow.ImageColor3 = Color3.fromRGB(150, 150, 160)
+                        Library.ThemeObjects[arrow] = { ImageColor3 = "SubText" }
+                        arrow.ImageColor3 = Library.CurrentTheme.SubText
                     end
                 end
             end
-        end
-    end)
-
-    -- ==========================================
-    -- 3. ПРЕМИУМ КНОПКА BUILD (НЕОНОВАЯ)
-    -- ==========================================
-    local BuildContainer = Library.Utils.Make("Frame", {
-        Size = UDim2.new(1, 0, 0, 42),
-        BackgroundTransparency = 1,
-        Parent = Tab.Page
-    })
-
-    local Glow = Library.Utils.Make("Frame", { 
-        Size = UDim2.new(1, 0, 1, 0), 
-        Position = UDim2.new(0.5, 0, 0.5, 0),
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        BackgroundTransparency = 1, 
-        ZIndex = 1, 
-        Parent = BuildContainer 
-    })
-    Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 8), Parent = Glow })
-    local GlowStroke = Library.Utils.Make("UIStroke", { 
-        Thickness = 4, 
-        Transparency = 0.85,
-        Parent = Glow 
-    }, { Color = "Accent" })
-
-    local BuildBtn = Library.Utils.Make("TextButton", {
-        Text = "", 
-        Size = UDim2.new(1, 0, 1, 0),
-        AutoButtonColor = false,
-        ZIndex = 5,
-        Parent = BuildContainer 
-    }, { BackgroundColor3 = "Section" }) 
-    Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 8), Parent = BuildBtn })
-
-    local BuildText = Library.Utils.Make("TextLabel", {
-        Text = "BUILD SELECTED HOUSE",
-        Size = UDim2.new(1, 0, 1, 0),
-        BackgroundTransparency = 1,
-        Font = Enum.Font.GothamBold,
-        TextSize = 13,
-        ZIndex = 6,
-        Parent = BuildBtn
-    }, { TextColor3 = "Accent" }) 
-
-    local EdgeStroke = Library.Utils.Make("UIStroke", { 
-        Thickness = 1.5, 
-        Transparency = 0.2, 
-        ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-        Parent = BuildBtn 
-    }, { Color = "Accent" })
-
-    local BuildScale = Instance.new("UIScale", BuildContainer)
-
-    Library:Connect(BuildBtn.MouseEnter, function() 
-        Library.Utils.TBT(BuildBtn, 0.3, {BackgroundTransparency = 0.3}) 
-        Library.Utils.TBT(EdgeStroke, 0.3, {Transparency = 0}) 
-        Library.Utils.TBT(GlowStroke, 0.4, {Thickness = 12, Transparency = 0.6}, Enum.EasingStyle.Quint) 
-        Library.Utils.TBT(BuildScale, 0.3, {Scale = 1.05}, Enum.EasingStyle.Back, Enum.EasingDirection.Out) 
-    end)
-    Library:Connect(BuildBtn.MouseLeave, function() 
-        Library.Utils.TBT(BuildBtn, 0.3, {BackgroundTransparency = 0}) 
-        Library.Utils.TBT(EdgeStroke, 0.3, {Transparency = 0.2})
-        Library.Utils.TBT(GlowStroke, 0.4, {Thickness = 4, Transparency = 0.85}, Enum.EasingStyle.Quint)
-        Library.Utils.TBT(BuildScale, 0.3, {Scale = 1}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-    end)
-    
-    Library:Connect(BuildBtn.MouseButton1Click, function()
-        local t = Library.Utils.TBT(BuildScale, 0.1, {Scale = 0.95})
-        t.Completed:Connect(function() Library.Utils.TBT(BuildScale, 0.2, {Scale = 1}, Enum.EasingStyle.Bounce) end)
-        
-        if not SelectedHouse or SelectedHouse == "" or SelectedHouse == "Select..." then
-            return Library:Notify("Ошибка", "Сначала выбери дом в меню!", 3)
-        end
-        
-        local filePath = FolderName .. "/" .. SelectedHouse .. ".json"
-        if not isfile(filePath) then
-            return Library:Notify("Ошибка", "Файл не найден на диске!", 3)
-        end
-
-        task.spawn(function()
-            Library:Notify("Запуск", "Читаем файл: " .. SelectedHouse, 2)
             
-            local success, fileData = pcall(function() return readfile(filePath) end)
-            if not success then return Library:Notify("Ошибка", "Не удалось прочитать файл!", 3) end
-            
-            local decodeSuccess, savedHouse = pcall(function() return HttpService:JSONDecode(fileData) end)
-            if not decodeSuccess or not savedHouse.furniture then
-                return Library:Notify("Ошибка", "Файл поврежден или имеет неверный формат!", 3)
-            end
-
-            local ACTUALLY_BUILD = true
-            local MICRO_SHIFT_Y = 0 
-            
-            local function loadAmbiance(ambianceData)
-                if not ambianceData then return end
-                
-                local function toColor3(rgbArray)
-                    if type(rgbArray) ~= "table" or #rgbArray < 3 then return Color3.new(1, 1, 1) end
-                    return Color3.new(rgbArray[1], rgbArray[2], rgbArray[3])
-                end
-                
-                local lData = ambianceData.Lighting or {}
-                local ccData = ambianceData.ColorCorrectionEffect or {}
-                local srData = ambianceData.SunRaysEffect or {}
-                local atmData = ambianceData.Atmosphere or {}
-            
-                local args = {{
-                    base_kind = "sunset", kind = "sunset", priority = 3,
-                    custom_props = {
-                        Lighting = {
-                            ClockTime = lData.ClockTime or 14,
-                            ExposureCompensation = lData.ExposureCompensation or 0,
-                            Ambient = toColor3(lData.Ambient),
-                            OutdoorAmbient = toColor3(lData.OutdoorAmbient),
-                            ColorShift_Top = toColor3(lData.ColorShift_Top)
-                        },
-                        ColorCorrectionEffect = {
-                            TintColor = toColor3(ccData.TintColor),
-                            Saturation = ccData.Saturation or 0,
-                            Contrast = ccData.Contrast or 0
-                        },
-                        SunRaysEffect = { Intensity = srData.Intensity or 0 },
-                        Atmosphere = {
-                            Density = atmData.Density or 0.3, 
-                            Glare = atmData.Glare or 0,
-                            Haze = atmData.Haze or 0, 
-                            Color = toColor3(atmData.Color)
-                        },
-                        Custom = ambianceData.Custom
-                    }
-                }}
-                local ambianceRemote = ReplicatedStorage:WaitForChild("API"):FindFirstChild("AmbianceAPI/UpdateAmbiance")
-                if ambianceRemote then pcall(function() ambianceRemote:FireServer(unpack(args)) end) end
-            end
-            
-            if savedHouse.ambiance then loadAmbiance(savedHouse.ambiance) end
-
-            if savedHouse.particles then
-                local ParticleRemote = ReplicatedStorage:WaitForChild("API"):FindFirstChild("AmbianceAPI/UpdateAmbianceProperties")
-                if ParticleRemote then
-                    pcall(function() ParticleRemote:FireServer({ Custom = savedHouse.particles }) end)
-                end
-            end
-
-            if CopyTextures and savedHouse.textures then
-                Library:Notify("Постройка", "Применяю обои и полы...", 2)
-                local BuyTextureRemote = ReplicatedStorage:WaitForChild("API"):FindFirstChild("HousingAPI/BuyTexture")
-                if BuyTextureRemote then
-                    for roomName, texData in pairs(savedHouse.textures) do
-                        if texData.walls and texData.walls ~= "" then
-                            pcall(function() BuyTextureRemote:FireServer(roomName, "walls", texData.walls) end)
-                            task.wait(CurrentBuildDelay)
-                        end
-                        if texData.floors and texData.floors ~= "" then
-                            pcall(function() BuyTextureRemote:FireServer(roomName, "floors", texData.floors) end)
-                            task.wait(CurrentBuildDelay)
-                        end
+            -- ФИКС ТЕКСТА В ТОГГЛАХ
+            if frame:IsA("Frame") and frame.Size == UDim2.new(1, 0, 0, 70) then
+                for _, child in ipairs(frame:GetChildren()) do
+                    if child:IsA("TextLabel") and child.TextSize == 13 then
+                        child.TextWrapped = true
+                        child.Size = UDim2.new(1, -75, 0, 28) 
+                        child.TextYAlignment = Enum.TextYAlignment.Top
                     end
                 end
             end
-
-            if not ACTUALLY_BUILD then return end
             
-            Library:Notify("Постройка", "Начинаю закупку предметов...", 3)
-            
-            local rawFurniture = savedHouse.furniture or savedHouse
-            local pendingChanges = {}
-            
-            table.sort(rawFurniture, function(a, b)
-                return a.cframe[2] < b.cframe[2]
-            end)
-            
-            local downloadApi = ReplicatedStorage:WaitForChild("API"):WaitForChild("DownloadsAPI/Download")
-            local buyFurnituresRemote = ReplicatedStorage:WaitForChild("API"):WaitForChild("HousingAPI/BuyFurnitures")
-            local pushFurnitureEvent = ReplicatedStorage:WaitForChild("API"):WaitForChild("HousingAPI/PushFurnitureChanges")
-            
-            for i, item in ipairs(rawFurniture) do
-                local fId = item.id
-                local baseCFrame = CFrame.new(unpack(item.cframe))
-                local localCFrame = baseCFrame + Vector3.new(0, MICRO_SHIFT_Y, 0)
-                
-                local buyProps = {cframe = localCFrame}
-                if item.colors and #item.colors > 0 then
-                    local c3table = {}
-                    for _, c in ipairs(item.colors) do table.insert(c3table, Color3.new(c[1], c[2], c[3])) end
-                    buyProps.colors = c3table
-                end
-                
-                local currentBatch = {{ kind = fId, properties = buyProps }}
-            
-                pcall(function() downloadApi:InvokeServer("Furniture", fId) end)
-                local buildSuccess, response = pcall(function() return buyFurnituresRemote:InvokeServer(currentBatch) end)
-                
-                if buildSuccess and type(response) == "table" and response.success and response.results and response.results[1] and response.results[1].unique then
-                    local createdItem = response.results[1]
-                    local changeArgs = {
-                        unique = createdItem.unique,
-                        cframe = localCFrame
-                    }
-                    if item.scale and item.scale ~= 1 then changeArgs.scale = item.scale end
-                    if buyProps.colors then changeArgs.colors = buyProps.colors end
-                    
-                    table.insert(pendingChanges, changeArgs)
-                end
-                
-                task.wait(CurrentBuildDelay)
-            end
-            
-            Library:Notify("Постройка", "Применяю размеры и цвета...", 3)
-            
-            local chunk = {}
-            for i, change in ipairs(pendingChanges) do
-                table.insert(chunk, change)
-                if #chunk >= 50 or i == #pendingChanges then
-                    pcall(function() pushFurnitureEvent:FireServer(chunk) end)
-                    chunk = {}
-                    task.wait(0.5) 
-                end
-            end
-            Library:Notify("Успех", "Дом " .. SelectedHouse .. " успешно построен!", 5)
-        end)
+        end
     end)
-
-    -- ==========================================
-    -- 4. РЕПЛИКАТОР (НАСТРОЙКИ)
-    -- ==========================================
-    Tab:CreateDivider({ Text = "Configuration" })
-
-    Tab:CreateToggle({
-        Name = "Copy Textures (Wallpapers/Floors)",
-        Description = "Копировать обои и покрытие полов",
-        Default = true,
-        Flag = "Replicator_CopyTextures",
-        Callback = function(state)
-            CopyTextures = state
-        end
-    })
-
-    Tab:CreateSlider({
-        Name = "Build Delay (ms)",
-        Min = 10,
-        Max = 500,
-        Default = 50,
-        Flag = "Replicator_BuildDelay",
-        Callback = function(value)
-            CurrentBuildDelay = value / 1000 
-        end
-    })
 end
 
 return Module
