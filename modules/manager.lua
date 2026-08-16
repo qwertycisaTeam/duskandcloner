@@ -83,35 +83,52 @@ function Module:Init(Library, Window, Tab)
         Parent = HeaderPanel
     }, { TextColor3 = "Text" })
 
-    local RefreshBtn = Library.Utils.Make("TextButton", { 
-        Size = UDim2.new(0, 26, 0, 26), 
-        AnchorPoint = Vector2.new(1, 0.5), 
-        Position = UDim2.new(1, 0, 0.5, 0), 
-        AutoButtonColor = false, 
+    local RefreshBtn = Library.Utils.Make("TextButton", {
+        Size = UDim2.new(0, 26, 0, 26),
+        Position = UDim2.new(1, -26, 0, 2),
         Text = "",
-        Parent = HeaderPanel 
+        AutoButtonColor = false,
+        Parent = SectionContainer
     }, { BackgroundColor3 = "Sidebar" })
     Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 6), Parent = RefreshBtn })
-    local RefStroke = Library.Utils.Make("UIStroke", { Thickness = 1, Transparency = 0.5, Parent = RefreshBtn }, { Color = "Stroke" })
 
-    local RefIcon = Library.Utils.Make("ImageLabel", { 
-        Size = UDim2.new(0, 16, 0, 16), 
+    local RefStroke = Library.Utils.Make("UIStroke", { Thickness = 1, Transparency = 0.5, Parent = RefreshBtn }, { Color = "Stroke" })
+    
+    local RefIcon = Library.Utils.Make("ImageLabel", {
+        Size = UDim2.new(0, 16, 0, 16),
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.new(0.5, 0, 0.5, 0),
-        BackgroundTransparency = 1, 
-        Image = "rbxassetid://6723921202", 
-        Parent = RefreshBtn 
-    }, { ImageColor3 = "Text" })
-
+        BackgroundTransparency = 1,
+        Image = "rbxassetid://6723921202",
+        Parent = RefreshBtn
+    }, { ImageColor3 = "SubText" })
+    
     local refScale = Instance.new("UIScale", RefreshBtn)
-
-    Library:Connect(RefreshBtn.MouseEnter, function() Library.Utils.TBT(RefStroke, 0.2, {Transparency = 0}); Library.Utils.TBT(RefreshBtn, 0.2, {BackgroundColor3 = Library.CurrentTheme.Section}) end)
-    Library:Connect(RefreshBtn.MouseLeave, function() Library.Utils.TBT(RefStroke, 0.2, {Transparency = 0.5}); Library.Utils.TBT(RefreshBtn, 0.2, {BackgroundColor3 = Library.CurrentTheme.Sidebar}) end)
+    
+    Library:Connect(RefreshBtn.MouseEnter, function() 
+        Library.Utils.TBT(RefStroke, 0.2, {Transparency = 0})
+        Library.Utils.TBT(RefreshBtn, 0.2, {BackgroundColor3 = Library.CurrentTheme.Section})
+        Library.Utils.TBT(RefIcon, 0.2, {ImageColor3 = Library.CurrentTheme.Accent})
+    end)
+    Library:Connect(RefreshBtn.MouseLeave, function() 
+        Library.Utils.TBT(RefStroke, 0.2, {Transparency = 0.5})
+        Library.Utils.TBT(RefreshBtn, 0.2, {BackgroundColor3 = Library.CurrentTheme.Sidebar})
+        Library.Utils.TBT(RefIcon, 0.2, {ImageColor3 = Library.CurrentTheme.SubText})
+    end)
+    
     Library:Connect(RefreshBtn.MouseButton1Click, function()
         local t = Library.Utils.TBT(refScale, 0.1, {Scale = 0.9})
         t.Completed:Connect(function() Library.Utils.TBT(refScale, 0.2, {Scale = 1}, Enum.EasingStyle.Bounce) end)
         Library.Utils.TBT(RefIcon, 0.5, {Rotation = 360}); task.delay(0.5, function() RefIcon.Rotation = 0 end)
-        self:RefreshList()
+        
+        if HouseDropdown and type(HouseDropdown.Refresh) == "function" then
+            HouseDropdown.Refresh(GetSavedHouses())
+            if type(HouseDropdown.SetValue) == "function" then
+                HouseDropdown.SetValue("Select...")
+            end
+            SelectedHouse = nil 
+        end
+        Library:Notify("Builder", "Список домов успешно обновлен!", 2)
     end)
 
     local TopDivider = Library.Utils.Make("Frame", {
