@@ -495,7 +495,7 @@ function Library:CreateWindow(config)
         PagesContainer = Pages,
         Tabs = {}, 
         CurrentTab = nil,
-        ToggleMenu = ToggleMinimize
+        ToggleMenu = ToggleMinimize,
         MainUIScale = MainUIScale
     }
 
