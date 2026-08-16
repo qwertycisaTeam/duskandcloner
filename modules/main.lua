@@ -120,9 +120,11 @@ function Module:Init(Library, Window, Tab)
         end
     })
 
-    -- Улучшенный хак: фиксим шрифты и добавляем объем (убираем плоскость)
+    -- ==========================================
+    -- АВТО-УЛУЧШЕНИЕ ДРОПДАУНОВ (ПЕРЕНЕСЕНО С НАСТРОЕК)
+    -- ==========================================
     task.spawn(function()
-        task.wait(0.1)
+        task.wait(0.2)
         for _, frame in ipairs(Tab.Page:GetChildren()) do
             if frame:IsA("Frame") and frame.Size == UDim2.new(1, 0, 0, 40) then 
                 local title = frame:FindFirstChildWhichIsA("TextLabel")
@@ -137,13 +139,38 @@ function Module:Init(Library, Window, Tab)
                     btn.Font = Enum.Font.GothamMedium
                     btn.TextSize = 13
                     
-                    if not btn:FindFirstChildWhichIsA("UIStroke") then
-                        Library.Utils.Make("UIStroke", {
-                            Thickness = 1,
-                            Transparency = 0.5,
-                            ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-                            Parent = btn
-                        }, { Color = "Stroke" })
+                    -- Добавляем контрастный фон
+                    btn.BackgroundColor3 = Color3.fromRGB(32, 32, 38)
+                    
+                    -- Усиливаем обводку
+                    local stroke = btn:FindFirstChildWhichIsA("UIStroke") or Instance.new("UIStroke", btn)
+                    stroke.Thickness = 1
+                    stroke.Transparency = 0
+                    stroke.Color = Color3.fromRGB(70, 70, 80)
+                    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+                    
+                    -- Добавляем 3D-глубину снизу
+                    if not btn:FindFirstChild("DepthGlow") then
+                        local depth = Instance.new("Frame", btn)
+                        depth.Name = "DepthGlow"
+                        depth.Size = UDim2.new(1, 0, 0, 3)
+                        depth.Position = UDim2.new(0, 0, 1, -3)
+                        depth.BackgroundColor3 = Color3.fromRGB(20, 20, 24)
+                        depth.BorderSizePixel = 0
+                        local dc = Instance.new("UICorner", depth)
+                        dc.CornerRadius = UDim.new(0, 6)
+                    end
+                    
+                    -- Добавляем иконку стрелочки вниз
+                    if not btn:FindFirstChild("DropArrow") then
+                        local arrow = Instance.new("ImageLabel", btn)
+                        arrow.Name = "DropArrow"
+                        arrow.Size = UDim2.new(0, 14, 0, 14)
+                        arrow.Position = UDim2.new(1, -10, 0.5, 0)
+                        arrow.AnchorPoint = Vector2.new(1, 0.5)
+                        arrow.BackgroundTransparency = 1
+                        arrow.Image = "rbxassetid://6031091004"
+                        arrow.ImageColor3 = Color3.fromRGB(150, 150, 160)
                     end
                 end
             end
