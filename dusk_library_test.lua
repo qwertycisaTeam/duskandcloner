@@ -33,6 +33,10 @@ local Library = {
 }
 getgenv().DuskShine_Core = Library
 
+Library.ConfigUpdaters["Selected_Theme"] = function(savedThemeName)
+    Library:SetTheme(savedThemeName)
+end
+
 function Library:Destroy()
     for _, conn in ipairs(self.Connections) do
         if typeof(conn) == "RBXScriptConnection" then conn:Disconnect() end
@@ -203,12 +207,14 @@ function Library:SetTheme(themeName)
     self.CurrentThemeName = themeName
     self.CurrentTheme = self.Themes[themeName]
     
+    -- СОХРАНЯЕМ ТЕМУ ВО ФЛАГИ ДЛЯ КОНФИГА
+    self.Flags["Selected_Theme"] = themeName
+    
     if DefaultAccents[themeName] then
         self.CurrentTheme.Accent = DefaultAccents[themeName]
     end
 
     for UIElement, Props in pairs(self.ThemeObjects) do
-        -- Убрали лишнюю проверку, так как таблица слабая (удаленные элементы исчезают сами)
         for Property, ThemeKey in pairs(Props) do
             Library.Utils.TBT(UIElement, 0.3, {[Property] = self.CurrentTheme[ThemeKey]})
             
