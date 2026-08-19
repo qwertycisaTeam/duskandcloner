@@ -127,7 +127,7 @@ function Module:Init(Library, Window, Tab)
         Library.Utils.Make("TextLabel", { Text = value, Size = UDim2.new(1, -42, 0, 14), Position = UDim2.new(0, 32, 0, yPos), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Right, Parent = StatsCard }, { TextColor3 = valColor or "Text" })
     end
 
-    AddStatLine(1, "rbxassetid://99559214342519", "First time executed:", profileData.FirstInjected .. " (" \n .. (profileData.FirstVersion or "v3.3.4") .. ")")
+    AddStatLine(1, "rbxassetid://99559214342519", "First time executed:", profileData.FirstInjected .. " (" .. (profileData.FirstVersion or "v3.3.4") .. ")")
     AddStatLine(2, "rbxassetid://96714408085433", "Total Time Spent:", timeString)
     AddStatLine(3, "rbxassetid://13619902566", "Age Potions Farmed:", tostring(profileData.AgePotionsFarmed), "Accent")
     AddStatLine(4, "rbxassetid://6908632622", "Total Bucks Earned:", tostring(profileData.BucksEarned) .. " $", "Accent")
