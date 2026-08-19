@@ -120,13 +120,18 @@ function Module:Init(Library, Window, Tab)
     Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 8), Parent = StatsCard})
     Library.Utils.Make("UIStroke", {Thickness = 1, Parent = StatsCard}, {Color = "Stroke"})
 
-    local function AddStatLine(index, iconId, title, value, valColor)
+  local function AddStatLine(index, iconId, title, value, valColor)
         local yPos = 8 + ((index - 1) * 20)
+        
+        -- Иконка (без изменений)
         Library.Utils.Make("ImageLabel", { Size = UDim2.new(0, 14, 0, 14), Position = UDim2.new(0, 12, 0, yPos), BackgroundTransparency = 1, Image = iconId, Parent = StatsCard }, { ImageColor3 = "SubText" })
-        Library.Utils.Make("TextLabel", { Text = title, Size = UDim2.new(0, 120, 0, 14), Position = UDim2.new(0, 32, 0, yPos), BackgroundTransparency = 1, Font = Enum.Font.GothamMedium, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left, Parent = StatsCard }, { TextColor3 = "SubText" })
-        Library.Utils.Make("TextLabel", { Text = value, Size = UDim2.new(1, -42, 0, 14), Position = UDim2.new(0, 32, 0, yPos), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Right, Parent = StatsCard }, { TextColor3 = valColor or "Text" })
+        
+        -- Название (Title) - Ограничиваем ширину до 110 пикселей
+        Library.Utils.Make("TextLabel", { Text = title, Size = UDim2.new(0, 110, 0, 14), Position = UDim2.new(0, 32, 0, yPos), BackgroundTransparency = 1, Font = Enum.Font.GothamMedium, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left, Parent = StatsCard }, { TextColor3 = "SubText" })
+        
+        -- Значение (Value) - Начинаем отрисовку с 142 пикселя (после Title) и занимаем остаток
+        Library.Utils.Make("TextLabel", { Text = value, Size = UDim2.new(1, -152, 0, 14), Position = UDim2.new(0, 142, 0, yPos), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Right, Parent = StatsCard }, { TextColor3 = valColor or "Text" })
     end
-
     AddStatLine(1, "rbxassetid://99559214342519", "First time executed:", profileData.FirstInjected .. " (" .. (profileData.FirstVersion or "v3.3.4") .. ")")
     AddStatLine(2, "rbxassetid://96714408085433", "Total Time Spent:", timeString)
     AddStatLine(3, "rbxassetid://13619902566", "Age Potions Farmed:", tostring(profileData.AgePotionsFarmed), "Accent")
