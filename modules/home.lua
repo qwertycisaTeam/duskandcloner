@@ -4,10 +4,8 @@ function Module:Init(Library, Window, Tab)
     local Players = game:GetService("Players")
     local LocalPlayer = Players.LocalPlayer
     
-    -- Безопасная проверка стейта
     local isAnonymous = getgenv().AnonymousMode or (Library.Settings and Library.Settings.AnonymousMode) or false 
     
-    -- БРОНЕБОЙНАЯ ПРОВЕРКА ИМЕНИ (чтобы не словить nil и краш)
     local displayName = LocalPlayer.Name
     pcall(function()
         if LocalPlayer.DisplayName and LocalPlayer.DisplayName ~= "" then
@@ -18,99 +16,132 @@ function Module:Init(Library, Window, Tab)
 
     local NameFont = Enum.Font.GothamBold
     local fancyFonts = {"Shojumaru", "Macondo", "AmaticSC", "Fantasy"}
-
     for _, fontName in ipairs(fancyFonts) do
         local success, fontEnum = pcall(function() return Enum.Font[fontName] end)
-        if success and fontEnum then
-            NameFont = fontEnum
-            break -- Нашли рабочий красивый шрифт, останавливаем поиск
-        end
+        if success and fontEnum then NameFont = fontEnum; break end
     end
 
     -- ==========================================
-    -- 1. WELCOME SECTION
+    -- 1. WELCOME SECTION & STATS (Улучшенные пропорции)
     -- ==========================================
-    Tab:CreateSection({ Name = "Home" })
+    Tab:CreateDivider({ Text = "Home" }) -- Новая плашка вместо секции
     
-    local greetings = {
-        "Hello", 
-        "Welcome back", 
-        "Wassup dear"
-    }
+    local greetings = { "Hello", "Welcome back", "Wassup dear" }
     local randomGreeting = greetings[math.random(1, #greetings)]
 
-    local WelcomeFrame = Library.Utils.Make("Frame", {
-        Size = UDim2.new(1, 0, 0, 70),
+    -- Сделали блок выше (110px), чтобы всё дышало
+    local TopContainer = Library.Utils.Make("Frame", {
+        Size = UDim2.new(1, 0, 0, 110), 
         BackgroundTransparency = 1,
         Parent = Tab.Page
     })
 
+    -- ЛЕВАЯ ЧАСТЬ (Приветствие)
+    local WelcomeFrame = Library.Utils.Make("Frame", {
+        Size = UDim2.new(0.5, -5, 1, 0), Position = UDim2.new(0, 0, 0, 0),
+        BackgroundTransparency = 1, Parent = TopContainer
+    })
+
+    -- Увеличили аватарку (60x60)
     local AvatarImage = Library.Utils.Make("ImageLabel", {
-        Size = UDim2.new(0, 50, 0, 50),
-        Position = UDim2.new(0, 10, 0.5, -25),
+        Size = UDim2.new(0, 60, 0, 60), Position = UDim2.new(0, 10, 0.5, -30),
         Image = "rbxthumb://type=AvatarHeadShot&id=" .. LocalPlayer.UserId .. "&w=150&h=150",
-        BackgroundTransparency = isAnonymous and 0 or 1,
-        BackgroundColor3 = Color3.new(0, 0, 0),
-        ImageTransparency = isAnonymous and 1 or 0,
-        Parent = WelcomeFrame
+        BackgroundTransparency = isAnonymous and 0 or 1, BackgroundColor3 = Color3.new(0, 0, 0),
+        ImageTransparency = isAnonymous and 1 or 0, Parent = WelcomeFrame
     })
     Library.Utils.Make("UICorner", {CornerRadius = UDim.new(1, 0), Parent = AvatarImage})
 
     local AvatarLetter = Library.Utils.Make("TextLabel", {
         Text = "?", Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1,
-        Font = Enum.Font.GothamBold, TextSize = 24,
-        Visible = isAnonymous, Parent = AvatarImage
-    }, { TextColor3 = "Text" })
+        Font = Enum.Font.GothamBold, TextSize = 28, Visible = isAnonymous, Parent = AvatarImage
+    }, { TextColor3 = "Accent" })
 
+    -- Сдвинули тексты и увеличили шрифты
     Library.Utils.Make("TextLabel", {
-        Text = randomGreeting .. ",",
-        Size = UDim2.new(1, -75, 0, 20),
-        Position = UDim2.new(0, 75, 0.5, -20),
-        BackgroundTransparency = 1,
-        Font = Enum.Font.GothamMedium,
-        TextSize = 14,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        Parent = WelcomeFrame
+        Text = randomGreeting .. ",", Size = UDim2.new(1, -85, 0, 20), Position = UDim2.new(0, 85, 0.5, -24),
+        BackgroundTransparency = 1, Font = Enum.Font.GothamMedium, TextSize = 14,
+        TextXAlignment = Enum.TextXAlignment.Left, Parent = WelcomeFrame
     }, { TextColor3 = "SubText" })
 
     local UsernameLabel = Library.Utils.Make("TextLabel", {
-        Text = displayName .. "!",
-        Size = UDim2.new(1, -75, 0, 35), -- Увеличили высоту контейнера (было 25)
-        Position = UDim2.new(0, 75, 0.5, 0),
-        BackgroundTransparency = 1,
-        Font = NameFont,
-        TextSize = 28, -- Сделали шрифт крупнее (было 22)
-        TextXAlignment = Enum.TextXAlignment.Left,
-        Parent = WelcomeFrame
+        Text = displayName .. "!", Size = UDim2.new(1, -85, 0, 35), Position = UDim2.new(0, 85, 0.5, -4),
+        BackgroundTransparency = 1, Font = NameFont, TextSize = 26,
+        TextXAlignment = Enum.TextXAlignment.Left, TextScaled = true, Parent = WelcomeFrame
     }, { TextColor3 = "Accent" })
-
-    Library.Utils.Make("UIStroke", {
-        Thickness = 1, -- Сильно уменьшили толщину обводки (было 2.5)
-        Transparency = 0.3, -- Сделали свечение чуть плотнее, раз оно теперь тонкое
-        Parent = UsernameLabel
-    }, { Color = "Accent" })
+    Library.Utils.Make("UITextSizeConstraint", {MaxTextSize = 28, MinTextSize = 14, Parent = UsernameLabel})
 
     if Library.AnonItems then
-        table.insert(Library.AnonItems.Avatars, {
-            ImageObj = AvatarImage,
-            Letter = AvatarLetter
-        })
-        table.insert(Library.AnonItems.Names, {
-            Obj = UsernameLabel,
-            Format = "%s!"
-        })
+        table.insert(Library.AnonItems.Avatars, {ImageObj = AvatarImage, Letter = AvatarLetter})
+        table.insert(Library.AnonItems.Names, {Obj = UsernameLabel, Format = "%s!"})
     end
 
+    -- ПРАВАЯ ЧАСТЬ (Статистика)
+    local function GetProfileData()
+        local defaultData = {
+            FirstInjected = "Just now", FirstVersion = getgenv().DuskVersion or "v3.3.4",
+            TimeSpent = 0, AgePotionsFarmed = 0, BucksEarned = 0
+        }
+        if getgenv().ProfileData then
+            for k, v in pairs(getgenv().ProfileData) do defaultData[k] = v end
+            return defaultData
+        end
+        local HttpService = game:GetService("HttpService")
+        local ConfigFile = "DuskShine_Config.json"
+        if isfile and isfile(ConfigFile) then
+            pcall(function()
+                local parsed = HttpService:JSONDecode(readfile(ConfigFile))
+                if parsed and parsed.ProfileData then
+                    for k, v in pairs(parsed.ProfileData) do defaultData[k] = v end
+                elseif parsed and parsed.FirstInjected then
+                    defaultData.FirstInjected = parsed.FirstInjected
+                    defaultData.FirstVersion = parsed.FirstVersion
+                    defaultData.TimeSpent = tonumber(parsed.TimeSpent) or 0
+                    defaultData.AgePotionsFarmed = tonumber(parsed.AgePotionsFarmed) or 0
+                    defaultData.BucksEarned = tonumber(parsed.BucksEarned) or 0
+                end
+            end)
+        end
+        return defaultData
+    end
+
+    local profileData = GetProfileData()
+    local ts = tonumber(profileData.TimeSpent) or 0
+    local days = math.floor(ts / 86400)
+    local hours = math.floor((ts % 86400) / 3600)
+    local mins = math.floor((ts % 3600) / 60)
+    local timeString = string.format("%dd %dh %dm", days, hours, mins)
+    if days == 0 and hours == 0 and mins == 0 then timeString = "< 1m" end
+
+    local StatsCard = Library.Utils.Make("Frame", {
+        Size = UDim2.new(0.5, -5, 1, -10), -- Чуть ужали по высоте для аккуратности
+        Position = UDim2.new(0.5, 5, 0, 5),
+        Parent = TopContainer
+    }, { BackgroundColor3 = "Section" })
+    Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 8), Parent = StatsCard})
+    Library.Utils.Make("UIStroke", {Thickness = 1, Parent = StatsCard}, {Color = "Stroke"})
+
+    local function AddStatLine(index, iconId, title, value, valColor)
+        local yPos = 8 + ((index - 1) * 20)
+        Library.Utils.Make("ImageLabel", { Size = UDim2.new(0, 14, 0, 14), Position = UDim2.new(0, 12, 0, yPos), BackgroundTransparency = 1, Image = iconId, Parent = StatsCard }, { ImageColor3 = "SubText" })
+        Library.Utils.Make("TextLabel", { Text = title, Size = UDim2.new(0, 120, 0, 14), Position = UDim2.new(0, 32, 0, yPos), BackgroundTransparency = 1, Font = Enum.Font.GothamMedium, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left, Parent = StatsCard }, { TextColor3 = "SubText" })
+        Library.Utils.Make("TextLabel", { Text = value, Size = UDim2.new(1, -42, 0, 14), Position = UDim2.new(0, 32, 0, yPos), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Right, Parent = StatsCard }, { TextColor3 = valColor or "Text" })
+    end
+
+    AddStatLine(1, "rbxassetid://99559214342519", "First time executed:", profileData.FirstInjected .. " (" .. (profileData.FirstVersion or "v3.3.4") .. ")")
+    AddStatLine(2, "rbxassetid://96714408085433", "Total Time Spent:", timeString)
+    AddStatLine(3, "rbxassetid://13619902566", "Age Potions Farmed:", tostring(profileData.AgePotionsFarmed), "Accent")
+    AddStatLine(4, "rbxassetid://6908632622", "Total Bucks Earned:", tostring(profileData.BucksEarned) .. " $", "Accent")
+
+    -- ==========================================
+    -- 2. UPDATE LOG
+    -- ==========================================
+    Tab:CreateDivider({ Text = "Latest Update" }) -- Добавили разделитель!
     local UpdateLogLabel = Tab:CreateLabel({ Text = "Fetching update log..." })
 
     task.spawn(function()
         local domain = getgenv().DuskDomain or "http://192.168.50.161"
         local localUrl = domain .. "/api/updatelog/" .. tostring(getgenv().ScriptID)
-        
-        local success, res = pcall(function()
-            return game:HttpGet(localUrl)
-        end)
-        
+        local success, res = pcall(function() return game:HttpGet(localUrl) end)
         if success and res and res ~= "" and not res:match("Not Found") then
             UpdateLogLabel.SetText(res)
         else
@@ -119,13 +150,40 @@ function Module:Init(Library, Window, Tab)
     end)
 
     -- ==========================================
-    -- 2. SERVER UTILITIES
+    -- СОВРЕМЕННЫЙ ШАБЛОН ДЛЯ КАРТОЧЕК
     -- ==========================================
-    Tab:CreateSection({ Name = "Server Utilities" })
+    local function CreateModernCard(name, desc, iconId, callback)
+        local Card = Library.Utils.Make("Frame", { Size = UDim2.new(1, 0, 0, 60), Parent = Tab.Page }, { BackgroundColor3 = "Section" })
+        Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 8), Parent = Card})
+        local Stroke = Library.Utils.Make("UIStroke", {Thickness = 1, Parent = Card}, { Color = "Stroke" })
+        
+        Library.Utils.Make("TextLabel", { Text = name, Size = UDim2.new(1, -70, 0, 16), Position = UDim2.new(0, 15, 0, 12), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, Parent = Card }, { TextColor3 = "Text" })
+        Library.Utils.Make("TextLabel", { Text = desc, Size = UDim2.new(1, -70, 0, 14), Position = UDim2.new(0, 15, 0, 32), BackgroundTransparency = 1, Font = Enum.Font.GothamMedium, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left, Parent = Card }, { TextColor3 = "SubText" })
+        
+        local Btn = Library.Utils.Make("TextButton", { Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Text = "", Parent = Card })
+        local Icon = Library.Utils.Make("ImageLabel", { Size = UDim2.new(0, 24, 0, 24), AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -15, 0.5, 0), BackgroundTransparency = 1, Image = iconId, Parent = Card }, { ImageColor3 = "SubText" })
+
+        Library:Connect(Btn.MouseEnter, function() 
+            Library.Utils.TBT(Stroke, 0.25, {Color = Library.CurrentTheme.Accent})
+            Library.Utils.TBT(Icon, 0.25, {ImageColor3 = Library.CurrentTheme.Accent, Size = UDim2.new(0, 28, 0, 28)}) 
+        end)
+        Library:Connect(Btn.MouseLeave, function() 
+            Library.Utils.TBT(Stroke, 0.25, {Color = Library.CurrentTheme.Stroke})
+            Library.Utils.TBT(Icon, 0.25, {ImageColor3 = Library.CurrentTheme.SubText, Size = UDim2.new(0, 24, 0, 24)})
+        end)
+        Library:Connect(Btn.MouseButton1Click, function()
+            Library.Utils.CreateRipple(Card)
+            pcall(callback)
+        end)
+    end
+
+    -- ==========================================
+    -- 3. SERVER UTILITIES
+    -- ==========================================
+    Tab:CreateDivider({ Text = "Server Utilities" }) -- Плашка!
 
     local function RejoinServer()
-        local ts = game:GetService("TeleportService")
-        ts:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
+        game:GetService("TeleportService"):TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
     end
 
     local function ServerHop()
@@ -148,118 +206,43 @@ function Module:Init(Library, Window, Tab)
         TPS:Teleport(game.PlaceId)
     end
 
-    local function CreateActionCard(name, desc, iconId, callback)
-        local F = Library.Utils.Make("Frame", {
-            Size = UDim2.new(1, 0, 0, 46),
-            Parent = Tab.Page
-        }, { BackgroundColor3 = "Section" })
-        
-        Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 8), Parent = F})
-        local FStroke = Library.Utils.Make("UIStroke", {Thickness = 1, Parent = F}, {Color = "Stroke"})
-
-        local Btn = Library.Utils.Make("TextButton", {
-            Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Text = "", Parent = F
-        })
-
-        Library.Utils.Make("TextLabel", {
-            Text = name, Size = UDim2.new(1, -45, 0, 16), Position = UDim2.new(0, 14, 0, 8),
-            BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 13,
-            TextXAlignment = Enum.TextXAlignment.Left, Parent = F
-        }, { TextColor3 = "Text" })
-
-        Library.Utils.Make("TextLabel", {
-            Text = desc, Size = UDim2.new(1, -45, 0, 14), Position = UDim2.new(0, 14, 0, 26),
-            BackgroundTransparency = 1, Font = Enum.Font.GothamMedium, TextSize = 11,
-            TextXAlignment = Enum.TextXAlignment.Left, Parent = F
-        }, { TextColor3 = "SubText" })
-
-        -- ВОТ ЗДЕСЬ ИКОНКА СТАЛА DECAL (ImageLabel)
-        local Icon = Library.Utils.Make("ImageLabel", {
-            Size = UDim2.new(0, 18, 0, 18), Position = UDim2.new(1, -30, 0.5, -9),
-            BackgroundTransparency = 1, Image = iconId, Parent = F
-        }, { ImageColor3 = "SubText" })
-
-        Library:Connect(Btn.MouseEnter, function() 
-            Library.Utils.TBT(FStroke, 0.25, {Color = Library.CurrentTheme.Accent})
-            -- Анимация: иконка плавно увеличивается и красится в цвет акцента
-            Library.Utils.TBT(Icon, 0.25, {ImageColor3 = Library.CurrentTheme.Accent, Size = UDim2.new(0, 22, 0, 22), Position = UDim2.new(1, -32, 0.5, -11)}) 
-        end)
-        
-        Library:Connect(Btn.MouseLeave, function() 
-            Library.Utils.TBT(FStroke, 0.25, {Color = Library.CurrentTheme.Stroke})
-            Library.Utils.TBT(Icon, 0.25, {ImageColor3 = Library.CurrentTheme.SubText, Size = UDim2.new(0, 18, 0, 18), Position = UDim2.new(1, -30, 0.5, -9)})
-        end)
-
-        Library:Connect(Btn.MouseButton1Click, function()
-            Library.Utils.CreateRipple(F)
-            pcall(callback)
-        end)
-    end
-
-    -- Вызовы функции: 3-м аргументом передаем Asset ID нужной картинки
-    CreateActionCard("Server Hop", "Finds and joins a new public server", "rbxassetid://115929304045144", ServerHop)
-    CreateActionCard("Rejoin Server", "Reconnects to the current server instance", "rbxassetid://100152237482023", RejoinServer)
+    CreateModernCard("Server Hop", "Finds and joins a new public server", "rbxassetid://115929304045144", ServerHop)
+    CreateModernCard("Rejoin Server", "Reconnects to the current server instance", "rbxassetid://100152237482023", RejoinServer)
 
     -- ==========================================
-    -- 3. COMMUNITY & LINKS
+    -- 4. COMMUNITY & LINKS
     -- ==========================================
-    Tab:CreateSection({ Name = "Community & Links" })
+    Tab:CreateDivider({ Text = "Community & Links" }) -- Плашка!
 
-    -- НОВАЯ ФУНКЦИЯ ДЛЯ КАРТИНОК (вместо InjectHoverEmoji)
-    local function InjectHoverIcon(iconId)
-        local elements = Tab.Page:GetChildren()
-        local lastFrame = nil
-        
-        for i = #elements, 1, -1 do
-            if elements[i]:IsA("Frame") then
-                lastFrame = elements[i]
-                break
-            end
-        end
-        
-        if lastFrame then
-            local Btn = lastFrame:FindFirstChildOfClass("TextButton", true)
-            if Btn then
-                -- Картинка вместо текста
-                local BigIcon = Library.Utils.Make("ImageLabel", {
-                    Image = iconId, Size = UDim2.new(0, 40, 0, 40), Position = UDim2.new(1, -50, 0.5, -20),
-                    BackgroundTransparency = 1, ImageTransparency = 1, Parent = lastFrame
-                }, { ImageColor3 = "Accent" })
-                
-                Library:Connect(Btn.MouseEnter, function() 
-                    Library.Utils.TBT(BigIcon, 0.25, {Size = UDim2.new(0, 48, 0, 48), Position = UDim2.new(1, -54, 0.5, -24), ImageTransparency = 0.4}) 
-                end)
-                
-                Library:Connect(Btn.MouseLeave, function() 
-                    Library.Utils.TBT(BigIcon, 0.25, {Size = UDim2.new(0, 40, 0, 40), Position = UDim2.new(1, -50, 0.5, -20), ImageTransparency = 1})
-                end)
+    local function CopyToClipboard(text, notifyName)
+        if setclipboard then
+            setclipboard(text)
+            if Library.Notify then 
+                -- 4-й аргумент: Иконка скрепки (10723426722)
+                -- 5-й аргумент: Фоновый водяной знак (72958619361915)
+                Library:Notify(
+                    "Link Copied!", 
+                    "Copied " .. notifyName .. " to clipboard.", 
+                    3, 
+                    "rbxassetid://10723426722", 
+                    "rbxassetid://72958619361915"
+                ) 
             end
         end
     end
 
-    Tab:CreateCopyLink({ 
-        Name = "Telegram Channel", 
-        Url = "https://t.me/DuskAndShine",
-        NotifyIcon = "rbxassetid://10723426722",
-        NotifyLogo = "rbxassetid://72958619361915"
-    })
-    InjectHoverIcon("rbxassetid://129003197083110") -- Иконка самолетика
+    -- Заменили старые линки на новые современные карточки
+    CreateModernCard("Telegram Channel", "https://t.me/DuskAndShine", "rbxassetid://111514738904110", function()
+        CopyToClipboard("https://t.me/DuskAndShine", "Telegram Link")
+    end)
     
-    Tab:CreateCopyLink({ 
-        Name = "Official Website", 
-        Url = "https://duskandshine.xyz",
-        NotifyIcon = "rbxassetid://10723426722",
-        NotifyLogo = "rbxassetid://72958619361915"
-    })
-    InjectHoverIcon("rbxassetid://7733954760") -- Иконка глобуса
+    CreateModernCard("Official Website", "https://duskandshine.xyz", "rbxassetid://7733954760", function()
+        CopyToClipboard("https://duskandshine.xyz", "Website Link")
+    end)
     
-    Tab:CreateCopyLink({ 
-        Name = "Discord Server", 
-        Url = "https://discord.gg/duskshine",
-        NotifyIcon = "rbxassetid://10723426722",
-        NotifyLogo = "rbxassetid://72958619361915"
-    })
-    InjectHoverIcon("rbxassetid://18505728201") -- Иконка дискорда
+    CreateModernCard("Discord Server", "https://discord.gg/duskshine", "rbxassetid://112538196670712", function()
+        CopyToClipboard("https://discord.gg/duskshine", "Discord Link")
+    end)
 
 end
 
