@@ -33,10 +33,6 @@ local Library = {
 }
 getgenv().DuskShine_Core = Library
 
-Library.ConfigUpdaters["Selected_Theme"] = function(savedThemeName)
-    Library:SetTheme(savedThemeName)
-end
-
 function Library:Destroy()
     for _, conn in ipairs(self.Connections) do
         if typeof(conn) == "RBXScriptConnection" then conn:Disconnect() end
@@ -111,6 +107,20 @@ Library.Themes = {
         Text = rgb(20, 20, 25), SubText = rgb(100, 100, 110), Accent = rgb(0, 122, 255),
         Stroke = rgb(220, 220, 230), ToggleOff = rgb(200, 200, 210), ToggleOn = rgb(0, 122, 255), Knob = rgb(255, 255, 255)
     }),
+    Amethelyst = makeTheme({
+        Background = rgb(20, 10, 15),
+        Sidebar    = rgb(25, 15, 22),
+        Section    = rgb(33, 20, 30),
+        
+        Text       = rgb(230, 215, 235),
+        SubText    = rgb(130, 110, 140),
+        Accent     = rgb(210, 180, 230),
+        
+        Stroke     = rgb(50, 35, 55),
+        ToggleOff  = rgb(60, 45, 65),
+        ToggleOn   = rgb(210, 180, 230),
+        Knob       = rgb(25, 15, 22)
+    }),
     Galaxy = makeTheme({
         Background = rgb(12, 10, 20), Sidebar = rgb(18, 15, 30), Section = rgb(25, 20, 42),
         Text = rgb(240, 240, 255), SubText = rgb(150, 140, 190), Accent = rgb(110, 60, 255),
@@ -133,6 +143,7 @@ Library.CurrentTheme = Library.Themes[Library.CurrentThemeName]
 
 local DefaultAccents = {
     Dark = rgb(255, 255, 255), Light = rgb(0, 122, 255),
+    Amethelyst = rgb(210, 180, 230),
     Galaxy = rgb(110, 60, 255), Emerald = rgb(46, 204, 113), BlueDeepWave = rgb(0, 170, 255)
 }
 
@@ -207,14 +218,12 @@ function Library:SetTheme(themeName)
     self.CurrentThemeName = themeName
     self.CurrentTheme = self.Themes[themeName]
     
-    -- СОХРАНЯЕМ ТЕМУ ВО ФЛАГИ ДЛЯ КОНФИГА
-    self.Flags["Selected_Theme"] = themeName
-    
     if DefaultAccents[themeName] then
         self.CurrentTheme.Accent = DefaultAccents[themeName]
     end
 
     for UIElement, Props in pairs(self.ThemeObjects) do
+        -- Убрали лишнюю проверку, так как таблица слабая (удаленные элементы исчезают сами)
         for Property, ThemeKey in pairs(Props) do
             Library.Utils.TBT(UIElement, 0.3, {[Property] = self.CurrentTheme[ThemeKey]})
             
@@ -225,7 +234,7 @@ function Library:SetTheme(themeName)
     end
 end
 
-Library.ThemeCycle = {"Dark", "Light", "Galaxy", "Emerald", "BlueDeepWave"}
+Library.ThemeCycle = {"Dark", "Light", "Amethelyst", "Galaxy", "Emerald", "BlueDeepWave"}
 
 function Library:ToggleTheme()
     local currentIndex = table.find(self.ThemeCycle, self.CurrentThemeName) or 1
@@ -311,7 +320,7 @@ function Library:CreateWindow(config)
     end)
 
     local MainFrame = Library.Utils.Make("CanvasGroup", {
-        Size = UDim2.new(0, 460, 0, 410), AnchorPoint = Vector2.new(0.5, 0.5),
+        Size = UDim2.new(0, 680, 0, 450), AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.new(0.5, 0, 0.5, 0), BorderSizePixel = 0, GroupTransparency = 1,
         Visible = false, BackgroundTransparency = 0.15, Parent = ScreenGui
     }, { BackgroundColor3 = "Background" })
@@ -326,9 +335,9 @@ function Library:CreateWindow(config)
     Library.Utils.Make("UIListLayout", {HorizontalAlignment = "Center", Padding = UDim.new(0, 20), Parent = TabsContainer})
 
     -- ==========================================
-    -- АВАТАРКА В БОКОВОМ МЕНЮ
+    -- АВАТАРКА В БОКОВОМ МЕНЮ (Только визуал)
     -- ==========================================
-    local Avatar = Library.Utils.Make("ImageButton", {
+    local Avatar = Library.Utils.Make("ImageLabel", {
         Size = UDim2.new(0, 36, 0, 36), Position = UDim2.new(0.5, -18, 1, -65), 
         Image = "rbxthumb://type=AvatarHeadShot&id=" .. game:GetService("Players").LocalPlayer.UserId .. "&w=100&h=100", 
         Parent = Sidebar
@@ -337,7 +346,7 @@ function Library:CreateWindow(config)
     Library.Utils.Make("UIStroke", {Thickness = 1, Parent = Avatar}, {Color = "Stroke"})
 
     local SideAnonA = Library.Utils.Make("TextLabel", {
-        Size = UDim2.new(1,0,1,0), BackgroundTransparency = 1, Text = "A", Font = Enum.Font.GothamBold, TextSize = 20,
+        Size = UDim2.new(1,0,1,0), BackgroundTransparency = 1, Text = "?", Font = Enum.Font.GothamBold, TextSize = 20,
         Visible = Library.Settings.AnonymousMode, Parent = Avatar
     }, { TextColor3 = "Accent" })
     
@@ -345,11 +354,6 @@ function Library:CreateWindow(config)
         Avatar.ImageTransparency = 1; Avatar.BackgroundTransparency = 0; Avatar.BackgroundColor3 = Color3.new(0,0,0) 
     end
     table.insert(Library.AnonItems.Avatars, {ImageObj = Avatar, Letter = SideAnonA})
-
-    Library:Connect(Avatar.MouseButton1Click, function()
-        Library.Utils.CreateRipple(Avatar)
-        Library:Notify("Profile", "Profile Page is currently disabled.", 3)
-    end)
 
     -- ==========================================
     -- ШАПКА: TITLE, ONLINE COUNTER, SEARCH, MAC BUTTONS
@@ -394,6 +398,15 @@ function Library:CreateWindow(config)
         return b
     end
 
+    -- 4. Строка поиска (Search)
+    local SearchContainer = Library.Utils.Make("Frame", { Size = UDim2.new(0, 160, 0, 32), AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -95, 0.5, 0), BackgroundTransparency = 1, Parent = Header })
+    local SearchBg = Library.Utils.Make("Frame", { Size = UDim2.new(1, 0, 1, 0), Parent = SearchContainer }, { BackgroundColor3 = "Section" })
+    Library.Utils.Make("UICorner", { CornerRadius = UDim.new(1, 0), Parent = SearchBg })
+    Library.Utils.Make("UIStroke", { Parent = SearchBg }, { Color = "Stroke" })
+    
+    Library.Utils.Make("ImageLabel", { Size = UDim2.new(0, 16, 0, 16), Position = UDim2.new(1, -24, 0.5, 0), AnchorPoint = Vector2.new(0, 0.5), BackgroundTransparency = 1, Image = "rbxassetid://3926305904", ImageRectOffset = Vector2.new(964, 324), ImageRectSize = Vector2.new(36, 36), Parent = SearchContainer }, { ImageColor3 = "SubText" })
+    local SearchInput = Library.Utils.Make("TextBox", { Size = UDim2.new(1, -40, 1, 0), Position = UDim2.new(0, 12, 0, 0), BackgroundTransparency = 1, PlaceholderText = "Search...", Text = "", Font = Enum.Font.GothamMedium, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, ClearTextOnFocus = false, Parent = SearchContainer }, { TextColor3 = "Text", PlaceholderColor3 = "SubText" })
+
     -- ==========================================
     -- ЛОГИКА СВОРАЧИВАНИЯ (MINIMIZE / FLOATING LOGO)
     -- ==========================================
@@ -435,7 +448,7 @@ function Library:CreateWindow(config)
             end
 
             MainFrame.Visible = true
-            Library.Utils.TBT(MainFrame, 0.4, {GroupTransparency = 0, Size = UDim2.new(0, 460, 0, 410)}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+            Library.Utils.TBT(MainFrame, 0.4, {GroupTransparency = 0, Size = UDim2.new(0, 680, 0, 450)}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
         end
     end
 
@@ -495,8 +508,7 @@ function Library:CreateWindow(config)
         PagesContainer = Pages,
         Tabs = {}, 
         CurrentTab = nil,
-        ToggleMenu = ToggleMinimize,
-        MainUIScale = MainUIScale
+        ToggleMenu = ToggleMinimize
     }
 
     function Window:SetOnlineStatus(countText)
@@ -817,74 +829,51 @@ function Library:CreateWindow(config)
             config = config or {}
             local title = config.Name or "Sub Page"
             
-            -- Создаем главный контейнер поверх текущей вкладки (Page)
-            local SubPageUI = Library.Utils.Make("CanvasGroup", {
+            -- Вырезали CanvasGroup, используем обычный прозрачный Frame
+            local SubPageUI = Library.Utils.Make("Frame", {
                 Name = "CustomSubPage_" .. title:gsub("%s+", ""),
-                Size = UDim2.new(1, 0, 1, 0), Position = UDim2.new(0, 0, 0, 20),
-                BackgroundTransparency = 1, BorderSizePixel = 0, GroupTransparency = 1,
+                Size = UDim2.new(1, 0, 1, 0), Position = UDim2.new(0, 0, 0, 0),
+                BackgroundTransparency = 1, BorderSizePixel = 0,
                 Visible = false, ZIndex = 100, Parent = Page
             })
 
             local TopBar = Library.Utils.Make("Frame", { Size = UDim2.new(1, 0, 0, 40), BackgroundTransparency = 1, Parent = SubPageUI })
-
-            -- Кнопка "Назад"
             local CloseSelBtn = Library.Utils.Make("TextButton", { Text = "➖", Size = UDim2.new(0, 34, 0, 34), Position = UDim2.new(1, -10, 0, 10), AnchorPoint = Vector2.new(1, 0), Font = Enum.Font.GothamBold, TextSize = 14, Parent = TopBar }, { BackgroundColor3 = "Section", TextColor3 = "SubText" })
             Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 6), Parent = CloseSelBtn})
             Library.Utils.Make("UIStroke", {Parent = CloseSelBtn}, {Color = "Stroke"})
             
-            local scaleClose = Instance.new("UIScale", CloseSelBtn)
-            Library:Connect(CloseSelBtn.MouseEnter, function() Library.Utils.TBT(scaleClose, 0.2, {Scale = 1.05}) end)
-            Library:Connect(CloseSelBtn.MouseLeave, function() Library.Utils.TBT(scaleClose, 0.2, {Scale = 1}) end)
+            -- Моментальные ховеры для кнопки "Назад"
+            Library:Connect(CloseSelBtn.MouseEnter, function() CloseSelBtn.BackgroundColor3 = Library.CurrentTheme.Stroke end)
+            Library:Connect(CloseSelBtn.MouseLeave, function() CloseSelBtn.BackgroundColor3 = Library.CurrentTheme.Section end)
 
-            -- Заголовок SubPage
             Library.Utils.Make("TextLabel", { Text = title, Size = UDim2.new(1, -60, 0, 20), Position = UDim2.new(0, 15, 0, 17), BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, TextSize = 16, TextXAlignment = Enum.TextXAlignment.Left, Parent = SubPageUI }, { TextColor3 = "Text" })
 
-            -- САМОЕ ВАЖНОЕ: Тот самый пустой холст (Container), куда игровой модуль будет совать свои кнопки
             local Scroll = Library.Utils.Make("ScrollingFrame", { Size = UDim2.new(1, 0, 1, -50), Position = UDim2.new(0, 0, 0, 50), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 2, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(0, 0, 0, 0), Parent = SubPageUI }, { ScrollBarImageColor3 = "SubText" })
-            
             Library.Utils.Make("UIListLayout", { Padding = UDim.new(0, 12), SortOrder = Enum.SortOrder.LayoutOrder, Parent = Scroll })
             Library.Utils.Make("UIPadding", { PaddingTop = UDim.new(0, 5), PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 12), PaddingBottom = UDim.new(0, 15), Parent = Scroll })
 
             local hiddenElements = {}
-            local isClosing = false
             local savedCanvasPos = Vector2.new(0,0)
 
             local function Close()
-                if isClosing or not SubPageUI.Visible then return end
-                isClosing = true
+                if not SubPageUI.Visible then return end
+                SubPageUI.Visible = false
                 
-                Library.Utils.TBT(SubPageUI, 0.25, {GroupTransparency = 1, Position = UDim2.new(0, 0, 0, 20)}, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
-                
-                task.delay(0.25, function()
-                    SubPageUI.Visible = false
-                    -- Возвращаем видимость всем элементам родительской вкладки
-                    for _, child in ipairs(hiddenElements) do
-                        if child then child.Visible = true end
-                    end
-                    hiddenElements = {}
-                    Page.ScrollingEnabled = true
-                    Page.CanvasPosition = savedCanvasPos
-                    isClosing = false
-                end)
+                -- МОМЕНТАЛЬНО возвращаем элементы
+                for _, child in ipairs(hiddenElements) do
+                    if child then child.Visible = true end
+                end
+                hiddenElements = {}
+                Page.ScrollingEnabled = true
+                Page.CanvasPosition = savedCanvasPos
             end
 
-            Library:Connect(CloseSelBtn.MouseButton1Click, function()
-                local t = Library.Utils.TBT(scaleClose, 0.1, {Scale = 0.85}, Enum.EasingStyle.Sine)
-                t.Completed:Connect(function() Library.Utils.TBT(scaleClose, 0.2, {Scale = 1}, Enum.EasingStyle.Bounce) end)
-                Close()
-            end)
+            Library:Connect(CloseSelBtn.MouseButton1Click, Close)
 
-            -- Авто-закрытие, если юзер переключил вкладку в боковом меню
             Library:Connect(Page:GetPropertyChangedSignal("Visible"), function()
                 if not Page.Visible and SubPageUI.Visible then
-                    isClosing = false
                     SubPageUI.Visible = false
-                    SubPageUI.GroupTransparency = 1
-                    SubPageUI.Position = UDim2.new(0, 0, 0, 20)
-                    
-                    for _, child in ipairs(hiddenElements) do
-                        if child then child.Visible = true end
-                    end
+                    for _, child in ipairs(hiddenElements) do if child then child.Visible = true end end
                     hiddenElements = {}
                     Page.ScrollingEnabled = true
                     Page.CanvasPosition = savedCanvasPos
@@ -893,10 +882,9 @@ function Library:CreateWindow(config)
 
             local function Open()
                 if SubPageUI.Visible then return end 
-                isClosing = false
                 hiddenElements = {}
                 
-                -- Прячем все обычные элементы вкладки, чтобы показать SubPage
+                -- МОМЕНТАЛЬНО прячем старые элементы
                 for _, child in ipairs(Page:GetChildren()) do
                     if child:IsA("GuiObject") and child.Visible and child ~= SubPageUI and not child:IsA("UIListLayout") and not child:IsA("UIPadding") then
                         table.insert(hiddenElements, child)
@@ -907,18 +895,10 @@ function Library:CreateWindow(config)
                 savedCanvasPos = Page.CanvasPosition
                 Page.ScrollingEnabled = false
                 Page.CanvasPosition = Vector2.new(0, 0)
-                
-                SubPageUI.GroupTransparency = 1
-                SubPageUI.Position = UDim2.new(0, 0, 0, 20)
                 SubPageUI.Visible = true
-                Library.Utils.TBT(SubPageUI, 0.35, {GroupTransparency = 0, Position = UDim2.new(0, 0, 0, 0)}, Enum.EasingStyle.Quint)
             end
 
-            return {
-                Container = Scroll, -- Экспортируем пустой холст!
-                Open = Open,
-                Close = Close
-            }
+            return { Container = Scroll, Open = Open, Close = Close }
         end
 
         function Tab:CreateSlider(config)
@@ -1636,7 +1616,146 @@ function Library:CreateWindow(config)
     -- ==========================================
     -- ГЛОБАЛЬНЫЙ ПОИСК (GLOBAL SEARCH)
     -- ==========================================
-    
+    local SearchPage = Library.Utils.Make("ScrollingFrame", {
+        Name = "GlobalSearchPage", Size = UDim2.new(1, -20, 1, -10), Position = UDim2.new(0, 10, 0, 5),
+        BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 3, Visible = false, ZIndex = 50, Parent = Pages
+    }, { ScrollBarImageColor3 = "SubText" })
+
+    local SearchLayout = Library.Utils.Make("UIListLayout", { Padding = UDim.new(0, 12), SortOrder = Enum.SortOrder.LayoutOrder, Parent = SearchPage })
+    Library.Utils.Make("UIPadding", { PaddingTop = UDim.new(0, 10), PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 20), PaddingBottom = UDim.new(0, 15), Parent = SearchPage })
+
+    SearchLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        SearchPage.CanvasSize = UDim2.new(0, 0, 0, SearchLayout.AbsoluteContentSize.Y + 20)
+    end)
+
+    local isSearchOpen = false
+    local originalParents = {}
+    local SearchClickBtn = Library.Utils.Make("TextButton", {Size = UDim2.new(0, 30, 0, 30), Position = UDim2.new(1, -30, 0, 0), BackgroundTransparency = 1, Text = "", ZIndex = 10, Parent = SearchContainer})
+
+    local function RestoreSearch()
+        SearchPage.Visible = false
+        for elem, data in pairs(originalParents) do
+            if elem and data.Parent then
+                elem.Parent = data.Parent
+                elem.LayoutOrder = data.OriginalOrder 
+                elem.Visible = true
+            end
+        end
+        table.clear(originalParents)
+        
+        if Window and Window.CurrentTab then
+            for _, tab in ipairs(Window.Tabs) do
+                if tab.Btn == Window.CurrentTab then
+                    tab.Page.Visible = true
+                    break
+                end
+            end
+        end
+    end
+
+    local function CloseSearch()
+        isSearchOpen = false
+        SearchInput.Text = ""
+        Library.Utils.TBT(SearchContainer, 0.4, {Size = UDim2.new(0, 32, 0, 32)}, Enum.EasingStyle.Quint)
+        Library.Utils.TBT(SearchInput, 0.2, {TextTransparency = 1})
+        Library.ThemeObjects[SearchContainer:FindFirstChildOfClass("ImageLabel")] = { ImageColor3 = "SubText" }
+        Library.Utils.TBT(SearchContainer:FindFirstChildOfClass("ImageLabel"), 0.3, {ImageColor3 = Library.CurrentTheme.SubText})
+        task.delay(0.2, function() if not isSearchOpen then SearchInput.Visible = false end end)
+    end
+
+    Library:Connect(SearchClickBtn.MouseButton1Click, function()
+        isSearchOpen = not isSearchOpen
+        local searchIcon = SearchContainer:FindFirstChildOfClass("ImageLabel")
+        if isSearchOpen then
+            SearchInput.Visible = true
+            Library.Utils.TBT(SearchContainer, 0.4, {Size = UDim2.new(0, 160, 0, 32)}, Enum.EasingStyle.Quint)
+            Library.Utils.TBT(SearchInput, 0.3, {TextTransparency = 0})
+            Library.ThemeObjects[searchIcon] = { ImageColor3 = "Accent" }
+            Library.Utils.TBT(searchIcon, 0.3, {ImageColor3 = Library.CurrentTheme.Accent})
+            SearchInput:CaptureFocus()
+        else
+            CloseSearch()
+        end
+    end)
+
+    Library:Connect(SearchInput:GetPropertyChangedSignal("Text"), function()
+        local query = string.lower(SearchInput.Text):match("^%s*(.-)%s*$") or ""
+        if query == "" then RestoreSearch(); return end
+
+        for _, tab in ipairs(Window.Tabs) do tab.Page.Visible = false end
+        SearchPage.Visible = true
+        
+        if not next(originalParents) then
+            local pageIndex = 0
+            for _, tab in ipairs(Window.Tabs) do
+                pageIndex = pageIndex + 1
+                for _, elem in ipairs(tab.Page:GetChildren()) do
+                    if elem:IsA("GuiObject") and not elem:IsA("UIListLayout") and not elem:IsA("UIPadding") and not string.find(elem.Name, "SubPage") then
+                        originalParents[elem] = { Parent = tab.Page, OriginalOrder = elem.LayoutOrder, AbsoluteOrder = (pageIndex * 1000) + (elem.LayoutOrder or 0), TabRef = tab }
+                    end
+                end
+            end
+        end
+        
+        local matchedElements = {}
+        for elem, data in pairs(originalParents) do
+            local match = false
+            local rawText = ""
+            for _, desc in ipairs(elem:GetDescendants()) do 
+                if desc:IsA("TextLabel") or desc:IsA("TextBox") or desc:IsA("TextButton") then
+                    rawText = rawText .. " " .. tostring(desc.Text or "")
+                end
+            end
+            
+            local cleanText = string.lower(string.gsub(rawText, "<[^>]+>", ""))
+            if string.find(cleanText, query, 1, true) then match = true end
+            if string.find(cleanText, "update log") or string.len(cleanText) > 100 then match = false end
+            
+            if match then table.insert(matchedElements, {Element = elem, Data = data})
+            elseif elem.Parent == SearchPage then elem.Parent = data.Parent; elem.LayoutOrder = data.OriginalOrder end
+        end
+        
+        table.sort(matchedElements, function(a, b) return (a.Data.AbsoluteOrder or 0) < (b.Data.AbsoluteOrder or 0) end)
+        for i, item in ipairs(matchedElements) do item.Element.Parent = SearchPage; item.Element.LayoutOrder = i; item.Element.Visible = true end
+        task.defer(function() SearchPage.CanvasPosition = Vector2.new(0, 0) end)
+    end)
+
+    Library:Connect(UserInputService.InputBegan, function(input)
+        if not isSearchOpen or not SearchPage.Visible then return end
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            local mPos = input.Position
+            local spPos = SearchPage.AbsolutePosition
+            local spSize = SearchPage.AbsoluteSize
+            
+            if mPos.X >= spPos.X and mPos.X <= spPos.X + spSize.X and mPos.Y >= spPos.Y and mPos.Y <= spPos.Y + spSize.Y then
+                for elem, data in pairs(originalParents) do
+                    if elem.Parent == SearchPage and elem.Visible then
+                        local pos = elem.AbsolutePosition; local size = elem.AbsoluteSize
+                        if mPos.X >= pos.X and mPos.X <= pos.X + size.X and mPos.Y >= pos.Y and mPos.Y <= pos.Y + size.Y then
+                            -- Закрываем поиск и чистим текст ПРЯМО ТУТ
+                            CloseSearch() 
+                            Window:SelectTab(data.TabRef)
+                            
+                            task.spawn(function()
+                                task.wait(0.15) 
+                                local targetY = elem.AbsolutePosition.Y - data.Parent.AbsolutePosition.Y + data.Parent.CanvasPosition.Y
+                                Library.Utils.TBT(data.Parent, 0.3, {CanvasPosition = Vector2.new(0, targetY - 15)}, Enum.EasingStyle.Cubic)
+                                
+                                local stroke = elem:FindFirstChildOfClass("UIStroke")
+                                if stroke then
+                                    local oColor = stroke.Color; local oThick = stroke.Thickness
+                                    Library.Utils.TBT(stroke, 0.2, {Color = Library.CurrentTheme.Accent, Thickness = 2.5})
+                                    task.wait(0.6)
+                                    Library.Utils.TBT(stroke, 0.5, {Color = oColor, Thickness = oThick})
+                                end
+                            end)
+                            break
+                        end
+                    end
+                end
+            end
+        end
+    end)
 
     function Window:Build()
         -- Запускаем лоадер, передавая ему наш ScreenGui
