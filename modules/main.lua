@@ -397,6 +397,38 @@ function Module:Init(Library, Window, Tab)
             CurrentBuildDelay = value / 1000 
         end
     })
-end
 
+-- ==========================================
+    -- 5. AUTO-DOOR GLITCH (PURE LUA)
+    -- ==========================================
+    local AutoDoorToggle = false
+
+    Tab:CreateToggle({
+        Name = "Phase Through Doors",
+        Description = "Проталкивает сквозь запертые двери при ходьбе в них",
+        Default = false,
+        Flag = "Exploit_AutoDoors",
+        Callback = function(state)
+            AutoDoorToggle = state
+            
+            if AutoDoorToggle then
+                task.spawn(function()
+                    while AutoDoorToggle do
+                        local char = LocalPlayer.Character
+                        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                        local humanoid = char and char:FindFirstChildWhichIsA("Humanoid")
+                        
+                        -- Сдвигаем персонажа вперед, ТОЛЬКО если он куда-то идет
+                        -- Это не даст тебе случайно улететь в пустоту, пока ты стоишь на месте
+                        if hrp and humanoid and humanoid.MoveDirection.Magnitude > 0 then
+                            hrp.CFrame = hrp.CFrame * CFrame.new(0, 0, -0.5)
+                        end
+                        
+                        task.wait(0.05) -- Быстрый цикл для плавного прохождения
+                    end
+                end)
+            end
+        end
+    })
+end
 return Module
