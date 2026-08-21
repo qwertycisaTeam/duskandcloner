@@ -480,14 +480,25 @@ function Module:Init(Library, Window, Tab)
                             -- Взлом и вход
                             if closestDoor and touchPart then
                                 if closestDoor ~= lastTouchedDoor then
+                                    -- Обновленный обход защиты дверей
                                     if successDoors and DoorsM then
                                         local doorObj = DoorsM.get_door(closestDoor)
                                         if doorObj then
+                                            -- Снимаем все возможные блокировки
                                             doorObj.is_open = true
                                             doorObj.can_enter = true
+                                            doorObj.locked = false
+                                            doorObj.is_locked = false 
+                                            
+                                            -- Если у модуля есть функция обновления UI, вызываем её,
+                                            -- чтобы игра точно "съела" новые параметры
+                                            if type(doorObj.update) == "function" then
+                                                pcall(function() doorObj:update() end)
+                                            end
                                         end
                                     end
                                     
+                                    -- Эмулируем касание
                                     if firetouchinterest then
                                         firetouchinterest(hrp, touchPart, 0)
                                         task.wait(0.1)
