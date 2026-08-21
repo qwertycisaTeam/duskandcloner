@@ -399,13 +399,18 @@ function Module:Init(Library, Window, Tab)
     })
 
 -- ==========================================
-    -- 5. AUTO-DOOR GLITCH (PURE LUA)
+    -- 5. AUTO-DOOR BYPASS
     -- ==========================================
+    -- Подгружаем модуль дверей один раз
+    local successDoors, DoorsM = pcall(function()
+        return require(ReplicatedStorage.ClientModules.Core.DoorsM.DoorsM)
+    end)
+
     local AutoDoorToggle = false
 
     Tab:CreateToggle({
-        Name = "Phase Through Doors",
-        Description = "Проталкивает сквозь запертые двери при ходьбе в них",
+        Name = "Auto Bypass Doors",
+        Description = "Автоматически взламывает двери в радиусе 15 стадов",
         Default = false,
         Flag = "Exploit_AutoDoors",
         Callback = function(state)
@@ -416,15 +421,58 @@ function Module:Init(Library, Window, Tab)
                     while AutoDoorToggle do
                         local char = LocalPlayer.Character
                         local hrp = char and char:FindFirstChild("HumanoidRootPart")
-                        local humanoid = char and char:FindFirstChildWhichIsA("Humanoid")
                         
-                        -- Сдвигаем персонажа вперед, ТОЛЬКО если он куда-то идет
-                        -- Это не даст тебе случайно улететь в пустоту, пока ты стоишь на месте
-                        if hrp and humanoid and humanoid.MoveDirection.Magnitude > 0 then
-                            hrp.CFrame = hrp.CFrame * CFrame.new(0, 0, -0.5)
+                        if hrp then
+                            local searchFolders = {
+                                workspace:FindFirstChild("Interiors"),
+                                workspace:FindFirstChild("HouseExteriors"),
+                                workspace:FindFirstChild("Properties")
+                            }
+
+                            local closestDoor = nil
+                            local touchPart = nil
+                            local shortestDist = 15
+
+                            -- 1. Ищем ближайшую дверь
+                            for _, folder in pairs(searchFolders) do
+                                if folder then
+                                    for _, obj in pairs(folder:GetDescendants()) do
+                                        if obj.Name == "WorkingParts" then
+                                            local tp = obj:FindFirstChild("TouchToEnter")
+                                            if tp then
+                                                local dist = (hrp.Position - tp.Position).Magnitude
+                                                if dist < shortestDist then
+                                                    closestDoor = obj.Parent
+                                                    touchPart = tp
+                                                    shortestDist = dist
+                                                end
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+
+                            -- 2. Взламываем и симулируем вход
+                            if closestDoor and touchPart then
+                                if successDoors and DoorsM then
+                                    local doorObj = DoorsM.get_door(closestDoor)
+                                    if doorObj then
+                                        doorObj.is_open = true
+                                        doorObj.can_enter = true
+                                    end
+                                end
+                                
+                                -- 3. Вызываем системное касание (обходим защиту Fsys!)
+                                if firetouchinterest then
+                                    firetouchinterest(hrp, touchPart, 0)
+                                    task.wait(0.1)
+                                    firetouchinterest(hrp, touchPart, 1)
+                                end
+                            end
                         end
                         
-                        task.wait(0.05) -- Быстрый цикл для плавного прохождения
+                        -- Задержка обязательна, иначе GetDescendants() повесит игру намертво
+                        task.wait(0.5)
                     end
                 end)
             end
