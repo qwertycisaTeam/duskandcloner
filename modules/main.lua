@@ -454,7 +454,7 @@ function Module:Init(Library, Window, Tab)
                         if hrp then
                             local closestDoor = nil
                             local touchPart = nil
-                            local shortestDist = 8
+                            local shortestDist = 5
                             
                             -- Перебираем только кэш (очень быстро)
                             for tp, doorModel in pairs(CachedDoors) do
