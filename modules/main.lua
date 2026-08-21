@@ -454,7 +454,7 @@ function Module:Init(Library, Window, Tab)
                         if hrp then
                             local closestDoor = nil
                             local touchPart = nil
-                            local shortestDist = 15
+                            local shortestDist = 8
                             
                             -- Перебираем только кэш (очень быстро)
                             for tp, doorModel in pairs(CachedDoors) do
@@ -499,7 +499,7 @@ function Module:Init(Library, Window, Tab)
                                     end
                                     
                                     lastTouchedDoor = closestDoor
-                                    task.wait(1.5) -- Ожидание телепорта
+                                    task.wait(4) -- Ожидание телепорта
                                 end
                             else
                                 lastTouchedDoor = nil
