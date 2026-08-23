@@ -232,19 +232,20 @@ function Module:Init(Library, Window, Tab)
             
             if hrp then
                 -- ==========================================
-                -- ИДЕАЛЬНАЯ ЗАЩИТА: ПРОВЕРКА ПО ТОЧНЫМ КООРДИНАТАМ Y
+                -- СТРОГАЯ ЗАЩИТА: РАЗРЕШАЕМ ТЕЛЕПОРТ ТОЛЬКО В NEIGHBORHOOD
                 -- ==========================================
                 local posY = hrp.Position.Y
                 
-                -- Если высота от 1000 до 8000 (включает 4003) — значит мы в интерьере дома!
-                if posY > 1000 and posY < 8000 then
+                -- Neighborhood находится на высоте ~9529. 
+                -- Если игрок ниже 8500 (на главной карте или в доме), блокируем.
+                if posY < 8500 then
                     if Library.Notify then
-                        Library:Notify("Error", "Сначала выйди на улицу! Из дома телепортироваться нельзя.", 4)
+                        Library:Notify("Error", "Телепорт работает ТОЛЬКО в спальном районе!", 4)
                     end
                     return 
                 end
 
-                -- Если мы на Adoption Island (~50) или на улице домов (~9529) — телепортируем!
+                -- Если мы в спальном районе — телепортируем!
                 hrp.CFrame = houseData.TeleportCFrame
                 if Library.Notify then
                     Library:Notify("Teleport", "Moved to " .. houseData.Owner .. "'s house", 3, "10723426722")
