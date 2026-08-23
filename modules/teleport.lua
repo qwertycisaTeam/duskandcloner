@@ -25,14 +25,14 @@ function Module:Init(Library, Window, Tab)
             if userId then
                 imageLabel.Image = "rbxthumb://type=AvatarHeadShot&id=" .. userId .. "&w=150&h=150"
             else
-                -- Дефолтная иконка на случай падения серверов Roblox
+                -- Если сервера Роблокса лежат (как у тебя сейчас), ставим дефолтную заглушку
                 imageLabel.Image = "rbxassetid://10827393433" 
             end
         end)
     end
 
     -- ==========================================
-    -- ЛОГИКА РЕНДЕРА 3D (БЕЗ МУСОРА)
+    -- ЛОГИКА РЕНДЕРА 3D (БЕЗ ФРАНКЕНШТЕЙНОВ)
     -- ==========================================
     local function buildCleanPreview(houseType, viewportFrame)
         local Resources = ReplicatedStorage:FindFirstChild("Resources")
@@ -45,12 +45,11 @@ function Module:Init(Library, Window, Tab)
         if domeTemplate and houseModel then
             local displayHouse = houseModel:Clone()
             
-            -- Удаляем двери и весь технический мусор (включая красные подставки)
+            -- Удаляем двери и технический мусор из дома
             if displayHouse:FindFirstChild("Doors") then displayHouse.Doors:Destroy() end
             for _, part in pairs(displayHouse:GetDescendants()) do
                 if part:IsA("BasePart") then
                     local n = string.lower(part.Name)
-                    -- Уничтожаем невидимые стены и технические блоки участка
                     if part.Transparency >= 1 or n == "plot" or n == "base" or n == "hitbox" then
                         part:Destroy()
                     else
@@ -70,6 +69,15 @@ function Module:Init(Library, Window, Tab)
             
             -- Подгоняем зеленую лужайку
             local dome = domeTemplate:Clone()
+            
+            -- ВАЖНОЕ ИСПРАВЛЕНИЕ: Уничтожаем красный стартовый дом, 
+            -- который разработчики Adopt Me спрятали внутри купола!
+            for _, child in pairs(dome:GetChildren()) do
+                if child:IsA("Model") or string.find(string.lower(child.Name), "house") then
+                    child:Destroy()
+                end
+            end
+            
             dome.Parent = viewportFrame
             local domeCFrame, domeSize = dome:GetBoundingBox()
             
@@ -80,7 +88,7 @@ function Module:Init(Library, Window, Tab)
                 domeCFrame, domeSize = dome:GetBoundingBox()
             end
             
-            -- Ставим лужайку ровно под основание дома (чуть утапливая)
+            -- Ставим лужайку ровно под основание дома
             local domeY = -(houseSize.Y / 2) - (domeSize.Y / 2) + 0.5
             dome:PivotTo(CFrame.new(0, domeY, 0))
             
@@ -135,7 +143,6 @@ function Module:Init(Library, Window, Tab)
     })
 
     local function createHouseCard(houseData)
-        -- Основа
         local Tile = Library.Utils.Make("TextButton", { Text = "", AutoButtonColor = false, ClipsDescendants = false, Parent = Container }, { BackgroundColor3 = "Section" })
         Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 12), Parent = Tile})
         Library.Utils.Make("UIStroke", {Thickness = 1, Transparency = 0.5, Parent = Tile}, {Color = "Stroke"})
@@ -143,7 +150,6 @@ function Module:Init(Library, Window, Tab)
         local RippleContainer = Library.Utils.Make("Frame", { Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, ClipsDescendants = true, ZIndex = 10, Parent = Tile })
         Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 12), Parent = RippleContainer})
 
-        -- 3D Вьюпорт (В нем включен ClipsDescendants, чтобы обрезать неоновую линию!)
         local Viewport = Library.Utils.Make("ViewportFrame", {
             Size = UDim2.new(1, 0, 1, -40), 
             Position = UDim2.new(0, 0, 0, 0), 
@@ -155,7 +161,6 @@ function Module:Init(Library, Window, Tab)
         })
         Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 12), Parent = Viewport})
 
-        -- Неоновая линия ТЕПЕРЬ ВНУТРИ ВЬЮПОРТА (идеально обрезается по его углам)
         local AccentLine = Library.Utils.Make("Frame", { 
             Size = UDim2.new(1, 0, 0, 4), 
             Position = UDim2.new(0, 0, 0, 0), 
@@ -177,10 +182,10 @@ function Module:Init(Library, Window, Tab)
         
         local houseObj, houseSize = buildCleanPreview(houseData.HouseType, Viewport)
         if houseObj and houseSize then
-            -- Камера отлетает ровно на нужное расстояние (теперь без красной плиты размер точный)
+            -- ИСПРАВЛЕНИЕ: Отдалил камеру (1.3), чтобы края домов не срезались
             local maxDim = math.max(houseSize.X, houseSize.Y, houseSize.Z)
-            local radius = maxDim * 1.15 
-            if radius < 30 then radius = 30 end
+            local radius = maxDim * 1.3 
+            if radius < 35 then radius = 35 end
             
             local angle = 0
             RunService.RenderStepped:Connect(function(dt)
@@ -191,7 +196,6 @@ function Module:Init(Library, Window, Tab)
             end)
         end
 
-        -- Нижняя панель (Аватар + Ник)
         local Avatar = Library.Utils.Make("ImageLabel", {
             Size = UDim2.new(0, 26, 0, 26), 
             Position = UDim2.new(0, 8, 1, -7), 
