@@ -8,10 +8,12 @@ local Module = {}
 function Module:Init(Library, Window, Tab)
 
     -- ==========================================
-    -- БЕЗОПАСНАЯ ЗАГРУЗКА АВАТАРОВ
+    -- УМНАЯ ЗАГРУЗКА АВАТАРОВ (БЕЗ ТАЙМАУТОВ РОБЛОКСА)
     -- ==========================================
-    local function applyAvatar(imageLabel, username)
+    local function applyAvatar(imageLabel, username, index)
         task.spawn(function()
+            task.wait(index * 0.15) -- Задержка очереди, чтобы не спамить API
+            
             local userId = nil
             local player = Players:FindFirstChild(username)
             
@@ -31,7 +33,7 @@ function Module:Init(Library, Window, Tab)
     end
 
     -- ==========================================
-    -- ИДЕАЛЬНЫЙ МАТЕМАТИЧЕСКИЙ 3D РЕНДЕР
+    -- 3D РЕНДЕР: ИСПОЛЬЗУЕМ ОРИГИНАЛЬНЫЕ НАСТРОЙКИ ADOPT ME!
     -- ==========================================
     local function buildCleanPreview(houseType, viewportFrame)
         local Resources = ReplicatedStorage:FindFirstChild("Resources")
@@ -42,19 +44,20 @@ function Module:Init(Library, Window, Tab)
         local houseModel = houseExteriors and houseExteriors:FindFirstChild(houseType)
         
         if domeTemplate and houseModel then
-            -- Создаем общую группу, чтобы потом измерить всё вместе
+            -- Группа для вращения
             local previewGroup = Instance.new("Model")
             previewGroup.Name = "PreviewGroup"
             previewGroup.Parent = viewportFrame
 
+            -- 1. Подготовка дома
             local displayHouse = houseModel:Clone()
-            
-            -- Вычищаем всё невидимое и техническое
             if displayHouse:FindFirstChild("Doors") then displayHouse.Doors:Destroy() end
+            
             for _, part in pairs(displayHouse:GetDescendants()) do
                 if part:IsA("BasePart") then
                     local n = string.lower(part.Name)
-                    if part.Transparency >= 1 or n == "plot" or n == "base" or n == "hitbox" or n == "driveway" or n == "floor" then
+                    -- Жесткая зачистка невидимого мусора
+                    if part.Transparency >= 1 or n == "plot" or n == "base" or n == "hitbox" or n == "driveway" then
                         part:Destroy()
                     else
                         part.Anchored = true
@@ -67,30 +70,31 @@ function Module:Init(Library, Window, Tab)
             
             displayHouse.Parent = previewGroup
             displayHouse:PivotTo(CFrame.new(0, 0, 0))
-            local houseCFrame, houseSize = displayHouse:GetBoundingBox()
             
-            -- Готовим чистую траву
+            -- 2. Подготовка оригинального купола (без красных домов внутри)
             local dome = domeTemplate:Clone()
             for _, child in pairs(dome:GetChildren()) do
                 if child:IsA("Model") then child:Destroy() end
             end
             dome.Parent = previewGroup
             
+            -- Ставим купол ровно под дом (чуть-чуть утапливаем, чтобы не было щелей)
+            local houseCFrame, houseSize = displayHouse:GetBoundingBox()
             local domeCFrame, domeSize = dome:GetBoundingBox()
-            
-            -- Масштабируем траву под дом
-            local maxHouseWidth = math.max(houseSize.X, houseSize.Z)
-            local requiredScale = (maxHouseWidth * 1.3) / domeSize.X
-            if requiredScale < 1 then requiredScale = 1 end
-            pcall(function() dome:ScaleTo(requiredScale) end)
-            
-            domeCFrame, domeSize = dome:GetBoundingBox()
             local domeY = -(houseSize.Y / 2) - (domeSize.Y / 2) + 0.5
             dome:PivotTo(CFrame.new(0, domeY, 0))
+
+            -- 3. Анимация: плавно крутим саму группу, а не камеру!
+            local angle = 0
+            RunService.RenderStepped:Connect(function(dt)
+                if not viewportFrame.Parent then return end
+                angle = angle + math.rad(15 * dt)
+                previewGroup:PivotTo(CFrame.Angles(0, angle, 0))
+            end)
             
-            -- Возвращаем готовую сцену
-            return previewGroup
+            return true
         end
+        return false
     end
 
     local function getServerHouses()
@@ -123,7 +127,7 @@ function Module:Init(Library, Window, Tab)
     end
 
     -- ==========================================
-    -- СОЗДАНИЕ 2D ИНТЕРФЕЙСА (СТРОГО ПО СКЕТЧУ)
+    -- 2D ИНТЕРФЕЙС: СЛОИ ПО ТВОЕМУ МАКЕТУ
     -- ==========================================
     
     Library.Utils.Make("TextLabel", { 
@@ -150,37 +154,32 @@ function Module:Init(Library, Window, Tab)
         Parent = Container 
     })
 
-    local function createHouseCard(houseData)
+    local function createHouseCard(houseData, index)
+        -- СЛОЙ 0: Главная база (ОБРЕЗКА ОТКЛЮЧЕНА, чтобы обводка была красивой)
         local Tile = Library.Utils.Make("TextButton", { Text = "", AutoButtonColor = false, ClipsDescendants = false, Parent = Container }, { BackgroundColor3 = "Section" })
         Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 12), Parent = Tile})
         Library.Utils.Make("UIStroke", {Thickness = 1, Transparency = 0.5, Parent = Tile}, {Color = "Stroke"})
         
-        -- Устанавливаем единые отступы для всей карточки
-        Library.Utils.Make("UIPadding", { 
-            PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 8), 
-            PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8), 
-            Parent = Tile 
-        })
-
-        local RippleContainer = Library.Utils.Make("Frame", { Size = UDim2.new(1, 16, 1, 16), Position = UDim2.new(0, -8, 0, -8), BackgroundTransparency = 1, ClipsDescendants = true, ZIndex = 10, Parent = Tile })
+        local RippleContainer = Library.Utils.Make("Frame", { Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, ClipsDescendants = true, ZIndex = 10, Parent = Tile })
         Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 12), Parent = RippleContainer})
 
-        -- Вьюпорт (Оставляем 24px снизу)
+        -- СЛОЙ 1: Вьюпорт (С отступами, внутри базы, ОБРЕЗКА ВКЛЮЧЕНА)
         local Viewport = Library.Utils.Make("ViewportFrame", {
-            Size = UDim2.new(1, 0, 1, -24), 
-            Position = UDim2.new(0, 0, 0, 0), 
+            Size = UDim2.new(1, -16, 1, -40), 
+            Position = UDim2.new(0, 8, 0, 8), 
             BackgroundColor3 = Color3.fromRGB(20, 20, 25), 
             BorderSizePixel = 0,
+            ClipsDescendants = true,
             ZIndex = 1, 
             Parent = Tile
         })
         Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 8), Parent = Viewport})
         Library.Utils.Make("UIStroke", {Thickness = 1, Transparency = 0.7, Parent = Viewport}, {Color = "Stroke"})
 
-        -- Линия внутри
+        -- Акцентная линия лежит ВНУТРИ Вьюпорта (идеально обрезается по его углам)
         local AccentLine = Library.Utils.Make("Frame", { 
             Size = UDim2.new(0.35, 0, 0, 3), 
-            Position = UDim2.new(1, -8, 1, -8), 
+            Position = UDim2.new(1, -6, 1, -6), 
             AnchorPoint = Vector2.new(1, 1), 
             BorderSizePixel = 0, 
             ZIndex = 5, 
@@ -188,29 +187,20 @@ function Module:Init(Library, Window, Tab)
         }, { BackgroundColor3 = "Accent" })
         Library.Utils.Make("UICorner", {CornerRadius = UDim.new(1, 0), Parent = AccentLine})
 
-        -- Камера (Изометрия с вычислением тангенса)
+        -- ТА САМАЯ ИДЕАЛЬНАЯ КАМЕРА ИЗ ИГРЫ (№4)
         local VpCamera = Instance.new("Camera")
-        VpCamera.FieldOfView = 40 -- Уменьшенный FOV дает крутой изометрический вид без сильных искажений
+        VpCamera.FieldOfView = 40 
+        -- Точные координаты разработчиков Adopt Me:
+        VpCamera.CFrame = CFrame.new(111.803398, 71.5109024, 111.803146, 0.707106769, -0.348155349, 0.615457475, 0, 0.870388269, 0.492365986, -0.707106829, -0.34815532, 0.615457416)
+        
         Viewport.CurrentCamera = VpCamera
         VpCamera.Parent = Viewport
-        
-        local previewGroup = buildCleanPreview(houseData.HouseType, Viewport)
-        if previewGroup then
-            local cf, size = previewGroup:GetBoundingBox()
-            
-            -- Формула вычисления дистанции, чтобы объект 100% влез в камеру
-            local radius = size.Magnitude / 2
-            local distance = (radius / math.tan(math.rad(VpCamera.FieldOfView / 2))) * 1.15 -- 15% запас по краям
-            
-            -- Изометрический вектор: смотрит спереди, справа и сверху
-            local offset = Vector3.new(1, 0.8, 1).Unit * distance
-            VpCamera.CFrame = CFrame.lookAt(cf.Position + offset, cf.Position)
-        end
+        buildCleanPreview(houseData.HouseType, Viewport)
 
-        -- Аватарка (Крутая фишка: она "наслаивается" на 3D превью снизу-слева!)
+        -- СЛОЙ 2: Аватарка и Ник (Лежат ПОВЕРХ Вьюпорта на Главной базе)
         local Avatar = Library.Utils.Make("ImageLabel", {
             Size = UDim2.new(0, 28, 0, 28), 
-            Position = UDim2.new(0, 4, 1, -2), 
+            Position = UDim2.new(0, 14, 1, -8), -- Вылезает за пределы Вьюпорта, как на макете
             AnchorPoint = Vector2.new(0, 1), 
             BackgroundColor3 = Color3.fromRGB(30, 30, 35), 
             BackgroundTransparency = 0, 
@@ -219,13 +209,12 @@ function Module:Init(Library, Window, Tab)
         })
         Library.Utils.Make("UICorner", {CornerRadius = UDim.new(1, 0), Parent = Avatar})
         Library.Utils.Make("UIStroke", {Thickness = 2, Parent = Avatar}, {Color = "Section"}) 
-        applyAvatar(Avatar, houseData.Owner)
+        applyAvatar(Avatar, houseData.Owner, index) -- Передаем индекс для очереди загрузки
 
-        -- Никнейм
         local NameLbl = Library.Utils.Make("TextLabel", { 
             Text = houseData.Owner, 
-            Size = UDim2.new(1, -40, 0, 20), 
-            Position = UDim2.new(0, 38, 1, -6), 
+            Size = UDim2.new(1, -54, 0, 20), 
+            Position = UDim2.new(0, 48, 1, -12), 
             AnchorPoint = Vector2.new(0, 1), 
             BackgroundTransparency = 1, 
             TextXAlignment = Enum.TextXAlignment.Left,
@@ -236,7 +225,6 @@ function Module:Init(Library, Window, Tab)
             Parent = Tile 
         }, { TextColor3 = "Text" })
 
-        -- Анимации
         local Scale = Instance.new("UIScale", Tile)
 
         Library:Connect(Tile.MouseEnter, function()
@@ -272,15 +260,15 @@ function Module:Init(Library, Window, Tab)
         local success, err = pcall(function()
             local houses = getServerHouses()
             if #houses > 0 then
-                for _, houseData in ipairs(houses) do
-                    createHouseCard(houseData)
+                for index, houseData in ipairs(houses) do
+                    createHouseCard(houseData, index)
                 end
             else
                 createHouseCard({
                     Owner = LocalPlayer.Name,
                     HouseType = "Micro",
                     TeleportCFrame = LocalPlayer.Character and LocalPlayer.Character:GetPivot() or CFrame.new()
-                })
+                }, 1)
             end
         end)
         if not success then warn("[Dusk&Shine Teleport] Ошибка рендера: ", err) end
