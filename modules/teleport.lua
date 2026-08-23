@@ -10,12 +10,22 @@ function Module:Init(Library, Window, Tab)
     -- ==========================================
     -- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
     -- ==========================================
+    
+    -- Бронебойная загрузка аватарок (сначала ищем на сервере, потом в API)
     local function applyAvatar(imageLabel, username)
         task.spawn(function()
-            local s, userId = pcall(function() return Players:GetUserIdFromNameAsync(username) end)
-            if s and userId then
-                local content = Players:GetUserThumbnailAsync(userId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size150x150)
-                imageLabel.Image = content
+            local userId = nil
+            local player = Players:FindFirstChild(username)
+            
+            if player then
+                userId = player.UserId
+            else
+                local s, id = pcall(function() return Players:GetUserIdFromNameAsync(username) end)
+                if s then userId = id end
+            end
+            
+            if userId then
+                imageLabel.Image = "rbxthumb://type=AvatarHeadShot&id=" .. userId .. "&w=150&h=150"
             end
         end)
     end
@@ -35,6 +45,7 @@ function Module:Init(Library, Window, Tab)
             if houseModel then
                 local displayHouse = houseModel:Clone()
                 
+                -- Чистим коллизии и скрипты
                 if displayHouse:FindFirstChild("Doors") then displayHouse.Doors:Destroy() end
                 for _, part in pairs(displayHouse:GetDescendants()) do
                     if part:IsA("BasePart") then
@@ -50,8 +61,10 @@ function Module:Init(Library, Window, Tab)
                 end
                 
                 displayHouse.Parent = dome
-                if displayHouse.PrimaryPart and dome.PrimaryPart then
-                    displayHouse:PivotTo(dome.PrimaryPart.CFrame * CFrame.new(0, 1, 0))
+                
+                -- ИСПРАВЛЕНИЕ: Убрали проверку PrimaryPart у дома, теперь ставится 100%
+                if dome.PrimaryPart then
+                    displayHouse:PivotTo(dome.PrimaryPart.CFrame * CFrame.new(0, 0.5, 0))
                 end
             end
             return dome
@@ -91,7 +104,6 @@ function Module:Init(Library, Window, Tab)
     -- СОЗДАНИЕ ИНТЕРФЕЙСА ЧЕРЕЗ LIBRARY.UTILS
     -- ==========================================
     
-    -- Контейнер по аналогии с Tab:CreateShopGrid
     local Container = Library.Utils.Make("Frame", { 
         Size = UDim2.new(1, 0, 0, 0), 
         AutomaticSize = Enum.AutomaticSize.Y, 
@@ -99,32 +111,37 @@ function Module:Init(Library, Window, Tab)
         Parent = Tab.Page 
     })
     
-    -- Сетка на 2 колонки
     Library.Utils.Make("UIGridLayout", { 
-        CellSize = UDim2.new(0.48, 0, 0, 165), 
+        CellSize = UDim2.new(0.48, 0, 0, 160), 
         CellPadding = UDim2.new(0.04, 0, 0, 18), 
         SortOrder = Enum.SortOrder.LayoutOrder, 
         Parent = Container 
     })
 
+    local AccentColor = Library.CurrentTheme and Library.CurrentTheme.Accent or Color3.fromRGB(85, 170, 255)
+
     local function createHouseCard(houseData)
-        -- Сама карточка
-        local Tile = Library.Utils.Make("TextButton", { Text = "", AutoButtonColor = false, ClipsDescendants = false, Parent = Container }, { BackgroundColor3 = "Section" })
-        Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 14), Parent = Tile})
+        -- Главная карточка
+        local Tile = Library.Utils.Make("TextButton", { Text = "", AutoButtonColor = false, ClipsDescendants = true, Parent = Container }, { BackgroundColor3 = "Section" })
+        Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 10), Parent = Tile})
+        Library.Utils.Make("UIStroke", {Thickness = 1, Transparency = 0.5, Parent = Tile}, {Color = "Stroke"})
 
-        -- Контейнер для Ripple-эффекта
+        -- Контейнер для Ripple
         local RippleContainer = Library.Utils.Make("Frame", { Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, ClipsDescendants = true, ZIndex = 10, Parent = Tile })
-        Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 14), Parent = RippleContainer})
+        
+        -- ИСПРАВЛЕНИЕ: Акцентная линия теперь встроена ровно в верхний край
+        local AccentLine = Library.Utils.Make("Frame", { 
+            Size = UDim2.new(1, 0, 0, 3), 
+            Position = UDim2.new(0, 0, 0, 0), 
+            BorderSizePixel = 0, 
+            ZIndex = 5, 
+            Parent = Tile 
+        }, { BackgroundColor3 = "Accent" })
 
-        -- Акцентная линия сверху
-        local AccentLine = Library.Utils.Make("Frame", { Size = UDim2.new(0.6, 0, 0, 3), Position = UDim2.new(0.5, 0, 0, -8), AnchorPoint = Vector2.new(0.5, 1), BorderSizePixel = 0, ZIndex = 5, Parent = Tile }, { BackgroundColor3 = "Accent" })
-        Library.Utils.Make("UICorner", {CornerRadius = UDim.new(1, 0), Parent = AccentLine})
-
-        -- 3D Вьюпорт (Вместо иконки в магазине)
+        -- 3D Вьюпорт (Сдвинут вплотную к верху)
         local Viewport = Library.Utils.Make("ViewportFrame", {
-            Size = UDim2.new(1, -20, 0, 95), 
-            Position = UDim2.new(0.5, 0, 0, 10), 
-            AnchorPoint = Vector2.new(0.5, 0),
+            Size = UDim2.new(1, 0, 0, 110), 
+            Position = UDim2.new(0, 0, 0, 3), 
             BackgroundTransparency = 1, 
             ZIndex = 1, 
             Parent = Tile
@@ -147,58 +164,58 @@ function Module:Init(Library, Window, Tab)
             end)
         end
 
-        -- Затемнение снизу (Градиент)
-        local GradFrame = Library.Utils.Make("Frame", { Size = UDim2.new(1, 0, 0.5, 0), Position = UDim2.new(0, 0, 1, 0), AnchorPoint = Vector2.new(0, 1), BackgroundTransparency = 1, ZIndex = 2, Parent = Tile })
+        -- Градиент-затемнение
+        local GradFrame = Library.Utils.Make("Frame", { Size = UDim2.new(1, 0, 0.4, 0), Position = UDim2.new(0, 0, 1, 0), AnchorPoint = Vector2.new(0, 1), BackgroundTransparency = 1, ZIndex = 2, Parent = Tile })
         local Grad = Instance.new("UIGradient")
         Grad.Rotation = 90
-        Grad.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0.2)})
+        Grad.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0.1)})
         Grad.Color = ColorSequence.new(Color3.new(0,0,0))
         Grad.Parent = GradFrame
 
-        -- Аватар игрока (Сбоку от ника)
+        -- ИСПРАВЛЕНИЕ: Аватарке задан дефолтный фон, чтобы не было пустоты во время загрузки
         local Avatar = Library.Utils.Make("ImageLabel", {
-            Size = UDim2.new(0, 26, 0, 26), 
-            Position = UDim2.new(0, 10, 1, -18), 
+            Size = UDim2.new(0, 24, 0, 24), 
+            Position = UDim2.new(0, 10, 1, -12), 
             AnchorPoint = Vector2.new(0, 1), 
-            BackgroundTransparency = 1, 
+            BackgroundColor3 = Color3.fromRGB(30, 30, 35), 
+            BackgroundTransparency = 0, 
             ZIndex = 3, 
             Parent = Tile
         })
         Library.Utils.Make("UICorner", {CornerRadius = UDim.new(1, 0), Parent = Avatar})
         applyAvatar(Avatar, houseData.Owner)
 
-        -- Никнейм владельца
+        -- Никнейм
         local NameLbl = Library.Utils.Make("TextLabel", { 
             Text = houseData.Owner, 
-            Size = UDim2.new(1, -50, 0, 26), 
-            Position = UDim2.new(0, 42, 1, -18), 
+            Size = UDim2.new(1, -45, 0, 24), 
+            Position = UDim2.new(0, 40, 1, -12), 
             AnchorPoint = Vector2.new(0, 1), 
             BackgroundTransparency = 1, 
             TextXAlignment = Enum.TextXAlignment.Left,
-            Font = Enum.Font.GothamBold, 
-            TextSize = 13, 
+            Font = Enum.Font.GothamMedium, 
+            TextSize = 12, 
             TextTruncate = Enum.TextTruncate.AtEnd, 
             ZIndex = 3, 
             Parent = Tile 
         }, { TextColor3 = "Text" })
-        Library.Utils.Make("UIStroke", {Thickness = 1.5, Transparency = 0.4, Parent = NameLbl})
 
         -- Анимации ховера
         local Scale = Instance.new("UIScale", Tile)
 
         Library:Connect(Tile.MouseEnter, function()
-            Library.Utils.TBT(AccentLine, 0.3, {Size = UDim2.new(0.8, 0, 0, 4)})
+            Library.Utils.TBT(AccentLine, 0.3, {Size = UDim2.new(1, 0, 0, 5)})
         end)
 
         Library:Connect(Tile.MouseLeave, function()
-            Library.Utils.TBT(AccentLine, 0.3, {Size = UDim2.new(0.6, 0, 0, 3)})
+            Library.Utils.TBT(AccentLine, 0.3, {Size = UDim2.new(1, 0, 0, 3)})
         end)
 
         Library:Connect(Tile.MouseButton1Down, function() 
-            Library.Utils.TBT(Scale, 0.1, {Scale = 0.95}) 
+            Library.Utils.TBT(Scale, 0.1, {Scale = 0.96}) 
         end)
 
-        -- Клик (Телепортация + Ripple эффект)
+        -- Телепортация
         Library:Connect(Tile.MouseButton1Click, function()
             Library.Utils.TBT(Scale, 0.15, {Scale = 1}, Enum.EasingStyle.Bounce)
             Library.Utils.CreateRipple(RippleContainer)
@@ -214,7 +231,6 @@ function Module:Init(Library, Window, Tab)
         end)
     end
 
-    -- Запускаем рендер карточек асинхронно
     task.spawn(function()
         local houses = getServerHouses()
         if #houses > 0 then
@@ -222,7 +238,6 @@ function Module:Init(Library, Window, Tab)
                 createHouseCard(houseData)
             end
         else
-            -- Заглушка, если на сервере нет домов
             createHouseCard({
                 Owner = LocalPlayer.Name,
                 HouseType = "Micro",
