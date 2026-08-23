@@ -33,7 +33,7 @@ function Module:Init(Library, Window, Tab)
     end
 
     -- ==========================================
-    -- 3D РЕНДЕР: ИДЕАЛЬНАЯ ГЕОМЕТРИЯ
+    -- 3D РЕНДЕР (ГОЛАЯ МОДЕЛЬ ДОМА, ИДЕАЛЬНАЯ КАМЕРА)
     -- ==========================================
     local function buildCleanPreview(houseType, viewportFrame)
         local Resources = ReplicatedStorage:FindFirstChild("Resources")
@@ -45,7 +45,6 @@ function Module:Init(Library, Window, Tab)
         if houseModel then
             local displayHouse = houseModel:Clone()
             
-            -- Жесткая зачистка от мусора
             if displayHouse:FindFirstChild("Doors") then displayHouse.Doors:Destroy() end
             for _, part in pairs(displayHouse:GetDescendants()) do
                 if part:IsA("BasePart") then
@@ -63,10 +62,7 @@ function Module:Init(Library, Window, Tab)
             
             displayHouse.Parent = viewportFrame
             
-            -- Получаем математически точный центр здания и его размеры
             local cf, size = displayHouse:GetBoundingBox()
-            
-            -- Возвращаем модель, размеры и точные координаты центра
             return displayHouse, size, cf.Position
         end
         return nil, nil, nil
@@ -102,7 +98,7 @@ function Module:Init(Library, Window, Tab)
     end
 
     -- ==========================================
-    -- 2D ИНТЕРФЕЙС
+    -- 2D ИНТЕРФЕЙС И ЛОГИКА ТЕЛЕПОРТА
     -- ==========================================
     Library.Utils.Make("TextLabel", { 
         Text = "Teleport to house:", 
@@ -164,7 +160,6 @@ function Module:Init(Library, Window, Tab)
         }, { BackgroundColor3 = "Accent" })
         Library.Utils.Make("UICorner", {CornerRadius = UDim.new(1, 0), Parent = AccentLine})
 
-        -- Вызываем функцию и получаем центральную позицию (centerPos)
         local displayHouse, houseSize, centerPos = buildCleanPreview(houseData.HouseType, Viewport)
         
         if displayHouse and houseSize and centerPos then
@@ -173,7 +168,6 @@ function Module:Init(Library, Window, Tab)
             Viewport.CurrentCamera = VpCamera
             VpCamera.Parent = Viewport
             
-            -- Вычисляем дистанцию отдаления
             local radius = houseSize.Magnitude / 2
             local distance = (radius / math.tan(math.rad(VpCamera.FieldOfView / 2))) * 1.1
             
@@ -181,11 +175,7 @@ function Module:Init(Library, Window, Tab)
             RunService.RenderStepped:Connect(function(dt)
                 if not Viewport.Parent then return end
                 angle = angle + math.rad(25 * dt)
-                
-                -- ИДЕАЛЬНАЯ ОРБИТА: Камера летает вокруг centerPos по кругу
                 local camPos = centerPos + Vector3.new(math.cos(angle) * distance * 0.8, distance * 0.4, math.sin(angle) * distance * 0.8)
-                
-                -- Камера всегда смотрит ровно в центр дома
                 VpCamera.CFrame = CFrame.lookAt(camPos, centerPos)
             end)
         end
@@ -239,7 +229,21 @@ function Module:Init(Library, Window, Tab)
             
             local char = LocalPlayer.Character
             local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            
             if hrp then
+                -- ==========================================
+                -- ЗАЩИТА ОТ ТЕЛЕПОРТАЦИИ ИЗ ИНТЕРЬЕРА
+                -- ==========================================
+                -- Главная улица в Adopt Me находится в пределах от -50 до 200 по оси Y.
+                -- Интерьеры (дома внутри) генерируются игрой очень высоко в небе или низко под землей.
+                if hrp.Position.Y > 200 or hrp.Position.Y < -50 then
+                    if Library.Notify then
+                        Library:Notify("Error", "Сначала выйди на улицу! Из дома телепортироваться нельзя.", 4)
+                    end
+                    return -- Прерываем выполнение, телепорт не сработает
+                end
+
+                -- Если игрок на улице, спокойно телепортируем
                 hrp.CFrame = houseData.TeleportCFrame
                 if Library.Notify then
                     Library:Notify("Teleport", "Moved to " .. houseData.Owner .. "'s house", 3, "10723426722")
