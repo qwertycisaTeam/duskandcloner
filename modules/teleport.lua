@@ -33,7 +33,7 @@ function Module:Init(Library, Window, Tab)
     end
 
     -- ==========================================
-    -- 3D РЕНДЕР (ГОЛАЯ МОДЕЛЬ ДОМА, ИДЕАЛЬНАЯ КАМЕРА)
+    -- 3D РЕНДЕР: ТОЛЬКО ДОМ, ИДЕАЛЬНАЯ КАМЕРА
     -- ==========================================
     local function buildCleanPreview(houseType, viewportFrame)
         local Resources = ReplicatedStorage:FindFirstChild("Resources")
@@ -232,18 +232,19 @@ function Module:Init(Library, Window, Tab)
             
             if hrp then
                 -- ==========================================
-                -- ЗАЩИТА ОТ ТЕЛЕПОРТАЦИИ ИЗ ИНТЕРЬЕРА
+                -- ИДЕАЛЬНАЯ ЗАЩИТА: ПРОВЕРКА ПО ТОЧНЫМ КООРДИНАТАМ Y
                 -- ==========================================
-                -- Главная улица в Adopt Me находится в пределах от -50 до 200 по оси Y.
-                -- Интерьеры (дома внутри) генерируются игрой очень высоко в небе или низко под землей.
-                if hrp.Position.Y > 2000 or hrp.Position.Y < -500 then
+                local posY = hrp.Position.Y
+                
+                -- Если высота от 1000 до 8000 (включает 4003) — значит мы в интерьере дома!
+                if posY > 1000 and posY < 8000 then
                     if Library.Notify then
                         Library:Notify("Error", "Сначала выйди на улицу! Из дома телепортироваться нельзя.", 4)
                     end
-                    return -- Прерываем выполнение, телепорт не сработает
+                    return 
                 end
 
-                -- Если игрок на улице, спокойно телепортируем
+                -- Если мы на Adoption Island (~50) или на улице домов (~9529) — телепортируем!
                 hrp.CFrame = houseData.TeleportCFrame
                 if Library.Notify then
                     Library:Notify("Teleport", "Moved to " .. houseData.Owner .. "'s house", 3, "10723426722")
