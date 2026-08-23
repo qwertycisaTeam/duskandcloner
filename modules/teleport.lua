@@ -6,7 +6,7 @@ local LocalPlayer = Players.LocalPlayer
 local Module = {}
 
 function Module:Init(Library, Window, Tab)
-    
+
     -- ==========================================
     -- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
     -- ==========================================
@@ -88,48 +88,47 @@ function Module:Init(Library, Window, Tab)
     end
 
     -- ==========================================
-    -- СОЗДАНИЕ ИНТЕРФЕЙСА
+    -- СОЗДАНИЕ ИНТЕРФЕЙСА ЧЕРЕЗ LIBRARY.UTILS
     -- ==========================================
     
-    -- Используем обычный Frame, так как Tab.Page УЖЕ является скролл-листом
-    local GridContainer = Instance.new("Frame")
-    GridContainer.Name = "TeleportGridContainer"
-    GridContainer.Size = UDim2.new(1, 0, 0, 0) -- Высота 0, меняется автоматически
-    GridContainer.BackgroundTransparency = 1
-    GridContainer.Parent = Tab.Page
-
-    local GridLayout = Instance.new("UIGridLayout")
-    GridLayout.CellSize = UDim2.new(0, 155, 0, 175)
-    GridLayout.CellPadding = UDim2.new(0, 10, 0, 10)
-    GridLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    GridLayout.Parent = GridContainer
+    -- Контейнер по аналогии с Tab:CreateShopGrid
+    local Container = Library.Utils.Make("Frame", { 
+        Size = UDim2.new(1, 0, 0, 0), 
+        AutomaticSize = Enum.AutomaticSize.Y, 
+        BackgroundTransparency = 1, 
+        Parent = Tab.Page 
+    })
     
-    -- Динамическое изменение высоты контейнера, чтобы библиотека видела этот блок
-    GridLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        GridContainer.Size = UDim2.new(1, 0, 0, GridLayout.AbsoluteContentSize.Y + 10)
-    end)
-
-    local AccentColor = Library.CurrentTheme and Library.CurrentTheme.Accent or Color3.fromRGB(85, 170, 255)
+    -- Сетка на 2 колонки
+    Library.Utils.Make("UIGridLayout", { 
+        CellSize = UDim2.new(0.48, 0, 0, 165), 
+        CellPadding = UDim2.new(0.04, 0, 0, 18), 
+        SortOrder = Enum.SortOrder.LayoutOrder, 
+        Parent = Container 
+    })
 
     local function createHouseCard(houseData)
-        local Card = Instance.new("Frame")
-        Card.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
-        Card.Parent = GridContainer
-        Instance.new("UICorner", Card).CornerRadius = UDim.new(0, 10)
+        -- Сама карточка
+        local Tile = Library.Utils.Make("TextButton", { Text = "", AutoButtonColor = false, ClipsDescendants = false, Parent = Container }, { BackgroundColor3 = "Section" })
+        Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 14), Parent = Tile})
 
-        local Accent = Instance.new("Frame")
-        Accent.Size = UDim2.new(1, 0, 0, 4)
-        Accent.BackgroundColor3 = AccentColor
-        Accent.BorderSizePixel = 0
-        Accent.Parent = Card
-        Instance.new("UICorner", Accent).CornerRadius = UDim.new(0, 10)
+        -- Контейнер для Ripple-эффекта
+        local RippleContainer = Library.Utils.Make("Frame", { Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, ClipsDescendants = true, ZIndex = 10, Parent = Tile })
+        Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 14), Parent = RippleContainer})
 
-        local Viewport = Instance.new("ViewportFrame")
-        Viewport.Size = UDim2.new(1, -10, 0, 110)
-        Viewport.Position = UDim2.new(0, 5, 0, 10)
-        Viewport.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
-        Viewport.Parent = Card
-        Instance.new("UICorner", Viewport).CornerRadius = UDim.new(0, 8)
+        -- Акцентная линия сверху
+        local AccentLine = Library.Utils.Make("Frame", { Size = UDim2.new(0.6, 0, 0, 3), Position = UDim2.new(0.5, 0, 0, -8), AnchorPoint = Vector2.new(0.5, 1), BorderSizePixel = 0, ZIndex = 5, Parent = Tile }, { BackgroundColor3 = "Accent" })
+        Library.Utils.Make("UICorner", {CornerRadius = UDim.new(1, 0), Parent = AccentLine})
+
+        -- 3D Вьюпорт (Вместо иконки в магазине)
+        local Viewport = Library.Utils.Make("ViewportFrame", {
+            Size = UDim2.new(1, -20, 0, 95), 
+            Position = UDim2.new(0.5, 0, 0, 10), 
+            AnchorPoint = Vector2.new(0.5, 0),
+            BackgroundTransparency = 1, 
+            ZIndex = 1, 
+            Parent = Tile
+        })
 
         local VpCamera = Instance.new("Camera")
         Viewport.CurrentCamera = VpCamera
@@ -148,57 +147,89 @@ function Module:Init(Library, Window, Tab)
             end)
         end
 
-        local Avatar = Instance.new("ImageLabel")
-        Avatar.Size = UDim2.new(0, 32, 0, 32)
-        Avatar.Position = UDim2.new(0, 8, 1, -40)
-        Avatar.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
-        Avatar.Parent = Card
-        Instance.new("UICorner", Avatar).CornerRadius = UDim.new(1, 0)
+        -- Затемнение снизу (Градиент)
+        local GradFrame = Library.Utils.Make("Frame", { Size = UDim2.new(1, 0, 0.5, 0), Position = UDim2.new(0, 0, 1, 0), AnchorPoint = Vector2.new(0, 1), BackgroundTransparency = 1, ZIndex = 2, Parent = Tile })
+        local Grad = Instance.new("UIGradient")
+        Grad.Rotation = 90
+        Grad.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0.2)})
+        Grad.Color = ColorSequence.new(Color3.new(0,0,0))
+        Grad.Parent = GradFrame
+
+        -- Аватар игрока (Сбоку от ника)
+        local Avatar = Library.Utils.Make("ImageLabel", {
+            Size = UDim2.new(0, 26, 0, 26), 
+            Position = UDim2.new(0, 10, 1, -18), 
+            AnchorPoint = Vector2.new(0, 1), 
+            BackgroundTransparency = 1, 
+            ZIndex = 3, 
+            Parent = Tile
+        })
+        Library.Utils.Make("UICorner", {CornerRadius = UDim.new(1, 0), Parent = Avatar})
         applyAvatar(Avatar, houseData.Owner)
 
-        local NameText = Instance.new("TextLabel")
-        NameText.Size = UDim2.new(1, -55, 0, 32)
-        NameText.Position = UDim2.new(0, 48, 1, -40)
-        NameText.BackgroundTransparency = 1
-        NameText.Text = houseData.Owner
-        NameText.TextColor3 = Color3.fromRGB(255, 255, 255)
-        NameText.TextXAlignment = Enum.TextXAlignment.Left
-        NameText.Font = Enum.Font.GothamMedium
-        NameText.TextSize = 13
-        NameText.TextTruncate = Enum.TextTruncate.AtEnd
-        NameText.Parent = Card
+        -- Никнейм владельца
+        local NameLbl = Library.Utils.Make("TextLabel", { 
+            Text = houseData.Owner, 
+            Size = UDim2.new(1, -50, 0, 26), 
+            Position = UDim2.new(0, 42, 1, -18), 
+            AnchorPoint = Vector2.new(0, 1), 
+            BackgroundTransparency = 1, 
+            TextXAlignment = Enum.TextXAlignment.Left,
+            Font = Enum.Font.GothamBold, 
+            TextSize = 13, 
+            TextTruncate = Enum.TextTruncate.AtEnd, 
+            ZIndex = 3, 
+            Parent = Tile 
+        }, { TextColor3 = "Text" })
+        Library.Utils.Make("UIStroke", {Thickness = 1.5, Transparency = 0.4, Parent = NameLbl})
 
-        local TeleportBtn = Instance.new("TextButton")
-        TeleportBtn.Size = UDim2.new(1, 0, 1, 0)
-        TeleportBtn.BackgroundTransparency = 1
-        TeleportBtn.Text = ""
-        TeleportBtn.Parent = Card
+        -- Анимации ховера
+        local Scale = Instance.new("UIScale", Tile)
 
-        TeleportBtn.MouseButton1Click:Connect(function()
+        Library:Connect(Tile.MouseEnter, function()
+            Library.Utils.TBT(AccentLine, 0.3, {Size = UDim2.new(0.8, 0, 0, 4)})
+        end)
+
+        Library:Connect(Tile.MouseLeave, function()
+            Library.Utils.TBT(AccentLine, 0.3, {Size = UDim2.new(0.6, 0, 0, 3)})
+        end)
+
+        Library:Connect(Tile.MouseButton1Down, function() 
+            Library.Utils.TBT(Scale, 0.1, {Scale = 0.95}) 
+        end)
+
+        -- Клик (Телепортация + Ripple эффект)
+        Library:Connect(Tile.MouseButton1Click, function()
+            Library.Utils.TBT(Scale, 0.15, {Scale = 1}, Enum.EasingStyle.Bounce)
+            Library.Utils.CreateRipple(RippleContainer)
+            
             local char = LocalPlayer.Character
             local hrp = char and char:FindFirstChild("HumanoidRootPart")
             if hrp then
                 hrp.CFrame = houseData.TeleportCFrame
                 if Library.Notify then
-                    Library:Notify("Телепорт", "Перемещаемся к дому " .. houseData.Owner, 2)
+                    Library:Notify("Teleport", "Moved to " .. houseData.Owner .. "'s house", 3, "10723426722")
                 end
             end
         end)
     end
 
-    -- Запускаем рендер карточек
-    local houses = getServerHouses()
-    if #houses > 0 then
-        for _, houseData in ipairs(houses) do
-            createHouseCard(houseData)
+    -- Запускаем рендер карточек асинхронно
+    task.spawn(function()
+        local houses = getServerHouses()
+        if #houses > 0 then
+            for _, houseData in ipairs(houses) do
+                createHouseCard(houseData)
+            end
+        else
+            -- Заглушка, если на сервере нет домов
+            createHouseCard({
+                Owner = LocalPlayer.Name,
+                HouseType = "Micro",
+                TeleportCFrame = LocalPlayer.Character and LocalPlayer.Character:GetPivot() or CFrame.new()
+            })
         end
-    else
-        createHouseCard({
-            Owner = LocalPlayer.Name,
-            HouseType = "Micro",
-            TeleportCFrame = LocalPlayer.Character and LocalPlayer.Character:GetPivot() or CFrame.new()
-        })
-    end
+    end)
 end
 
 return Module
