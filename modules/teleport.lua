@@ -236,7 +236,7 @@ function Module:Init(Library, Window, Tab)
                 -- ==========================================
                 -- Главная улица в Adopt Me находится в пределах от -50 до 200 по оси Y.
                 -- Интерьеры (дома внутри) генерируются игрой очень высоко в небе или низко под землей.
-                if hrp.Position.Y > 200 or hrp.Position.Y < -50 then
+                if hrp.Position.Y > 2000 or hrp.Position.Y < -500 then
                     if Library.Notify then
                         Library:Notify("Error", "Сначала выйди на улицу! Из дома телепортироваться нельзя.", 4)
                     end
