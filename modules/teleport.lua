@@ -10,8 +10,6 @@ function Module:Init(Library, Window, Tab)
     -- ==========================================
     -- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
     -- ==========================================
-    
-    -- Бронебойная загрузка аватарок (сначала ищем на сервере, потом в API)
     local function applyAvatar(imageLabel, username)
         task.spawn(function()
             local userId = nil
@@ -45,7 +43,6 @@ function Module:Init(Library, Window, Tab)
             if houseModel then
                 local displayHouse = houseModel:Clone()
                 
-                -- 1. Очистка от скриптов и триггеров
                 if displayHouse:FindFirstChild("Doors") then displayHouse.Doors:Destroy() end
                 for _, part in pairs(displayHouse:GetDescendants()) do
                     if part:IsA("BasePart") then
@@ -62,36 +59,21 @@ function Module:Init(Library, Window, Tab)
                 
                 displayHouse.Parent = dome
                 
-                -- ==========================================
-                -- 2. УМНАЯ КАЛИБРОВКА (МАСШТАБ И ПОЗИЦИЯ)
-                -- ==========================================
-                -- Получаем реальные размеры купола и дома
                 local domeCFrame, domeSize = dome:GetBoundingBox()
                 local houseCFrame, houseSize = displayHouse:GetBoundingBox()
                 
-                -- Считаем масштаб: дом должен занимать 65% ширины островка
-                local maxHouseWidth = math.max(houseSize.X, houseSize.Z)
+                local maxHouseWidth = math.max(houseSize.X, house houseSize.Z)
                 local scaleFactor = (domeSize.X * 0.65) / maxHouseWidth
                 
-                -- Если дом очень высокий (например, Замок), ограничиваем масштаб по высоте
                 if (houseSize.Y * scaleFactor) > (domeSize.X * 0.8) then
                     scaleFactor = (domeSize.X * 0.8) / houseSize.Y
                 end
                 
-                -- Сжимаем дом
                 displayHouse:ScaleTo(scaleFactor)
-                
-                -- Снова получаем габариты дома (уже сжатого)
                 local newHouseCFrame, newHouseSize = displayHouse:GetBoundingBox()
-                
-                -- Высчитываем идеальную высоту, чтобы дом не висел в воздухе и не тонул
-                -- Половина высоты островка + половина высоты дома - чуть-чуть утапливаем в траву (0.5 стада)
                 local yOffset = (domeSize.Y / 2) + (newHouseSize.Y / 2) - 0.5
-                
-                -- Ставим дом ровно по центру островка
                 displayHouse:PivotTo(domeCFrame * CFrame.new(0, yOffset, 0))
             end
-            
             return dome
         end
     end
@@ -137,41 +119,60 @@ function Module:Init(Library, Window, Tab)
     })
     
     Library.Utils.Make("UIGridLayout", { 
-        CellSize = UDim2.new(0.48, 0, 0, 160), 
-        CellPadding = UDim2.new(0.04, 0, 0, 18), 
+        CellSize = UDim2.new(0.48, 0, 0, 155), -- Немного скорректировали высоту карточки
+        CellPadding = UDim2.new(0.04, 0, 0, 15), 
         SortOrder = Enum.SortOrder.LayoutOrder, 
         Parent = Container 
     })
 
-    local AccentColor = Library.CurrentTheme and Library.CurrentTheme.Accent or Color3.fromRGB(85, 170, 255)
-
     local function createHouseCard(houseData)
-        -- Главная карточка
-        local Tile = Library.Utils.Make("TextButton", { Text = "", AutoButtonColor = false, ClipsDescendants = true, Parent = Container }, { BackgroundColor3 = "Section" })
-        Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 10), Parent = Tile})
-        Library.Utils.Make("UIStroke", {Thickness = 1, Transparency = 0.5, Parent = Tile}, {Color = "Stroke"})
-
-        -- Контейнер для Ripple
-        local RippleContainer = Library.Utils.Make("Frame", { Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, ClipsDescendants = true, ZIndex = 10, Parent = Tile })
+        -- 1. ГЛАВНАЯ КАРТОЧКА
+        local Tile = Library.Utils.Make("TextButton", { Text = "", AutoButtonColor = false, ClipsDescendants = false, Parent = Container }, { BackgroundColor3 = "Section" })
+        Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 14), Parent = Tile})
+        Library.Utils.Make("UIStroke", {Thickness = 1, Transparency = 0.6, Parent = Tile}, {Color = "Stroke"})
         
-        -- ИСПРАВЛЕНИЕ: Акцентная линия теперь встроена ровно в верхний край
-        local AccentLine = Library.Utils.Make("Frame", { 
-            Size = UDim2.new(1, 0, 0, 3), 
-            Position = UDim2.new(0, 0, 0, 0), 
-            BorderSizePixel = 0, 
-            ZIndex = 5, 
+        -- Секрет красивого дизайна: внутренние отступы (Padding)!
+        Library.Utils.Make("UIPadding", { 
+            PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 8), 
+            PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8), 
             Parent = Tile 
-        }, { BackgroundColor3 = "Accent" })
+        })
 
-        -- 3D Вьюпорт (Сдвинут вплотную к верху)
+        local RippleContainer = Library.Utils.Make("Frame", { Size = UDim2.new(1, 16, 1, 16), Position = UDim2.new(0, -8, 0, -8), BackgroundTransparency = 1, ClipsDescendants = true, ZIndex = 10, Parent = Tile })
+        Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 14), Parent = RippleContainer})
+
+        -- 2. ВНУТРЕННИЙ БЛОК ПРЕВЬЮ (как на макете)
         local Viewport = Library.Utils.Make("ViewportFrame", {
-            Size = UDim2.new(1, 0, 0, 110), 
-            Position = UDim2.new(0, 0, 0, 3), 
-            BackgroundTransparency = 1, 
+            Size = UDim2.new(1, 0, 1, -38), -- Оставляем 38 пикселей снизу под аватарку и ник
+            Position = UDim2.new(0, 0, 0, 0), 
+            BackgroundColor3 = Color3.fromRGB(20, 20, 25), -- Чуть темнее самой карточки
+            BorderSizePixel = 0,
             ZIndex = 1, 
             Parent = Tile
         })
+        Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 10), Parent = Viewport})
+        Library.Utils.Make("UIStroke", {Thickness = 1, Transparency = 0.8, Parent = Viewport}, {Color = "Stroke"})
 
+        -- Градиент-затемнение снизу у 3D превью
+        local GradFrame = Library.Utils.Make("Frame", { Size = UDim2.new(1, 0, 0.4, 0), Position = UDim2.new(0, 0, 1, 0), AnchorPoint = Vector2.new(0, 1), BackgroundTransparency = 1, ZIndex = 2, Parent = Viewport })
+        local Grad = Instance.new("UIGradient")
+        Grad.Rotation = 90
+        Grad.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0.1)})
+        Grad.Color = ColorSequence.new(Color3.new(0,0,0))
+        Grad.Parent = GradFrame
+
+        -- Стильная акцентная линия прямо ВНУТРИ превью в правом нижнем углу
+        local AccentLine = Library.Utils.Make("Frame", { 
+            Size = UDim2.new(0.3, 0, 0, 3), 
+            Position = UDim2.new(1, -6, 1, -6), 
+            AnchorPoint = Vector2.new(1, 1), 
+            BorderSizePixel = 0, 
+            ZIndex = 5, 
+            Parent = Viewport 
+        }, { BackgroundColor3 = "Accent" })
+        Library.Utils.Make("UICorner", {CornerRadius = UDim.new(1, 0), Parent = AccentLine})
+
+        -- Вращение 3D модели
         local VpCamera = Instance.new("Camera")
         Viewport.CurrentCamera = VpCamera
         VpCamera.Parent = Viewport
@@ -189,51 +190,48 @@ function Module:Init(Library, Window, Tab)
             end)
         end
 
-        -- Градиент-затемнение
-        local GradFrame = Library.Utils.Make("Frame", { Size = UDim2.new(1, 0, 0.4, 0), Position = UDim2.new(0, 0, 1, 0), AnchorPoint = Vector2.new(0, 1), BackgroundTransparency = 1, ZIndex = 2, Parent = Tile })
-        local Grad = Instance.new("UIGradient")
-        Grad.Rotation = 90
-        Grad.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0.1)})
-        Grad.Color = ColorSequence.new(Color3.new(0,0,0))
-        Grad.Parent = GradFrame
-
-        -- ИСПРАВЛЕНИЕ: Аватарке задан дефолтный фон, чтобы не было пустоты во время загрузки
+        -- 3. НИЖНЯЯ ПАНЕЛЬ (КРУГЛАЯ АВАТАРКА И НИК)
         local Avatar = Library.Utils.Make("ImageLabel", {
-            Size = UDim2.new(0, 24, 0, 24), 
-            Position = UDim2.new(0, 10, 1, -12), 
+            Size = UDim2.new(0, 30, 0, 30), 
+            Position = UDim2.new(0, 0, 1, 0), -- Прижата к низу и левому краю
             AnchorPoint = Vector2.new(0, 1), 
             BackgroundColor3 = Color3.fromRGB(30, 30, 35), 
             BackgroundTransparency = 0, 
             ZIndex = 3, 
             Parent = Tile
         })
+        -- Делаем аватарку идеально круглой, как на скетче
         Library.Utils.Make("UICorner", {CornerRadius = UDim.new(1, 0), Parent = Avatar})
+        Library.Utils.Make("UIStroke", {Thickness = 1, Transparency = 0.6, Parent = Avatar}, {Color = "Stroke"})
         applyAvatar(Avatar, houseData.Owner)
 
         -- Никнейм
         local NameLbl = Library.Utils.Make("TextLabel", { 
             Text = houseData.Owner, 
-            Size = UDim2.new(1, -45, 0, 24), 
-            Position = UDim2.new(0, 40, 1, -12), 
+            Size = UDim2.new(1, -38, 0, 30), 
+            Position = UDim2.new(0, 38, 1, 0), 
             AnchorPoint = Vector2.new(0, 1), 
             BackgroundTransparency = 1, 
             TextXAlignment = Enum.TextXAlignment.Left,
             Font = Enum.Font.GothamMedium, 
-            TextSize = 12, 
+            TextSize = 13, 
             TextTruncate = Enum.TextTruncate.AtEnd, 
             ZIndex = 3, 
             Parent = Tile 
         }, { TextColor3 = "Text" })
 
-        -- Анимации ховера
+        -- 4. АНИМАЦИИ
         local Scale = Instance.new("UIScale", Tile)
 
         Library:Connect(Tile.MouseEnter, function()
-            Library.Utils.TBT(AccentLine, 0.3, {Size = UDim2.new(1, 0, 0, 5)})
+            -- Линия плавно расширяется при наведении
+            Library.Utils.TBT(AccentLine, 0.3, {Size = UDim2.new(0.8, 0, 0, 3)})
+            Library.Utils.TBT(Viewport, 0.3, {BackgroundColor3 = Color3.fromRGB(25, 25, 30)})
         end)
 
         Library:Connect(Tile.MouseLeave, function()
-            Library.Utils.TBT(AccentLine, 0.3, {Size = UDim2.new(1, 0, 0, 3)})
+            Library.Utils.TBT(AccentLine, 0.3, {Size = UDim2.new(0.3, 0, 0, 3)})
+            Library.Utils.TBT(Viewport, 0.3, {BackgroundColor3 = Color3.fromRGB(20, 20, 25)})
         end)
 
         Library:Connect(Tile.MouseButton1Down, function() 
