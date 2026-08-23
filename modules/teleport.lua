@@ -45,7 +45,7 @@ function Module:Init(Library, Window, Tab)
             if houseModel then
                 local displayHouse = houseModel:Clone()
                 
-                -- Чистим коллизии и скрипты
+                -- 1. Очистка от скриптов и триггеров
                 if displayHouse:FindFirstChild("Doors") then displayHouse.Doors:Destroy() end
                 for _, part in pairs(displayHouse:GetDescendants()) do
                     if part:IsA("BasePart") then
@@ -62,11 +62,36 @@ function Module:Init(Library, Window, Tab)
                 
                 displayHouse.Parent = dome
                 
-                -- ИСПРАВЛЕНИЕ: Убрали проверку PrimaryPart у дома, теперь ставится 100%
-                if dome.PrimaryPart then
-                    displayHouse:PivotTo(dome.PrimaryPart.CFrame * CFrame.new(0, 0.5, 0))
+                -- ==========================================
+                -- 2. УМНАЯ КАЛИБРОВКА (МАСШТАБ И ПОЗИЦИЯ)
+                -- ==========================================
+                -- Получаем реальные размеры купола и дома
+                local domeCFrame, domeSize = dome:GetBoundingBox()
+                local houseCFrame, houseSize = displayHouse:GetBoundingBox()
+                
+                -- Считаем масштаб: дом должен занимать 65% ширины островка
+                local maxHouseWidth = math.max(houseSize.X, houseSize.Z)
+                local scaleFactor = (domeSize.X * 0.65) / maxHouseWidth
+                
+                -- Если дом очень высокий (например, Замок), ограничиваем масштаб по высоте
+                if (houseSize.Y * scaleFactor) > (domeSize.X * 0.8) then
+                    scaleFactor = (domeSize.X * 0.8) / houseSize.Y
                 end
+                
+                -- Сжимаем дом
+                displayHouse:ScaleTo(scaleFactor)
+                
+                -- Снова получаем габариты дома (уже сжатого)
+                local newHouseCFrame, newHouseSize = displayHouse:GetBoundingBox()
+                
+                -- Высчитываем идеальную высоту, чтобы дом не висел в воздухе и не тонул
+                -- Половина высоты островка + половина высоты дома - чуть-чуть утапливаем в траву (0.5 стада)
+                local yOffset = (domeSize.Y / 2) + (newHouseSize.Y / 2) - 0.5
+                
+                -- Ставим дом ровно по центру островка
+                displayHouse:PivotTo(domeCFrame * CFrame.new(0, yOffset, 0))
             end
+            
             return dome
         end
     end
