@@ -25,14 +25,13 @@ function Module:Init(Library, Window, Tab)
             if userId then
                 imageLabel.Image = "rbxthumb://type=AvatarHeadShot&id=" .. userId .. "&w=150&h=150"
             else
-                -- Если сервера Роблокса лежат (как у тебя сейчас), ставим дефолтную заглушку
                 imageLabel.Image = "rbxassetid://10827393433" 
             end
         end)
     end
 
     -- ==========================================
-    -- ЛОГИКА РЕНДЕРА 3D (БЕЗ ФРАНКЕНШТЕЙНОВ)
+    -- ЛОГИКА РЕНДЕРА 3D (ТРАВА НА МЕСТЕ)
     -- ==========================================
     local function buildCleanPreview(houseType, viewportFrame)
         local Resources = ReplicatedStorage:FindFirstChild("Resources")
@@ -63,17 +62,16 @@ function Module:Init(Library, Window, Tab)
             
             displayHouse.Parent = viewportFrame
             
-            -- Ставим дом ровно в центр без искажений
+            -- Центрируем дом
             displayHouse:PivotTo(CFrame.new(0, 0, 0))
             local houseCFrame, houseSize = displayHouse:GetBoundingBox()
             
-            -- Подгоняем зеленую лужайку
+            -- Берем купол
             local dome = domeTemplate:Clone()
             
-            -- ВАЖНОЕ ИСПРАВЛЕНИЕ: Уничтожаем красный стартовый дом, 
-            -- который разработчики Adopt Me спрятали внутри купола!
+            -- ИСПРАВЛЕНИЕ: Удаляем ТОЛЬКО спрятанные внутри модели (дома), не трогая саму траву!
             for _, child in pairs(dome:GetChildren()) do
-                if child:IsA("Model") or string.find(string.lower(child.Name), "house") then
+                if child:IsA("Model") then
                     child:Destroy()
                 end
             end
@@ -81,14 +79,14 @@ function Module:Init(Library, Window, Tab)
             dome.Parent = viewportFrame
             local domeCFrame, domeSize = dome:GetBoundingBox()
             
+            -- Подгоняем размер лужайки под габариты дома
             local maxHouseWidth = math.max(houseSize.X, houseSize.Z)
             local requiredScale = (maxHouseWidth * 1.3) / domeSize.X
-            if requiredScale > 1 then
-                pcall(function() dome:ScaleTo(requiredScale) end)
-                domeCFrame, domeSize = dome:GetBoundingBox()
-            end
+            if requiredScale < 1 then requiredScale = 1 end
+            pcall(function() dome:ScaleTo(requiredScale) end)
             
-            -- Ставим лужайку ровно под основание дома
+            -- Ставим траву ровно под дом
+            domeCFrame, domeSize = dome:GetBoundingBox()
             local domeY = -(houseSize.Y / 2) - (domeSize.Y / 2) + 0.5
             dome:PivotTo(CFrame.new(0, domeY, 0))
             
@@ -126,8 +124,21 @@ function Module:Init(Library, Window, Tab)
     end
 
     -- ==========================================
-    -- СОЗДАНИЕ 2D ИНТЕРФЕЙСА
+    -- СОЗДАНИЕ 2D ИНТЕРФЕЙСА (ПО ТВОЕМУ МАКЕТУ)
     -- ==========================================
+    
+    -- Заголовок раздела
+    Library.Utils.Make("TextLabel", { 
+        Text = "Teleport to house:", 
+        Size = UDim2.new(1, 0, 0, 20), 
+        BackgroundTransparency = 1, 
+        Font = Enum.Font.GothamBold, 
+        TextSize = 14, 
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Parent = Tab.Page 
+    }, { TextColor3 = "SubText" })
+
+    -- Сетка для карточек (2 колонки)
     local Container = Library.Utils.Make("Frame", { 
         Size = UDim2.new(1, 0, 0, 0), 
         AutomaticSize = Enum.AutomaticSize.Y, 
@@ -136,13 +147,14 @@ function Module:Init(Library, Window, Tab)
     })
     
     Library.Utils.Make("UIGridLayout", { 
-        CellSize = UDim2.new(0.48, 0, 0, 160), 
+        CellSize = UDim2.new(0.48, 0, 0, 150), 
         CellPadding = UDim2.new(0.04, 0, 0, 15), 
         SortOrder = Enum.SortOrder.LayoutOrder, 
         Parent = Container 
     })
 
     local function createHouseCard(houseData)
+        -- Главный фон карточки
         local Tile = Library.Utils.Make("TextButton", { Text = "", AutoButtonColor = false, ClipsDescendants = false, Parent = Container }, { BackgroundColor3 = "Section" })
         Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 12), Parent = Tile})
         Library.Utils.Make("UIStroke", {Thickness = 1, Transparency = 0.5, Parent = Tile}, {Color = "Stroke"})
@@ -150,42 +162,47 @@ function Module:Init(Library, Window, Tab)
         local RippleContainer = Library.Utils.Make("Frame", { Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, ClipsDescendants = true, ZIndex = 10, Parent = Tile })
         Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 12), Parent = RippleContainer})
 
+        -- 3D Вьюпорт (Внутреннее окошко с отступами, как на макете!)
         local Viewport = Library.Utils.Make("ViewportFrame", {
-            Size = UDim2.new(1, 0, 1, -40), 
-            Position = UDim2.new(0, 0, 0, 0), 
-            BackgroundColor3 = Color3.fromRGB(20, 20, 25), 
+            Size = UDim2.new(1, -16, 1, -40), -- Отступы 8px слева/справа, 32px снизу
+            Position = UDim2.new(0, 8, 0, 8), 
+            BackgroundColor3 = Color3.fromRGB(15, 15, 20), 
             BorderSizePixel = 0,
-            ClipsDescendants = true, 
             ZIndex = 1, 
             Parent = Tile
         })
-        Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 12), Parent = Viewport})
+        Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 8), Parent = Viewport})
+        Library.Utils.Make("UIStroke", {Thickness = 1, Transparency = 0.6, Parent = Viewport}, {Color = "Stroke"})
 
+        -- Акцентная линия строго ВНУТРИ окошка, в правом нижнем углу
         local AccentLine = Library.Utils.Make("Frame", { 
-            Size = UDim2.new(1, 0, 0, 4), 
-            Position = UDim2.new(0, 0, 0, 0), 
+            Size = UDim2.new(0.35, 0, 0, 3), 
+            Position = UDim2.new(1, -8, 1, -8), -- Отступ от краев
+            AnchorPoint = Vector2.new(1, 1), 
             BorderSizePixel = 0, 
             ZIndex = 5, 
             Parent = Viewport 
         }, { BackgroundColor3 = "Accent" })
+        Library.Utils.Make("UICorner", {CornerRadius = UDim.new(1, 0), Parent = AccentLine})
 
-        local GradFrame = Library.Utils.Make("Frame", { Size = UDim2.new(1, 0, 0.4, 0), Position = UDim2.new(0, 0, 1, 0), AnchorPoint = Vector2.new(0, 1), BackgroundTransparency = 1, ZIndex = 2, Parent = Viewport })
+        -- Градиент неба
+        local GradFrame = Library.Utils.Make("Frame", { Size = UDim2.new(1, 0, 0.5, 0), Position = UDim2.new(0, 0, 1, 0), AnchorPoint = Vector2.new(0, 1), BackgroundTransparency = 1, ZIndex = 2, Parent = Viewport })
         local Grad = Instance.new("UIGradient")
         Grad.Rotation = 90
         Grad.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0)})
         Grad.Color = ColorSequence.new(Color3.new(0,0,0))
         Grad.Parent = GradFrame
 
+        -- Камера
         local VpCamera = Instance.new("Camera")
         Viewport.CurrentCamera = VpCamera
         VpCamera.Parent = Viewport
         
         local houseObj, houseSize = buildCleanPreview(houseData.HouseType, Viewport)
         if houseObj and houseSize then
-            -- ИСПРАВЛЕНИЕ: Отдалил камеру (1.3), чтобы края домов не срезались
             local maxDim = math.max(houseSize.X, houseSize.Y, houseSize.Z)
             local radius = maxDim * 1.3 
-            if radius < 35 then radius = 35 end
+            if radius < 30 then radius = 30 end
             
             local angle = 0
             RunService.RenderStepped:Connect(function(dt)
@@ -196,22 +213,25 @@ function Module:Init(Library, Window, Tab)
             end)
         end
 
+        -- Аватарка (Эффектно перекрывает нижний левый угол превью!)
         local Avatar = Library.Utils.Make("ImageLabel", {
-            Size = UDim2.new(0, 26, 0, 26), 
-            Position = UDim2.new(0, 8, 1, -7), 
+            Size = UDim2.new(0, 28, 0, 28), 
+            Position = UDim2.new(0, 12, 1, -8), 
             AnchorPoint = Vector2.new(0, 1), 
             BackgroundColor3 = Color3.fromRGB(30, 30, 35), 
             BackgroundTransparency = 0, 
-            ZIndex = 3, 
+            ZIndex = 4, 
             Parent = Tile
         })
         Library.Utils.Make("UICorner", {CornerRadius = UDim.new(1, 0), Parent = Avatar})
+        Library.Utils.Make("UIStroke", {Thickness = 2, Parent = Avatar}, {Color = "Section"}) -- Обводка цветом фона
         applyAvatar(Avatar, houseData.Owner)
 
+        -- Никнейм
         local NameLbl = Library.Utils.Make("TextLabel", { 
             Text = houseData.Owner, 
-            Size = UDim2.new(1, -44, 0, 26), 
-            Position = UDim2.new(0, 42, 1, -7), 
+            Size = UDim2.new(1, -54, 0, 20), 
+            Position = UDim2.new(0, 46, 1, -12), 
             AnchorPoint = Vector2.new(0, 1), 
             BackgroundTransparency = 1, 
             TextXAlignment = Enum.TextXAlignment.Left,
@@ -222,14 +242,17 @@ function Module:Init(Library, Window, Tab)
             Parent = Tile 
         }, { TextColor3 = "Text" })
 
+        -- Анимации
         local Scale = Instance.new("UIScale", Tile)
 
         Library:Connect(Tile.MouseEnter, function()
-            Library.Utils.TBT(AccentLine, 0.3, {Size = UDim2.new(1, 0, 0, 7)})
+            Library.Utils.TBT(AccentLine, 0.3, {Size = UDim2.new(0.6, 0, 0, 4)})
+            Library.Utils.TBT(Viewport, 0.3, {BackgroundColor3 = Color3.fromRGB(25, 25, 30)})
         end)
 
         Library:Connect(Tile.MouseLeave, function()
-            Library.Utils.TBT(AccentLine, 0.3, {Size = UDim2.new(1, 0, 0, 4)})
+            Library.Utils.TBT(AccentLine, 0.3, {Size = UDim2.new(0.35, 0, 0, 3)})
+            Library.Utils.TBT(Viewport, 0.3, {BackgroundColor3 = Color3.fromRGB(15, 15, 20)})
         end)
 
         Library:Connect(Tile.MouseButton1Down, function() 
