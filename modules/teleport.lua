@@ -8,7 +8,7 @@ local Module = {}
 function Module:Init(Library, Window, Tab)
 
     -- ==========================================
-    -- ОЧЕРЕДЬ ЗАГРУЗКИ АВАТАРОВ (ЗАЩИТА ОТ ЛИМИТОВ)
+    -- ОЧЕРЕДЬ ЗАГРУЗКИ АВАТАРОВ
     -- ==========================================
     local function applyAvatar(imageLabel, username, index)
         task.spawn(function()
@@ -33,7 +33,7 @@ function Module:Init(Library, Window, Tab)
     end
 
     -- ==========================================
-    -- 3D РЕНДЕР: ТОЛЬКО ДОМ, НИКАКИХ ОСТРОВОВ
+    -- 3D РЕНДЕР: ИДЕАЛЬНАЯ ГЕОМЕТРИЯ
     -- ==========================================
     local function buildCleanPreview(houseType, viewportFrame)
         local Resources = ReplicatedStorage:FindFirstChild("Resources")
@@ -63,15 +63,13 @@ function Module:Init(Library, Window, Tab)
             
             displayHouse.Parent = viewportFrame
             
-            -- Центрируем дом в 0,0,0 (сохраняя его оригинальный поворот)
+            -- Получаем математически точный центр здания и его размеры
             local cf, size = displayHouse:GetBoundingBox()
-            displayHouse:PivotTo(CFrame.new(0, 0, 0) * (cf.Rotation))
             
-            -- Снова получаем габариты (уже отцентрированные)
-            local newCf, newSize = displayHouse:GetBoundingBox()
-            return displayHouse, newSize
+            -- Возвращаем модель, размеры и точные координаты центра
+            return displayHouse, size, cf.Position
         end
-        return nil, nil
+        return nil, nil, nil
     end
 
     local function getServerHouses()
@@ -166,27 +164,29 @@ function Module:Init(Library, Window, Tab)
         }, { BackgroundColor3 = "Accent" })
         Library.Utils.Make("UICorner", {CornerRadius = UDim.new(1, 0), Parent = AccentLine})
 
-        local displayHouse, houseSize = buildCleanPreview(houseData.HouseType, Viewport)
+        -- Вызываем функцию и получаем центральную позицию (centerPos)
+        local displayHouse, houseSize, centerPos = buildCleanPreview(houseData.HouseType, Viewport)
         
-        if displayHouse and houseSize then
+        if displayHouse and houseSize and centerPos then
             local VpCamera = Instance.new("Camera")
             VpCamera.FieldOfView = 50 
             Viewport.CurrentCamera = VpCamera
             VpCamera.Parent = Viewport
             
-            -- Динамическая камера: подстраивается только под дом, без учета острова
+            -- Вычисляем дистанцию отдаления
             local radius = houseSize.Magnitude / 2
-            local distance = (radius / math.tan(math.rad(VpCamera.FieldOfView / 2))) * 1.1 -- 10% отступ по краям
-            local camOffset = Vector3.new(1, 0.6, 1).Unit * distance
+            local distance = (radius / math.tan(math.rad(VpCamera.FieldOfView / 2))) * 1.1
             
-            VpCamera.CFrame = CFrame.lookAt(camOffset, Vector3.new(0, 0, 0))
-
             local angle = 0
             RunService.RenderStepped:Connect(function(dt)
                 if not Viewport.Parent then return end
                 angle = angle + math.rad(25 * dt)
-                -- Вращаем сам дом вокруг своей оси
-                displayHouse:PivotTo(CFrame.Angles(0, angle, 0))
+                
+                -- ИДЕАЛЬНАЯ ОРБИТА: Камера летает вокруг centerPos по кругу
+                local camPos = centerPos + Vector3.new(math.cos(angle) * distance * 0.8, distance * 0.4, math.sin(angle) * distance * 0.8)
+                
+                -- Камера всегда смотрит ровно в центр дома
+                VpCamera.CFrame = CFrame.lookAt(camPos, centerPos)
             end)
         end
 
