@@ -62,7 +62,8 @@ function Module:Init(Library, Window, Tab)
                 local domeCFrame, domeSize = dome:GetBoundingBox()
                 local houseCFrame, houseSize = displayHouse:GetBoundingBox()
                 
-                local maxHouseWidth = math.max(houseSize.X, house houseSize.Z)
+                -- ИСПРАВЛЕНА ОПЕЧАТКА ЗДЕСЬ
+                local maxHouseWidth = math.max(houseSize.X, houseSize.Z)
                 local scaleFactor = (domeSize.X * 0.65) / maxHouseWidth
                 
                 if (houseSize.Y * scaleFactor) > (domeSize.X * 0.8) then
@@ -119,19 +120,17 @@ function Module:Init(Library, Window, Tab)
     })
     
     Library.Utils.Make("UIGridLayout", { 
-        CellSize = UDim2.new(0.48, 0, 0, 155), -- Немного скорректировали высоту карточки
+        CellSize = UDim2.new(0.48, 0, 0, 155), 
         CellPadding = UDim2.new(0.04, 0, 0, 15), 
         SortOrder = Enum.SortOrder.LayoutOrder, 
         Parent = Container 
     })
 
     local function createHouseCard(houseData)
-        -- 1. ГЛАВНАЯ КАРТОЧКА
         local Tile = Library.Utils.Make("TextButton", { Text = "", AutoButtonColor = false, ClipsDescendants = false, Parent = Container }, { BackgroundColor3 = "Section" })
         Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 14), Parent = Tile})
         Library.Utils.Make("UIStroke", {Thickness = 1, Transparency = 0.6, Parent = Tile}, {Color = "Stroke"})
         
-        -- Секрет красивого дизайна: внутренние отступы (Padding)!
         Library.Utils.Make("UIPadding", { 
             PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 8), 
             PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8), 
@@ -141,11 +140,10 @@ function Module:Init(Library, Window, Tab)
         local RippleContainer = Library.Utils.Make("Frame", { Size = UDim2.new(1, 16, 1, 16), Position = UDim2.new(0, -8, 0, -8), BackgroundTransparency = 1, ClipsDescendants = true, ZIndex = 10, Parent = Tile })
         Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 14), Parent = RippleContainer})
 
-        -- 2. ВНУТРЕННИЙ БЛОК ПРЕВЬЮ (как на макете)
         local Viewport = Library.Utils.Make("ViewportFrame", {
-            Size = UDim2.new(1, 0, 1, -38), -- Оставляем 38 пикселей снизу под аватарку и ник
+            Size = UDim2.new(1, 0, 1, -38), 
             Position = UDim2.new(0, 0, 0, 0), 
-            BackgroundColor3 = Color3.fromRGB(20, 20, 25), -- Чуть темнее самой карточки
+            BackgroundColor3 = Color3.fromRGB(20, 20, 25), 
             BorderSizePixel = 0,
             ZIndex = 1, 
             Parent = Tile
@@ -153,7 +151,6 @@ function Module:Init(Library, Window, Tab)
         Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 10), Parent = Viewport})
         Library.Utils.Make("UIStroke", {Thickness = 1, Transparency = 0.8, Parent = Viewport}, {Color = "Stroke"})
 
-        -- Градиент-затемнение снизу у 3D превью
         local GradFrame = Library.Utils.Make("Frame", { Size = UDim2.new(1, 0, 0.4, 0), Position = UDim2.new(0, 0, 1, 0), AnchorPoint = Vector2.new(0, 1), BackgroundTransparency = 1, ZIndex = 2, Parent = Viewport })
         local Grad = Instance.new("UIGradient")
         Grad.Rotation = 90
@@ -161,7 +158,6 @@ function Module:Init(Library, Window, Tab)
         Grad.Color = ColorSequence.new(Color3.new(0,0,0))
         Grad.Parent = GradFrame
 
-        -- Стильная акцентная линия прямо ВНУТРИ превью в правом нижнем углу
         local AccentLine = Library.Utils.Make("Frame", { 
             Size = UDim2.new(0.3, 0, 0, 3), 
             Position = UDim2.new(1, -6, 1, -6), 
@@ -172,7 +168,6 @@ function Module:Init(Library, Window, Tab)
         }, { BackgroundColor3 = "Accent" })
         Library.Utils.Make("UICorner", {CornerRadius = UDim.new(1, 0), Parent = AccentLine})
 
-        -- Вращение 3D модели
         local VpCamera = Instance.new("Camera")
         Viewport.CurrentCamera = VpCamera
         VpCamera.Parent = Viewport
@@ -190,22 +185,19 @@ function Module:Init(Library, Window, Tab)
             end)
         end
 
-        -- 3. НИЖНЯЯ ПАНЕЛЬ (КРУГЛАЯ АВАТАРКА И НИК)
         local Avatar = Library.Utils.Make("ImageLabel", {
             Size = UDim2.new(0, 30, 0, 30), 
-            Position = UDim2.new(0, 0, 1, 0), -- Прижата к низу и левому краю
+            Position = UDim2.new(0, 0, 1, 0), 
             AnchorPoint = Vector2.new(0, 1), 
             BackgroundColor3 = Color3.fromRGB(30, 30, 35), 
             BackgroundTransparency = 0, 
             ZIndex = 3, 
             Parent = Tile
         })
-        -- Делаем аватарку идеально круглой, как на скетче
         Library.Utils.Make("UICorner", {CornerRadius = UDim.new(1, 0), Parent = Avatar})
         Library.Utils.Make("UIStroke", {Thickness = 1, Transparency = 0.6, Parent = Avatar}, {Color = "Stroke"})
         applyAvatar(Avatar, houseData.Owner)
 
-        -- Никнейм
         local NameLbl = Library.Utils.Make("TextLabel", { 
             Text = houseData.Owner, 
             Size = UDim2.new(1, -38, 0, 30), 
@@ -220,11 +212,9 @@ function Module:Init(Library, Window, Tab)
             Parent = Tile 
         }, { TextColor3 = "Text" })
 
-        -- 4. АНИМАЦИИ
         local Scale = Instance.new("UIScale", Tile)
 
         Library:Connect(Tile.MouseEnter, function()
-            -- Линия плавно расширяется при наведении
             Library.Utils.TBT(AccentLine, 0.3, {Size = UDim2.new(0.8, 0, 0, 3)})
             Library.Utils.TBT(Viewport, 0.3, {BackgroundColor3 = Color3.fromRGB(25, 25, 30)})
         end)
@@ -238,7 +228,6 @@ function Module:Init(Library, Window, Tab)
             Library.Utils.TBT(Scale, 0.1, {Scale = 0.96}) 
         end)
 
-        -- Телепортация
         Library:Connect(Tile.MouseButton1Click, function()
             Library.Utils.TBT(Scale, 0.15, {Scale = 1}, Enum.EasingStyle.Bounce)
             Library.Utils.CreateRipple(RippleContainer)
@@ -255,17 +244,24 @@ function Module:Init(Library, Window, Tab)
     end
 
     task.spawn(function()
-        local houses = getServerHouses()
-        if #houses > 0 then
-            for _, houseData in ipairs(houses) do
-                createHouseCard(houseData)
+        local success, err = pcall(function()
+            local houses = getServerHouses()
+            if #houses > 0 then
+                for _, houseData in ipairs(houses) do
+                    createHouseCard(houseData)
+                end
+            else
+                createHouseCard({
+                    Owner = LocalPlayer.Name,
+                    HouseType = "Micro",
+                    TeleportCFrame = LocalPlayer.Character and LocalPlayer.Character:GetPivot() or CFrame.new()
+                })
             end
-        else
-            createHouseCard({
-                Owner = LocalPlayer.Name,
-                HouseType = "Micro",
-                TeleportCFrame = LocalPlayer.Character and LocalPlayer.Character:GetPivot() or CFrame.new()
-            })
+        end)
+        
+        -- Если опять случится что-то не так, мы это хотя бы увидим
+        if not success then
+            warn("[Dusk&Shine Teleport] Ошибка рендера вкладки: ", err)
         end
     end)
 end
