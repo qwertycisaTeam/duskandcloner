@@ -8,11 +8,11 @@ local Module = {}
 function Module:Init(Library, Window, Tab)
 
     -- ==========================================
-    -- УМНАЯ ЗАГРУЗКА АВАТАРОВ (БЕЗ ТАЙМАУТОВ РОБЛОКСА)
+    -- ОЧЕРЕДЬ ЗАГРУЗКИ АВАТАРОВ (ЗАЩИТА ОТ ЛИМИТОВ)
     -- ==========================================
     local function applyAvatar(imageLabel, username, index)
         task.spawn(function()
-            task.wait(index * 0.15) -- Задержка очереди, чтобы не спамить API
+            task.wait(index * 0.15) 
             
             local userId = nil
             local player = Players:FindFirstChild(username)
@@ -33,31 +33,24 @@ function Module:Init(Library, Window, Tab)
     end
 
     -- ==========================================
-    -- 3D РЕНДЕР: ИСПОЛЬЗУЕМ ОРИГИНАЛЬНЫЕ НАСТРОЙКИ ADOPT ME!
+    -- 3D РЕНДЕР: ТОЛЬКО ДОМ, НИКАКИХ ОСТРОВОВ
     -- ==========================================
     local function buildCleanPreview(houseType, viewportFrame)
         local Resources = ReplicatedStorage:FindFirstChild("Resources")
         if not Resources then return end
         
-        local domeTemplate = Resources:FindFirstChild("HousePreviewDome")
         local houseExteriors = Resources:FindFirstChild("HouseExteriors")
         local houseModel = houseExteriors and houseExteriors:FindFirstChild(houseType)
         
-        if domeTemplate and houseModel then
-            -- Группа для вращения
-            local previewGroup = Instance.new("Model")
-            previewGroup.Name = "PreviewGroup"
-            previewGroup.Parent = viewportFrame
-
-            -- 1. Подготовка дома
+        if houseModel then
             local displayHouse = houseModel:Clone()
-            if displayHouse:FindFirstChild("Doors") then displayHouse.Doors:Destroy() end
             
+            -- Жесткая зачистка от мусора
+            if displayHouse:FindFirstChild("Doors") then displayHouse.Doors:Destroy() end
             for _, part in pairs(displayHouse:GetDescendants()) do
                 if part:IsA("BasePart") then
                     local n = string.lower(part.Name)
-                    -- Жесткая зачистка невидимого мусора
-                    if part.Transparency >= 1 or n == "plot" or n == "base" or n == "hitbox" or n == "driveway" then
+                    if part.Transparency >= 1 or n == "plot" or n == "base" or n == "hitbox" or n == "driveway" or n == "floor" then
                         part:Destroy()
                     else
                         part.Anchored = true
@@ -68,33 +61,17 @@ function Module:Init(Library, Window, Tab)
                 end
             end
             
-            displayHouse.Parent = previewGroup
-            displayHouse:PivotTo(CFrame.new(0, 0, 0))
+            displayHouse.Parent = viewportFrame
             
-            -- 2. Подготовка оригинального купола (без красных домов внутри)
-            local dome = domeTemplate:Clone()
-            for _, child in pairs(dome:GetChildren()) do
-                if child:IsA("Model") then child:Destroy() end
-            end
-            dome.Parent = previewGroup
+            -- Центрируем дом в 0,0,0 (сохраняя его оригинальный поворот)
+            local cf, size = displayHouse:GetBoundingBox()
+            displayHouse:PivotTo(CFrame.new(0, 0, 0) * (cf.Rotation))
             
-            -- Ставим купол ровно под дом (чуть-чуть утапливаем, чтобы не было щелей)
-            local houseCFrame, houseSize = displayHouse:GetBoundingBox()
-            local domeCFrame, domeSize = dome:GetBoundingBox()
-            local domeY = -(houseSize.Y / 2) - (domeSize.Y / 2) + 0.5
-            dome:PivotTo(CFrame.new(0, domeY, 0))
-
-            -- 3. Анимация: плавно крутим саму группу, а не камеру!
-            local angle = 0
-            RunService.RenderStepped:Connect(function(dt)
-                if not viewportFrame.Parent then return end
-                angle = angle + math.rad(15 * dt)
-                previewGroup:PivotTo(CFrame.Angles(0, angle, 0))
-            end)
-            
-            return true
+            -- Снова получаем габариты (уже отцентрированные)
+            local newCf, newSize = displayHouse:GetBoundingBox()
+            return displayHouse, newSize
         end
-        return false
+        return nil, nil
     end
 
     local function getServerHouses()
@@ -127,9 +104,8 @@ function Module:Init(Library, Window, Tab)
     end
 
     -- ==========================================
-    -- 2D ИНТЕРФЕЙС: СЛОИ ПО ТВОЕМУ МАКЕТУ
+    -- 2D ИНТЕРФЕЙС
     -- ==========================================
-    
     Library.Utils.Make("TextLabel", { 
         Text = "Teleport to house:", 
         Size = UDim2.new(1, 0, 0, 20), 
@@ -155,15 +131,19 @@ function Module:Init(Library, Window, Tab)
     })
 
     local function createHouseCard(houseData, index)
-        -- СЛОЙ 0: Главная база (ОБРЕЗКА ОТКЛЮЧЕНА, чтобы обводка была красивой)
         local Tile = Library.Utils.Make("TextButton", { Text = "", AutoButtonColor = false, ClipsDescendants = false, Parent = Container }, { BackgroundColor3 = "Section" })
         Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 12), Parent = Tile})
         Library.Utils.Make("UIStroke", {Thickness = 1, Transparency = 0.5, Parent = Tile}, {Color = "Stroke"})
         
-        local RippleContainer = Library.Utils.Make("Frame", { Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, ClipsDescendants = true, ZIndex = 10, Parent = Tile })
+        Library.Utils.Make("UIPadding", { 
+            PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 8), 
+            PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8), 
+            Parent = Tile 
+        })
+
+        local RippleContainer = Library.Utils.Make("Frame", { Size = UDim2.new(1, 16, 1, 16), Position = UDim2.new(0, -8, 0, -8), BackgroundTransparency = 1, ClipsDescendants = true, ZIndex = 10, Parent = Tile })
         Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 12), Parent = RippleContainer})
 
-        -- СЛОЙ 1: Вьюпорт (С отступами, внутри базы, ОБРЕЗКА ВКЛЮЧЕНА)
         local Viewport = Library.Utils.Make("ViewportFrame", {
             Size = UDim2.new(1, -16, 1, -40), 
             Position = UDim2.new(0, 8, 0, 8), 
@@ -176,7 +156,6 @@ function Module:Init(Library, Window, Tab)
         Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 8), Parent = Viewport})
         Library.Utils.Make("UIStroke", {Thickness = 1, Transparency = 0.7, Parent = Viewport}, {Color = "Stroke"})
 
-        -- Акцентная линия лежит ВНУТРИ Вьюпорта (идеально обрезается по его углам)
         local AccentLine = Library.Utils.Make("Frame", { 
             Size = UDim2.new(0.35, 0, 0, 3), 
             Position = UDim2.new(1, -6, 1, -6), 
@@ -187,20 +166,33 @@ function Module:Init(Library, Window, Tab)
         }, { BackgroundColor3 = "Accent" })
         Library.Utils.Make("UICorner", {CornerRadius = UDim.new(1, 0), Parent = AccentLine})
 
-        -- ТА САМАЯ ИДЕАЛЬНАЯ КАМЕРА ИЗ ИГРЫ (№4)
-        local VpCamera = Instance.new("Camera")
-        VpCamera.FieldOfView = 40 
-        -- Точные координаты разработчиков Adopt Me:
-        VpCamera.CFrame = CFrame.new(111.803398, 71.5109024, 111.803146, 0.707106769, -0.348155349, 0.615457475, 0, 0.870388269, 0.492365986, -0.707106829, -0.34815532, 0.615457416)
+        local displayHouse, houseSize = buildCleanPreview(houseData.HouseType, Viewport)
         
-        Viewport.CurrentCamera = VpCamera
-        VpCamera.Parent = Viewport
-        buildCleanPreview(houseData.HouseType, Viewport)
+        if displayHouse and houseSize then
+            local VpCamera = Instance.new("Camera")
+            VpCamera.FieldOfView = 50 
+            Viewport.CurrentCamera = VpCamera
+            VpCamera.Parent = Viewport
+            
+            -- Динамическая камера: подстраивается только под дом, без учета острова
+            local radius = houseSize.Magnitude / 2
+            local distance = (radius / math.tan(math.rad(VpCamera.FieldOfView / 2))) * 1.1 -- 10% отступ по краям
+            local camOffset = Vector3.new(1, 0.6, 1).Unit * distance
+            
+            VpCamera.CFrame = CFrame.lookAt(camOffset, Vector3.new(0, 0, 0))
 
-        -- СЛОЙ 2: Аватарка и Ник (Лежат ПОВЕРХ Вьюпорта на Главной базе)
+            local angle = 0
+            RunService.RenderStepped:Connect(function(dt)
+                if not Viewport.Parent then return end
+                angle = angle + math.rad(25 * dt)
+                -- Вращаем сам дом вокруг своей оси
+                displayHouse:PivotTo(CFrame.Angles(0, angle, 0))
+            end)
+        end
+
         local Avatar = Library.Utils.Make("ImageLabel", {
             Size = UDim2.new(0, 28, 0, 28), 
-            Position = UDim2.new(0, 14, 1, -8), -- Вылезает за пределы Вьюпорта, как на макете
+            Position = UDim2.new(0, 14, 1, -8), 
             AnchorPoint = Vector2.new(0, 1), 
             BackgroundColor3 = Color3.fromRGB(30, 30, 35), 
             BackgroundTransparency = 0, 
@@ -209,7 +201,7 @@ function Module:Init(Library, Window, Tab)
         })
         Library.Utils.Make("UICorner", {CornerRadius = UDim.new(1, 0), Parent = Avatar})
         Library.Utils.Make("UIStroke", {Thickness = 2, Parent = Avatar}, {Color = "Section"}) 
-        applyAvatar(Avatar, houseData.Owner, index) -- Передаем индекс для очереди загрузки
+        applyAvatar(Avatar, houseData.Owner, index) 
 
         local NameLbl = Library.Utils.Make("TextLabel", { 
             Text = houseData.Owner, 
