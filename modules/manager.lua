@@ -197,25 +197,21 @@ function Module:Init(Library, Window, Tab)
     end)
     
     Library:Connect(ParseBtn.MouseButton1Click, function()
-        local t = Library.Utils.TBT(ParseScale, 0.1, {Scale = 0.95})
-        t.Completed:Connect(function() Library.Utils.TBT(ParseScale, 0.2, {Scale = 1}, Enum.EasingStyle.Bounce) end)
-        
-        task.spawn(function()
-            -- 🚨 ДВОЙНАЯ БРОНЕБОЙНАЯ ПРОВЕРКА НА УЛИЦУ 🚨
-            local isOutside = true
-            local camY = workspace.CurrentCamera.CFrame.Position.Y
-            local blueprint = workspace:FindFirstChild("HouseInteriors") and workspace.HouseInteriors:FindFirstChild("blueprint")
+            local t = Library.Utils.TBT(ParseScale, 0.1, {Scale = 0.95})
+            t.Completed:Connect(function() Library.Utils.TBT(ParseScale, 0.2, {Scale = 1}, Enum.EasingStyle.Bounce) end)
             
-            -- Если камера выше 300 (в небе) ИЛИ в папке blueprint сгенерировались стены -> мы в доме
-            if camY > 300 or (blueprint and #blueprint:GetChildren() > 0) then
-                isOutside = false
-            end
-            
-            if isOutside then
-                return Library:Notify("Ошибка", "Сначала зайди в дом! (Ты на улице)", 4)
-            end
+            task.spawn(function()
+                -- 🚨 ЖЕСТКАЯ ПРОВЕРКА НА ИНТЕРЬЕР 🚨
+                local camY = workspace.CurrentCamera.CFrame.Position.Y
+                local blueprint = workspace:FindFirstChild("HouseInteriors") and workspace.HouseInteriors:FindFirstChild("blueprint")
+                
+                -- Дом находится на высоте ~4000. Мейн остров - 50. Лужайка - 9500+.
+                -- Проверяем, что мы в нужном "коридоре" высоты И стены дома существуют.
+                if camY < 500 or camY > 8500 or not blueprint or #blueprint:GetChildren() == 0 then
+                    return Library:Notify("Ошибка", "Зайди внутрь дома! На улице парсить нельзя.", 4)
+                end
 
-            local Fsys = game:GetService("ReplicatedStorage"):WaitForChild("Fsys")
+                local Fsys = game:GetService("ReplicatedStorage"):WaitForChild("Fsys")
             local loadFsys = require(Fsys).load
             local ClientData = loadFsys("ClientData")
             
