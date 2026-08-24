@@ -83,12 +83,16 @@ function Module:Init(Library, Window, Tab)
                     local ownerName = config.house_owner.Value
                     local touchPart = mainDoor.WorkingParts:FindFirstChild("TouchToEnter")
                     
-                    if ownerName and ownerName ~= "" and touchPart then
+                   if ownerName and ownerName ~= "" and touchPart then
+                        -- Высчитываем позицию спавна (на 4 стада перед дверью)
+                        local spawnPos = (touchPart.CFrame * CFrame.new(0, 0, 4)).Position
+                        
                         table.insert(houses, {
                             Owner = ownerName,
                             HouseType = houseModel.Name,
                             DoorPart = touchPart,
-                            TeleportCFrame = touchPart.CFrame * CFrame.new(0, 0, 4)
+                            -- CFrame.lookAt развернет персонажа ровно на дверь
+                            TeleportCFrame = CFrame.lookAt(spawnPos, touchPart.Position)
                         })
                     end
                 end
