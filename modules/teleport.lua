@@ -236,8 +236,6 @@ function Module:Init(Library, Window, Tab)
                 -- ==========================================
                 local posY = hrp.Position.Y
                 
-                -- Neighborhood находится на высоте ~9529. 
-                -- Если игрок ниже 8500 (на главной карте или в доме), блокируем.
                 if posY < 8500 then
                     if Library.Notify then
                         Library:Notify("Error", "Телепорт работает ТОЛЬКО в спальном районе!", 4)
@@ -245,11 +243,53 @@ function Module:Init(Library, Window, Tab)
                     return 
                 end
 
-                -- Если мы в спальном районе — телепортируем!
+                -- Сначала телепортируем к двери
                 hrp.CFrame = houseData.TeleportCFrame
                 if Library.Notify then
-                    Library:Notify("Teleport", "Moved to " .. houseData.Owner .. "'s house", 3, "10723426722")
+                    Library:Notify("Teleport", "Moved to " .. houseData.Owner .. "'s house. Entering...", 3, "10723426722")
                 end
+
+                -- ==========================================
+                -- АВТОМАТИЧЕСКИЙ ВЗЛОМ И ВХОД В ДОМ
+                -- ==========================================
+                task.spawn(function()
+                    task.wait(0.2) -- Даем 0.2 сек на прогрузку персонажа после телепорта
+                    
+                    local touchPart = houseData.DoorPart
+                    if touchPart and touchPart.Parent then
+                        
+                        -- 1. Снимаем замки (на случай, если дом закрыт)
+                        pcall(function()
+                            local successDoors, DoorsM = pcall(function()
+                                return require(ReplicatedStorage.ClientModules.Core.DoorsM.DoorsM)
+                            end)
+                            
+                            if successDoors and DoorsM then
+                                local doorModel = touchPart.Parent.Parent
+                                local doorObj = DoorsM.get_door(doorModel)
+                                if doorObj then
+                                    doorObj.is_open = true
+                                    doorObj.can_enter = true
+                                    doorObj.locked = false
+                                    doorObj.is_locked = false 
+                                    if type(doorObj.update) == "function" then
+                                        pcall(function() doorObj:update() end)
+                                    end
+                                end
+                            end
+                        end)
+                        
+                        -- 2. Эмулируем касание триггера двери
+                        if firetouchinterest then
+                            firetouchinterest(hrp, touchPart, 0)
+                            task.wait(0.1)
+                            firetouchinterest(hrp, touchPart, 1)
+                        else
+                            -- План Б: если firetouchinterest не поддерживается экзекутором
+                            hrp.CFrame = touchPart.CFrame
+                        end
+                    end
+                end)
             end
         end)
     end
