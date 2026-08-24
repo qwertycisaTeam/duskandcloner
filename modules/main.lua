@@ -218,7 +218,13 @@ function Module:Init(Library, Window, Tab)
     Library:Connect(BuildBtn.MouseButton1Click, function()
         local t = Library.Utils.TBT(BuildScale, 0.1, {Scale = 0.95})
         t.Completed:Connect(function() Library.Utils.TBT(BuildScale, 0.2, {Scale = 1}, Enum.EasingStyle.Bounce) end)
+            
+        local camY = workspace.CurrentCamera.CFrame.Position.Y
+        local blueprint = workspace:FindFirstChild("HouseInteriors") and workspace.HouseInteriors:FindFirstChild("blueprint")
         
+        if camY < 500 or camY > 8500 or not blueprint or #blueprint:GetChildren() == 0 then
+            return Library:Notify("Ошибка", "Строить можно только находясь внутри дома!", 4)
+        end
         if not SelectedHouse or SelectedHouse == "" or SelectedHouse == "Select..." then
             return Library:Notify("Ошибка", "Сначала выбери дом в меню!", 3)
         end
