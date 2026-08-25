@@ -227,7 +227,7 @@ function Module:Init(Library, Window, Tab)
             Library.Utils.TBT(Scale, 0.1, {Scale = 0.96}) 
         end)
 
-        Library:Connect(Tile.MouseButton1Click, function()
+       Library:Connect(Tile.MouseButton1Click, function()
             Library.Utils.TBT(Scale, 0.15, {Scale = 1}, Enum.EasingStyle.Bounce)
             Library.Utils.CreateRipple(RippleContainer)
             
@@ -235,10 +235,13 @@ function Module:Init(Library, Window, Tab)
             local hrp = char and char:FindFirstChild("HumanoidRootPart")
             
             if hrp then
+                -- ==========================================
+                -- ТВОЯ ОРИГИНАЛЬНАЯ ПРОВЕРКА (ИСПРАВЛЕНО)
+                -- ==========================================
                 local posY = hrp.Position.Y
-                if posY > 8500 then
+                if posY < 8500 then
                     if Library.Notify then
-                        Library:Notify("Error", "Сначала выйди из дома на улицу!", 4)
+                        Library:Notify("Error", "Телепорт работает ТОЛЬКО в спальном районе!", 4)
                     end
                     return 
                 end
@@ -257,7 +260,7 @@ function Module:Init(Library, Window, Tab)
                 end
 
                 task.spawn(function()
-                    -- 2. Ждем чуть дольше (0.4с), чтобы анти-чит Adopt Me принял новую позицию
+                    -- 2. Ждем 0.4с, чтобы сервер принял позицию перед дверью
                     task.wait(0.4) 
                     
                     local doorModel = touchPart.Parent.Parent
@@ -285,7 +288,7 @@ function Module:Init(Library, Window, Tab)
                     -- 4. Физически вталкиваем персонажа в триггер
                     hrp.CFrame = touchPart.CFrame
                     
-                    -- 5. Добиваем программным касанием (на случай если физика снова подведет)
+                    -- 5. Эмуляция касания (firetouchinterest)
                     if firetouchinterest then
                         firetouchinterest(hrp, touchPart, 0)
                         task.wait(0.1)
