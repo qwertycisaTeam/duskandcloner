@@ -84,15 +84,10 @@ function Module:Init(Library, Window, Tab)
                     local touchPart = mainDoor.WorkingParts:FindFirstChild("TouchToEnter")
                     
                    if ownerName and ownerName ~= "" and touchPart then
-                        -- Высчитываем позицию спавна (на 4 стада перед дверью)
-                        local spawnPos = (touchPart.CFrame * CFrame.new(0, 0, 4)).Position
-                        
                         table.insert(houses, {
                             Owner = ownerName,
                             HouseType = houseModel.Name,
-                            DoorPart = touchPart,
-                            -- CFrame.lookAt развернет персонажа ровно на дверь
-                            TeleportCFrame = CFrame.lookAt(spawnPos, touchPart.Position)
+                            DoorPart = touchPart
                         })
                     end
                 end
@@ -227,7 +222,7 @@ function Module:Init(Library, Window, Tab)
             Library.Utils.TBT(Scale, 0.1, {Scale = 0.96}) 
         end)
 
-       Library:Connect(Tile.MouseButton1Click, function()
+        Library:Connect(Tile.MouseButton1Click, function()
             Library.Utils.TBT(Scale, 0.15, {Scale = 1}, Enum.EasingStyle.Bounce)
             Library.Utils.CreateRipple(RippleContainer)
             
@@ -236,7 +231,7 @@ function Module:Init(Library, Window, Tab)
             
             if hrp then
                 -- ==========================================
-                -- ТВОЯ ОРИГИНАЛЬНАЯ ПРОВЕРКА (ИСПРАВЛЕНО)
+                -- ОРИГИНАЛЬНАЯ ПРОВЕРКА НА ТЕЛЕПОРТ
                 -- ==========================================
                 local posY = hrp.Position.Y
                 if posY < 8500 then
@@ -259,8 +254,11 @@ function Module:Init(Library, Window, Tab)
                     Library:Notify("Teleport", "Entering " .. houseData.Owner .. "'s house...", 3, "10723426722")
                 end
 
+                -- ==========================================
+                -- ЛОГИКА АВТОМАТИЧЕСКОГО ВХОДА
+                -- ==========================================
                 task.spawn(function()
-                    -- 2. Ждем 0.4с, чтобы сервер принял позицию перед дверью
+                    -- 2. Даем серверу время принять нашу новую позицию (0.4с)
                     task.wait(0.4) 
                     
                     local doorModel = touchPart.Parent.Parent
@@ -285,10 +283,10 @@ function Module:Init(Library, Window, Tab)
                         end
                     end)
                     
-                    -- 4. Физически вталкиваем персонажа в триггер
+                    -- 4. Вталкиваем персонажа прямо в триггер
                     hrp.CFrame = touchPart.CFrame
                     
-                    -- 5. Эмуляция касания (firetouchinterest)
+                    -- 5. Добиваем эмуляцией касания
                     if firetouchinterest then
                         firetouchinterest(hrp, touchPart, 0)
                         task.wait(0.1)
@@ -300,65 +298,62 @@ function Module:Init(Library, Window, Tab)
     end
 
     -- ==========================================
-    -- АВТО-ОБНОВЛЕНИЕ КАРТОЧЕК (DUSK & SHINE)
+    -- АВТО-ОБНОВЛЕНИЕ КАРТОЧЕК С КЭШЕМ
     -- ==========================================
     local refreshThread = nil
+    local CachedHouses = {}
 
     local function updateHouseCards()
-        -- 1. Удаляем только старые карточки (TextButton), оставляем UIGridLayout
         for _, child in ipairs(Container:GetChildren()) do
             if child:IsA("TextButton") then
                 child:Destroy()
             end
         end
 
-        -- 2. Получаем актуальный список домов и рендерим заново
         local success, err = pcall(function()
             local houses = getServerHouses()
+            
+            -- Логика кэша: обновляем кэш только если дома реально найдены
+            if #houses > 0 then
+                CachedHouses = houses
+            else
+                houses = CachedHouses 
+            end
+            
             if #houses > 0 then
                 for index, houseData in ipairs(houses) do
                     createHouseCard(houseData, index)
                 end
             else
-                -- Если домов нет, выводим заглушку со своим домом
                 createHouseCard({
                     Owner = LocalPlayer.Name,
                     HouseType = "Micro",
-                    TeleportCFrame = LocalPlayer.Character and LocalPlayer.Character:GetPivot() or CFrame.new()
+                    DoorPart = nil
                 }, 1)
             end
         end)
         
-        if not success then 
-            warn("[Dusk&Shine Teleport] Ошибка рендера: ", err) 
-        end
+        if not success then warn("[Dusk&Shine Teleport] Ошибка рендера: ", err) end
     end
 
-    -- Функция умного перезапуска (Debounce)
-    -- Предотвращает лаги, если Adopt Me спавнит сразу 1000 деталей дома
     local function queueRefresh()
         if refreshThread then task.cancel(refreshThread) end
         refreshThread = task.spawn(function()
-            task.wait(1.5) -- Ждем 1.5 секунды, чтобы двери и табличка владельца успели прогрузиться
+            task.wait(1.5) 
             updateHouseCards()
         end)
     end
 
-    -- 3. Запускаем первичный рендер при инжекте
     queueRefresh()
 
-    -- 4. Подключаем слушатели напрямую к папке с домами
     local workspaceExteriors = workspace:WaitForChild("HouseExteriors", 5)
     if workspaceExteriors then
-        
-        -- Когда на плот ставится новый дом (игрок зашел/поменял дом)
         workspaceExteriors.DescendantAdded:Connect(function(descendant)
             if descendant.Parent and descendant.Parent.Parent == workspaceExteriors then
                 queueRefresh()
             end
         end)
         
-        -- Когда дом удаляется (игрок вышел/убрал дом)
         workspaceExteriors.DescendantRemoving:Connect(function(descendant)
             if descendant.Parent and descendant.Parent.Parent == workspaceExteriors then
                 queueRefresh()
