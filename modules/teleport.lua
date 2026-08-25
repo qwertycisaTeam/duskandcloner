@@ -244,23 +244,23 @@ function Module:Init(Library, Window, Tab)
                     return 
                 end
 
-                -- 1. Телепортируемся на 3 стада ПЕРЕД дверью
-                hrp.CFrame = touchPart.CFrame * CFrame.new(0, 0, 3)
+                -- 1. Телепортируемся ПРЯМО В ЦЕНТР ТРИГГЕРА ДВЕРИ
+                hrp.CFrame = touchPart.CFrame
                 
                 if Library.Notify then
                     Library:Notify("Teleport", "Entering " .. houseData.Owner .. "'s house...", 3, "10723426722")
                 end
 
                 -- ==========================================
-                -- ЛОГИКА АВТОМАТИЧЕСКОГО ВХОДА (С ШАГОМ)
+                -- ЛОГИКА МГНОВЕННОГО ВХОДА
                 -- ==========================================
                 task.spawn(function()
-                    -- 2. Даем серверу время принять нашу новую позицию (0.3с)
-                    task.wait(0.3) 
+                    -- 2. Ждем миллисекунды, чтобы сервер зарегистрировал наши координаты
+                    task.wait(0.25) 
                     
                     local doorModel = touchPart.Parent.Parent
                     
-                    -- 3. Снимаем замки
+                    -- 3. Снимаем замки (твой метод обхода закрытых дверей)
                     pcall(function()
                         local successDoors, DoorsM = pcall(function()
                             return require(ReplicatedStorage.ClientModules.Core.DoorsM.DoorsM)
@@ -280,14 +280,12 @@ function Module:Init(Library, Window, Tab)
                         end
                     end)
                     
-                    -- 4. Заставляем персонажа программно сделать шаг в триггер
-                    local humanoid = char:FindFirstChildOfClass("Humanoid")
-                    if humanoid then
-                        humanoid:MoveTo(touchPart.Position)
-                    end
+                    -- 4. МИКРО-ДВИЖЕНИЕ (Будим физику Roblox)
+                    -- Мы делаем невидимый глазу сдвиг на полстада внутри двери.
+                    -- Это заставит физический движок "проснуться" и ударить по триггеру.
+                    hrp.CFrame = touchPart.CFrame * CFrame.new(0, 0, 0.5)
                     
-                    -- 5. Эмуляция касания (как подстраховка)
-                    task.wait(0.1)
+                    -- 5. Эмуляция касания (как добивочный удар, если физика пролагала)
                     if firetouchinterest then
                         firetouchinterest(hrp, touchPart, 0)
                         task.wait(0.1)
