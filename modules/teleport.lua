@@ -258,8 +258,8 @@ function Module:Init(Library, Window, Tab)
                 -- ЛОГИКА АВТОМАТИЧЕСКОГО ВХОДА
                 -- ==========================================
                 task.spawn(function()
-                    -- 2. Даем серверу время принять нашу новую позицию (0.4с)
-                    task.wait(0.4) 
+                    -- 2. Даем серверу время принять нашу новую позицию (0.3с)
+                    task.wait(0.3) 
                     
                     local doorModel = touchPart.Parent.Parent
                     
@@ -282,6 +282,22 @@ function Module:Init(Library, Window, Tab)
                             end
                         end
                     end)
+                    
+                    -- 4. Заставляем персонажа программно сделать шаг в триггер
+                    local humanoid = char:FindFirstChildOfClass("Humanoid")
+                    if humanoid then
+                        -- Идем точно в координаты двери
+                        humanoid:MoveTo(touchPart.Position)
+                    end
+                    
+                    -- 5. Эмуляция касания (как подстраховка)
+                    task.wait(0.1)
+                    if firetouchinterest then
+                        firetouchinterest(hrp, touchPart, 0)
+                        task.wait(0.1)
+                        firetouchinterest(hrp, touchPart, 1)
+                    end
+                end)
                     
                     -- 4. Вталкиваем персонажа прямо в триггер
                     hrp.CFrame = touchPart.CFrame
