@@ -298,7 +298,20 @@ function Module:Init(Library, Window, Tab)
         end)
     end
 
-    task.spawn(function()
+    -- ==========================================
+    -- АВТО-ОБНОВЛЕНИЕ КАРТОЧЕК (DUSK & SHINE)
+    -- ==========================================
+    local refreshThread = nil
+
+    local function updateHouseCards()
+        -- 1. Удаляем только старые карточки (TextButton), оставляем UIGridLayout
+        for _, child in ipairs(Container:GetChildren()) do
+            if child:IsA("TextButton") then
+                child:Destroy()
+            end
+        end
+
+        -- 2. Получаем актуальный список домов и рендерим заново
         local success, err = pcall(function()
             local houses = getServerHouses()
             if #houses > 0 then
@@ -306,6 +319,7 @@ function Module:Init(Library, Window, Tab)
                     createHouseCard(houseData, index)
                 end
             else
+                -- Если домов нет, выводим заглушку со своим домом
                 createHouseCard({
                     Owner = LocalPlayer.Name,
                     HouseType = "Micro",
@@ -313,8 +327,45 @@ function Module:Init(Library, Window, Tab)
                 }, 1)
             end
         end)
-        if not success then warn("[Dusk&Shine Teleport] Ошибка рендера: ", err) end
-    end)
+        
+        if not success then 
+            warn("[Dusk&Shine Teleport] Ошибка рендера: ", err) 
+        end
+    end
+
+    -- Функция умного перезапуска (Debounce)
+    -- Предотвращает лаги, если Adopt Me спавнит сразу 1000 деталей дома
+    local function queueRefresh()
+        if refreshThread then task.cancel(refreshThread) end
+        refreshThread = task.spawn(function()
+            task.wait(1.5) -- Ждем 1.5 секунды, чтобы двери и табличка владельца успели прогрузиться
+            updateHouseCards()
+        end)
+    end
+
+    -- 3. Запускаем первичный рендер при инжекте
+    queueRefresh()
+
+    -- 4. Подключаем слушатели напрямую к папке с домами
+    local workspaceExteriors = workspace:WaitForChild("HouseExteriors", 5)
+    if workspaceExteriors then
+        
+        -- Когда на плот ставится новый дом (игрок зашел/поменял дом)
+        workspaceExteriors.DescendantAdded:Connect(function(descendant)
+            if descendant.Parent and descendant.Parent.Parent == workspaceExteriors then
+                queueRefresh()
+            end
+        end)
+        
+        -- Когда дом удаляется (игрок вышел/убрал дом)
+        workspaceExteriors.DescendantRemoving:Connect(function(descendant)
+            if descendant.Parent and descendant.Parent.Parent == workspaceExteriors then
+                queueRefresh()
+            end
+        end)
+    end
+    
+    Players.PlayerRemoving:Connect(queueRefresh)
 end
 
 return Module
