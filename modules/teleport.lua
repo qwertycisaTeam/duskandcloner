@@ -230,9 +230,6 @@ function Module:Init(Library, Window, Tab)
             local hrp = char and char:FindFirstChild("HumanoidRootPart")
             
             if hrp then
-                -- ==========================================
-                -- ОРИГИНАЛЬНАЯ ПРОВЕРКА НА ТЕЛЕПОРТ
-                -- ==========================================
                 local posY = hrp.Position.Y
                 if posY < 8500 then
                     if Library.Notify then
@@ -255,7 +252,7 @@ function Module:Init(Library, Window, Tab)
                 end
 
                 -- ==========================================
-                -- ЛОГИКА АВТОМАТИЧЕСКОГО ВХОДА
+                -- ЛОГИКА АВТОМАТИЧЕСКОГО ВХОДА (С ШАГОМ)
                 -- ==========================================
                 task.spawn(function()
                     -- 2. Даем серверу время принять нашу новую позицию (0.3с)
@@ -286,23 +283,11 @@ function Module:Init(Library, Window, Tab)
                     -- 4. Заставляем персонажа программно сделать шаг в триггер
                     local humanoid = char:FindFirstChildOfClass("Humanoid")
                     if humanoid then
-                        -- Идем точно в координаты двери
                         humanoid:MoveTo(touchPart.Position)
                     end
                     
                     -- 5. Эмуляция касания (как подстраховка)
                     task.wait(0.1)
-                    if firetouchinterest then
-                        firetouchinterest(hrp, touchPart, 0)
-                        task.wait(0.1)
-                        firetouchinterest(hrp, touchPart, 1)
-                    end
-                end)
-                    
-                    -- 4. Вталкиваем персонажа прямо в триггер
-                    hrp.CFrame = touchPart.CFrame
-                    
-                    -- 5. Добиваем эмуляцией касания
                     if firetouchinterest then
                         firetouchinterest(hrp, touchPart, 0)
                         task.wait(0.1)
