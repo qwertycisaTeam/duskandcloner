@@ -235,63 +235,61 @@ function Module:Init(Library, Window, Tab)
             local hrp = char and char:FindFirstChild("HumanoidRootPart")
             
             if hrp then
-                -- ==========================================
-                -- СТРОГАЯ ЗАЩИТА: РАЗРЕШАЕМ ТЕЛЕПОРТ ТОЛЬКО В NEIGHBORHOOD
-                -- ==========================================
                 local posY = hrp.Position.Y
-                
-                if posY < 8500 then
+                if posY > 8500 then
                     if Library.Notify then
-                        Library:Notify("Error", "Телепорт работает ТОЛЬКО в спальном районе!", 4)
+                        Library:Notify("Error", "Сначала выйди из дома на улицу!", 4)
                     end
                     return 
                 end
 
-                -- Сначала телепортируем к двери
-                hrp.CFrame = houseData.TeleportCFrame
-                if Library.Notify then
-                    Library:Notify("Teleport", "Moved to " .. houseData.Owner .. "'s house. Entering...", 3, "10723426722")
+                local touchPart = houseData.DoorPart
+                if not touchPart or not touchPart.Parent then 
+                    if Library.Notify then Library:Notify("Error", "Дом не найден!", 3) end
+                    return 
                 end
 
-                -- ==========================================
-                -- АВТОМАТИЧЕСКИЙ ВЗЛОМ И ВХОД В ДОМ
-                -- ==========================================
+                -- 1. Телепортируемся на 3 стада ПЕРЕД дверью
+                hrp.CFrame = touchPart.CFrame * CFrame.new(0, 0, 3)
+                
+                if Library.Notify then
+                    Library:Notify("Teleport", "Entering " .. houseData.Owner .. "'s house...", 3, "10723426722")
+                end
+
                 task.spawn(function()
-                    task.wait(0.2) -- Даем 0.2 сек на прогрузку персонажа после телепорта
+                    -- 2. Ждем чуть дольше (0.4с), чтобы анти-чит Adopt Me принял новую позицию
+                    task.wait(0.4) 
                     
-                    local touchPart = houseData.DoorPart
-                    if touchPart and touchPart.Parent then
-                        
-                        -- 1. Снимаем замки (на случай, если дом закрыт)
-                        pcall(function()
-                            local successDoors, DoorsM = pcall(function()
-                                return require(ReplicatedStorage.ClientModules.Core.DoorsM.DoorsM)
-                            end)
-                            
-                            if successDoors and DoorsM then
-                                local doorModel = touchPart.Parent.Parent
-                                local doorObj = DoorsM.get_door(doorModel)
-                                if doorObj then
-                                    doorObj.is_open = true
-                                    doorObj.can_enter = true
-                                    doorObj.locked = false
-                                    doorObj.is_locked = false 
-                                    if type(doorObj.update) == "function" then
-                                        pcall(function() doorObj:update() end)
-                                    end
-                                end
-                            end
+                    local doorModel = touchPart.Parent.Parent
+                    
+                    -- 3. Снимаем замки
+                    pcall(function()
+                        local successDoors, DoorsM = pcall(function()
+                            return require(ReplicatedStorage.ClientModules.Core.DoorsM.DoorsM)
                         end)
                         
-                        -- 2. Эмулируем касание триггера двери
-                        if firetouchinterest then
-                            firetouchinterest(hrp, touchPart, 0)
-                            task.wait(0.1)
-                            firetouchinterest(hrp, touchPart, 1)
-                        else
-                            -- План Б: если firetouchinterest не поддерживается экзекутором
-                            hrp.CFrame = touchPart.CFrame
+                        if successDoors and DoorsM then
+                            local doorObj = DoorsM.get_door(doorModel)
+                            if doorObj then
+                                doorObj.is_open = true
+                                doorObj.can_enter = true
+                                doorObj.locked = false
+                                doorObj.is_locked = false 
+                                if type(doorObj.update) == "function" then
+                                    pcall(function() doorObj:update() end)
+                                end
+                            end
                         end
+                    end)
+                    
+                    -- 4. Физически вталкиваем персонажа в триггер
+                    hrp.CFrame = touchPart.CFrame
+                    
+                    -- 5. Добиваем программным касанием (на случай если физика снова подведет)
+                    if firetouchinterest then
+                        firetouchinterest(hrp, touchPart, 0)
+                        task.wait(0.1)
+                        firetouchinterest(hrp, touchPart, 1)
                     end
                 end)
             end
