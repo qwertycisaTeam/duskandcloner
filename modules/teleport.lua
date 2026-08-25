@@ -244,8 +244,10 @@ function Module:Init(Library, Window, Tab)
                     return 
                 end
 
-                -- 1. Телепортируемся ПРЯМО В ЦЕНТР ТРИГГЕРА ДВЕРИ
-                hrp.CFrame = touchPart.CFrame
+                -- 1. Телепортируемся в триггер, но разворачиваем персонажа ЛИЦОМ в дом
+                -- (Смотрим на точку, которая находится на 5 стадов позади двери)
+                local lookTarget = (touchPart.CFrame * CFrame.new(0, 0, -5)).Position
+                hrp.CFrame = CFrame.lookAt(touchPart.Position, lookTarget)
                 
                 if Library.Notify then
                     Library:Notify("Teleport", "Entering " .. houseData.Owner .. "'s house...", 3, "10723426722")
@@ -255,12 +257,11 @@ function Module:Init(Library, Window, Tab)
                 -- ЛОГИКА МГНОВЕННОГО ВХОДА
                 -- ==========================================
                 task.spawn(function()
-                    -- 2. Ждем миллисекунды, чтобы сервер зарегистрировал наши координаты
                     task.wait(0.25) 
                     
                     local doorModel = touchPart.Parent.Parent
                     
-                    -- 3. Снимаем замки (твой метод обхода закрытых дверей)
+                    -- 2. Снимаем замки
                     pcall(function()
                         local successDoors, DoorsM = pcall(function()
                             return require(ReplicatedStorage.ClientModules.Core.DoorsM.DoorsM)
@@ -280,12 +281,11 @@ function Module:Init(Library, Window, Tab)
                         end
                     end)
                     
-                    -- 4. МИКРО-ДВИЖЕНИЕ (Будим физику Roblox)
-                    -- Мы делаем невидимый глазу сдвиг на полстада внутри двери.
-                    -- Это заставит физический движок "проснуться" и ударить по триггеру.
-                    hrp.CFrame = touchPart.CFrame * CFrame.new(0, 0, 0.5)
+                    -- 3. МИКРО-ДВИЖЕНИЕ ВПЕРЕД (Толкаем персонажа лицом вглубь дома)
+                    -- Вектор -Z (0, 0, -0.5) означает движение вперед туда, куда смотрит лицо
+                    hrp.CFrame = hrp.CFrame * CFrame.new(0, 0, -0.5)
                     
-                    -- 5. Эмуляция касания (как добивочный удар, если физика пролагала)
+                    -- 4. Добивка эмуляцией
                     if firetouchinterest then
                         firetouchinterest(hrp, touchPart, 0)
                         task.wait(0.1)
