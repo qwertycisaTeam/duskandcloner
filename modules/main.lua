@@ -1,522 +1,362 @@
-local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LocalPlayer = Players.LocalPlayer
+
 local Module = {}
 
-local FolderName = "DuskAndShine_Houses"
-
-local function GetSavedHouses()
-    if not isfolder(FolderName) then makefolder(FolderName) end
-    local houses = {}
-    
-    local success, files = pcall(function() return listfiles(FolderName) end)
-    if not success or type(files) ~= "table" then return houses end
-    
-    for _, path in ipairs(files) do
-        local fileName = path:match("([^/\\]+)%.[jJ][sS][oO][nN]$")
-        if fileName then table.insert(houses, fileName) end
-    end
-    return houses
-end
-
 function Module:Init(Library, Window, Tab)
-    local LocalPlayer = Players.LocalPlayer
-    local SelectedHouse = nil
-    local CurrentBuildDelay = 0.05 
-    local CopyTextures = true
-    local HouseDropdown 
 
     -- ==========================================
-    -- 1. АДАПТИВНАЯ ШАПКА И РЕФРЕШ
+    -- ОЧЕРЕДЬ ЗАГРУЗКИ АВАТАРОВ
     -- ==========================================
-    local SectionContainer = Library.Utils.Make("Frame", {
-        Size = UDim2.new(1, 0, 0, 30),
-        BackgroundTransparency = 1,
-        Parent = Tab.Page
-    })
-
-    Library.Utils.Make("TextLabel", {
-        Text = '<b>UTILITY:</b> <font color="#9696a0">House Builder</font>',
-        RichText = true, 
-        Size = UDim2.new(1, -40, 1, 0), 
-        Position = UDim2.new(0, 5, 0, 0),
-        BackgroundTransparency = 1, 
-        Font = Enum.Font.GothamBold,
-        TextSize = 14, 
-        TextXAlignment = Enum.TextXAlignment.Left, 
-        Parent = SectionContainer
-    }, { TextColor3 = "Text" })
-
-    local RefreshBtn = Library.Utils.Make("TextButton", {
-        Size = UDim2.new(0, 26, 0, 26),
-        Position = UDim2.new(1, -26, 0, 2),
-        Text = "",
-        AutoButtonColor = false,
-        Parent = SectionContainer
-    }, { BackgroundColor3 = "Sidebar" })
-    Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 6), Parent = RefreshBtn })
-
-    local RefStroke = Library.Utils.Make("UIStroke", { Thickness = 1, Transparency = 0.5, Parent = RefreshBtn }, { Color = "Stroke" })
-    
-    local RefIcon = Library.Utils.Make("ImageLabel", {
-        Size = UDim2.new(0, 16, 0, 16),
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        Position = UDim2.new(0.5, 0, 0.5, 0),
-        BackgroundTransparency = 1,
-        Image = "rbxassetid://6723921202",
-        Parent = RefreshBtn
-    }, { ImageColor3 = "SubText" })
-    
-    local refScale = Instance.new("UIScale", RefreshBtn)
-    
-    Library:Connect(RefreshBtn.MouseEnter, function() 
-        Library.Utils.TBT(RefStroke, 0.2, {Transparency = 0})
-        Library.Utils.TBT(RefreshBtn, 0.2, {BackgroundColor3 = Library.CurrentTheme.Section})
-        Library.Utils.TBT(RefIcon, 0.2, {ImageColor3 = Library.CurrentTheme.Accent})
-    end)
-    Library:Connect(RefreshBtn.MouseLeave, function() 
-        Library.Utils.TBT(RefStroke, 0.2, {Transparency = 0.5})
-        Library.Utils.TBT(RefreshBtn, 0.2, {BackgroundColor3 = Library.CurrentTheme.Sidebar})
-        Library.Utils.TBT(RefIcon, 0.2, {ImageColor3 = Library.CurrentTheme.SubText})
-    end)
-    
-    Library:Connect(RefreshBtn.MouseButton1Click, function()
-        local t = Library.Utils.TBT(refScale, 0.1, {Scale = 0.9})
-        t.Completed:Connect(function() Library.Utils.TBT(refScale, 0.2, {Scale = 1}, Enum.EasingStyle.Bounce) end)
-        Library.Utils.TBT(RefIcon, 0.5, {Rotation = 360}); task.delay(0.5, function() RefIcon.Rotation = 0 end)
-        
-        if HouseDropdown and type(HouseDropdown.Refresh) == "function" then
-            HouseDropdown.Refresh(GetSavedHouses())
-            if type(HouseDropdown.SetValue) == "function" then
-                HouseDropdown.SetValue("Select...")
-            end
-            SelectedHouse = nil 
-        end
-        Library:Notify("Builder", "Список домов успешно обновлен!", 2)
-    end)
-
-    local TopDivider = Library.Utils.Make("Frame", {
-        Size = UDim2.new(1, 0, 0, 1),
-        BorderSizePixel = 0,
-        Parent = Tab.Page
-    }, { BackgroundColor3 = "Text" })
-    
-    local DivGrad = Instance.new("UIGradient", TopDivider)
-    DivGrad.Transparency = NumberSequence.new({
-        NumberSequenceKeypoint.new(0, 1),
-        NumberSequenceKeypoint.new(0.5, 0.8),
-        NumberSequenceKeypoint.new(1, 1)
-    })
-
-    -- ==========================================
-    -- 2. ДРОПДАУН ВЫБОРА ДОМА
-    -- ==========================================
-    HouseDropdown = Tab:CreateDropdown({
-        Name = "Select House Schematic",
-        Options = GetSavedHouses(),
-        CurrentOption = "",
-        Callback = function(Option)
-            SelectedHouse = Option
-        end
-    })
-
-    -- Улучшенный хак: фиксим шрифты и добавляем объем (убираем плоскость)
-    task.spawn(function()
-        task.wait(0.1)
-        for _, frame in ipairs(Tab.Page:GetChildren()) do
-            if frame:IsA("Frame") and frame.Size == UDim2.new(1, 0, 0, 40) then 
-                local title = frame:FindFirstChildWhichIsA("TextLabel")
-                if title then
-                    title.Font = Enum.Font.GothamMedium
-                    title.TextSize = 13
-                end
-
-                local btn = frame:FindFirstChildWhichIsA("TextButton")
-                if btn then
-                    btn.TextTruncate = Enum.TextTruncate.AtEnd
-                    btn.Font = Enum.Font.GothamMedium
-                    btn.TextSize = 13
-                    
-                    if not btn:FindFirstChildWhichIsA("UIStroke") then
-                        Library.Utils.Make("UIStroke", {
-                            Thickness = 1,
-                            Transparency = 0.5,
-                            ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-                            Parent = btn
-                        }, { Color = "Stroke" })
-                    end
-                end
-            end
-        end
-    end)
-
-    -- ==========================================
-    -- 3. ПРЕМИУМ КНОПКА BUILD (НЕОНОВАЯ)
-    -- ==========================================
-    local BuildContainer = Library.Utils.Make("Frame", {
-        Size = UDim2.new(1, 0, 0, 42),
-        BackgroundTransparency = 1,
-        Parent = Tab.Page
-    })
-
-    local Glow = Library.Utils.Make("Frame", { 
-        Size = UDim2.new(1, 0, 1, 0), 
-        Position = UDim2.new(0.5, 0, 0.5, 0),
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        BackgroundTransparency = 1, 
-        ZIndex = 1, 
-        Parent = BuildContainer 
-    })
-    Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 8), Parent = Glow })
-    local GlowStroke = Library.Utils.Make("UIStroke", { 
-        Thickness = 4, 
-        Transparency = 0.85,
-        Parent = Glow 
-    }, { Color = "Accent" })
-
-    local BuildBtn = Library.Utils.Make("TextButton", {
-        Text = "", 
-        Size = UDim2.new(1, 0, 1, 0),
-        AutoButtonColor = false,
-        ZIndex = 5,
-        Parent = BuildContainer 
-    }, { BackgroundColor3 = "Section" }) 
-    Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 8), Parent = BuildBtn })
-
-    local BuildText = Library.Utils.Make("TextLabel", {
-        Text = "BUILD SELECTED HOUSE",
-        Size = UDim2.new(1, 0, 1, 0),
-        BackgroundTransparency = 1,
-        Font = Enum.Font.GothamBold,
-        TextSize = 13,
-        ZIndex = 6,
-        Parent = BuildBtn
-    }, { TextColor3 = "Accent" }) 
-
-    local EdgeStroke = Library.Utils.Make("UIStroke", { 
-        Thickness = 1.5, 
-        Transparency = 0.2, 
-        ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-        Parent = BuildBtn 
-    }, { Color = "Accent" })
-
-    local BuildScale = Instance.new("UIScale", BuildContainer)
-
-    Library:Connect(BuildBtn.MouseEnter, function() 
-        Library.Utils.TBT(BuildBtn, 0.3, {BackgroundTransparency = 0.3}) 
-        Library.Utils.TBT(EdgeStroke, 0.3, {Transparency = 0}) 
-        Library.Utils.TBT(GlowStroke, 0.4, {Thickness = 12, Transparency = 0.6}, Enum.EasingStyle.Quint) 
-        Library.Utils.TBT(BuildScale, 0.3, {Scale = 1.05}, Enum.EasingStyle.Back, Enum.EasingDirection.Out) 
-    end)
-    Library:Connect(BuildBtn.MouseLeave, function() 
-        Library.Utils.TBT(BuildBtn, 0.3, {BackgroundTransparency = 0}) 
-        Library.Utils.TBT(EdgeStroke, 0.3, {Transparency = 0.2})
-        Library.Utils.TBT(GlowStroke, 0.4, {Thickness = 4, Transparency = 0.85}, Enum.EasingStyle.Quint)
-        Library.Utils.TBT(BuildScale, 0.3, {Scale = 1}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-    end)
-    
-    Library:Connect(BuildBtn.MouseButton1Click, function()
-        local t = Library.Utils.TBT(BuildScale, 0.1, {Scale = 0.95})
-        t.Completed:Connect(function() Library.Utils.TBT(BuildScale, 0.2, {Scale = 1}, Enum.EasingStyle.Bounce) end)
-            
-        local camY = workspace.CurrentCamera.CFrame.Position.Y
-        local blueprint = workspace:FindFirstChild("HouseInteriors") and workspace.HouseInteriors:FindFirstChild("blueprint")
-        
-        if camY < 500 or camY > 8500 or not blueprint or #blueprint:GetChildren() == 0 then
-            return Library:Notify("Ошибка", "Строить можно только находясь внутри дома!", 4)
-        end
-        if not SelectedHouse or SelectedHouse == "" or SelectedHouse == "Select..." then
-            return Library:Notify("Ошибка", "Сначала выбери дом в меню!", 3)
-        end
-        
-        local filePath = FolderName .. "/" .. SelectedHouse .. ".json"
-        if not isfile(filePath) then
-            return Library:Notify("Ошибка", "Файл не найден на диске!", 3)
-        end
-
+    local function applyAvatar(imageLabel, username, index)
         task.spawn(function()
-            Library:Notify("Запуск", "Читаем файл: " .. SelectedHouse, 2)
+            task.wait(index * 0.15) 
             
-            local success, fileData = pcall(function() return readfile(filePath) end)
-            if not success then return Library:Notify("Ошибка", "Не удалось прочитать файл!", 3) end
+            local userId = nil
+            local player = Players:FindFirstChild(username)
             
-            local decodeSuccess, savedHouse = pcall(function() return HttpService:JSONDecode(fileData) end)
-            if not decodeSuccess or not savedHouse.furniture then
-                return Library:Notify("Ошибка", "Файл поврежден или имеет неверный формат!", 3)
-            end
-
-            local ACTUALLY_BUILD = true
-            local MICRO_SHIFT_Y = 0 
-            
-            local function loadAmbiance(ambianceData)
-                if not ambianceData then return end
-                
-                local function toColor3(rgbArray)
-                    if type(rgbArray) ~= "table" or #rgbArray < 3 then return Color3.new(1, 1, 1) end
-                    return Color3.new(rgbArray[1], rgbArray[2], rgbArray[3])
-                end
-                
-                local lData = ambianceData.Lighting or {}
-                local ccData = ambianceData.ColorCorrectionEffect or {}
-                local srData = ambianceData.SunRaysEffect or {}
-                local atmData = ambianceData.Atmosphere or {}
-            
-                local args = {{
-                    base_kind = "sunset", kind = "sunset", priority = 3,
-                    custom_props = {
-                        Lighting = {
-                            ClockTime = lData.ClockTime or 14,
-                            ExposureCompensation = lData.ExposureCompensation or 0,
-                            Ambient = toColor3(lData.Ambient),
-                            OutdoorAmbient = toColor3(lData.OutdoorAmbient),
-                            ColorShift_Top = toColor3(lData.ColorShift_Top)
-                        },
-                        ColorCorrectionEffect = {
-                            TintColor = toColor3(ccData.TintColor),
-                            Saturation = ccData.Saturation or 0,
-                            Contrast = ccData.Contrast or 0
-                        },
-                        SunRaysEffect = { Intensity = srData.Intensity or 0 },
-                        Atmosphere = {
-                            Density = atmData.Density or 0.3, 
-                            Glare = atmData.Glare or 0,
-                            Haze = atmData.Haze or 0, 
-                            Color = toColor3(atmData.Color)
-                        },
-                        Custom = ambianceData.Custom
-                    }
-                }}
-                local ambianceRemote = ReplicatedStorage:WaitForChild("API"):FindFirstChild("AmbianceAPI/UpdateAmbiance")
-                if ambianceRemote then pcall(function() ambianceRemote:FireServer(unpack(args)) end) end
+            if player then
+                userId = player.UserId
+            else
+                local success, id = pcall(function() return Players:GetUserIdFromNameAsync(username) end)
+                if success then userId = id end
             end
             
-            if savedHouse.ambiance then loadAmbiance(savedHouse.ambiance) end
-
-            if savedHouse.particles then
-                local ParticleRemote = ReplicatedStorage:WaitForChild("API"):FindFirstChild("AmbianceAPI/UpdateAmbianceProperties")
-                if ParticleRemote then
-                    pcall(function() ParticleRemote:FireServer({ Custom = savedHouse.particles }) end)
-                end
+            if userId then
+                imageLabel.Image = "rbxthumb://type=AvatarHeadShot&id=" .. userId .. "&w=150&h=150"
+            else
+                imageLabel.Image = "rbxassetid://10827393433" 
             end
-
-            if CopyTextures and savedHouse.textures then
-                Library:Notify("Постройка", "Применяю обои и полы...", 2)
-                local BuyTextureRemote = ReplicatedStorage:WaitForChild("API"):FindFirstChild("HousingAPI/BuyTexture")
-                if BuyTextureRemote then
-                    for roomName, texData in pairs(savedHouse.textures) do
-                        if texData.walls and texData.walls ~= "" then
-                            pcall(function() BuyTextureRemote:FireServer(roomName, "walls", texData.walls) end)
-                            task.wait(CurrentBuildDelay)
-                        end
-                        if texData.floors and texData.floors ~= "" then
-                            pcall(function() BuyTextureRemote:FireServer(roomName, "floors", texData.floors) end)
-                            task.wait(CurrentBuildDelay)
-                        end
-                    end
-                end
-            end
-
-            if not ACTUALLY_BUILD then return end
-            
-            Library:Notify("Постройка", "Начинаю закупку предметов...", 3)
-            
-            local rawFurniture = savedHouse.furniture or savedHouse
-            local pendingChanges = {}
-            
-            table.sort(rawFurniture, function(a, b)
-                return a.cframe[2] < b.cframe[2]
-            end)
-            
-            local downloadApi = ReplicatedStorage:WaitForChild("API"):WaitForChild("DownloadsAPI/Download")
-            local buyFurnituresRemote = ReplicatedStorage:WaitForChild("API"):WaitForChild("HousingAPI/BuyFurnitures")
-            local pushFurnitureEvent = ReplicatedStorage:WaitForChild("API"):WaitForChild("HousingAPI/PushFurnitureChanges")
-            
-            for i, item in ipairs(rawFurniture) do
-                local fId = item.id
-                local baseCFrame = CFrame.new(unpack(item.cframe))
-                local localCFrame = baseCFrame + Vector3.new(0, MICRO_SHIFT_Y, 0)
-                
-                local buyProps = {cframe = localCFrame}
-                if item.colors and #item.colors > 0 then
-                    local c3table = {}
-                    for _, c in ipairs(item.colors) do table.insert(c3table, Color3.new(c[1], c[2], c[3])) end
-                    buyProps.colors = c3table
-                end
-                
-                local currentBatch = {{ kind = fId, properties = buyProps }}
-            
-                pcall(function() downloadApi:InvokeServer("Furniture", fId) end)
-                local buildSuccess, response = pcall(function() return buyFurnituresRemote:InvokeServer(currentBatch) end)
-                
-                if buildSuccess and type(response) == "table" and response.success and response.results and response.results[1] and response.results[1].unique then
-                    local createdItem = response.results[1]
-                    local changeArgs = {
-                        unique = createdItem.unique,
-                        cframe = localCFrame
-                    }
-                    if item.scale and item.scale ~= 1 then changeArgs.scale = item.scale end
-                    if buyProps.colors then changeArgs.colors = buyProps.colors end
-                    
-                    table.insert(pendingChanges, changeArgs)
-                end
-                
-                task.wait(CurrentBuildDelay)
-            end
-            
-            Library:Notify("Постройка", "Применяю размеры и цвета...", 3)
-            
-            local chunk = {}
-            for i, change in ipairs(pendingChanges) do
-                table.insert(chunk, change)
-                if #chunk >= 50 or i == #pendingChanges then
-                    pcall(function() pushFurnitureEvent:FireServer(chunk) end)
-                    chunk = {}
-                    task.wait(0.5) 
-                end
-            end
-            Library:Notify("Успех", "Дом " .. SelectedHouse .. " успешно построен!", 5)
         end)
-    end)
-
-    -- ==========================================
-    -- 4. РЕПЛИКАТОР (НАСТРОЙКИ)
-    -- ==========================================
-    Tab:CreateDivider({ Text = "Configuration" })
-
-    Tab:CreateToggle({
-        Name = "Copy Textures (Wallpapers/Floors)",
-        Description = "Копировать обои и покрытие полов",
-        Default = true,
-        Flag = "Replicator_CopyTextures",
-        Callback = function(state)
-            CopyTextures = state
-        end
-    })
-
-    Tab:CreateSlider({
-        Name = "Build Delay (ms)",
-        Min = 10,
-        Max = 500,
-        Default = 50,
-        Flag = "Replicator_BuildDelay",
-        Callback = function(value)
-            CurrentBuildDelay = value / 1000 
-        end
-    })
-
--- ==========================================
-    -- 5. AUTO-DOOR BYPASS (OPTIMIZED & FIXED)
-    -- ==========================================
-    local successDoors, DoorsM = pcall(function()
-        return require(ReplicatedStorage.ClientModules.Core.DoorsM.DoorsM)
-    end)
-
-    local AutoDoorToggle = false
-    local lastTouchedDoor = nil
-    
-    -- === НАДЕЖНАЯ СИСТЕМА КЭШИРОВАНИЯ ===
-    local CachedDoors = {}
-
-    local function checkAndCache(obj)
-        -- Быстрая проверка, чтобы не грузить игру
-        if obj.Name == "TouchToEnter" and obj.Parent and obj.Parent.Name == "WorkingParts" then
-            CachedDoors[obj] = obj.Parent.Parent 
-        end
     end
 
-    -- 1. Единоразово собираем двери, которые УЖЕ есть на карте
-    task.spawn(function()
-        local foldersToSearch = {"Interiors", "HouseExteriors", "Properties"}
-        for _, folderName in ipairs(foldersToSearch) do
-            local folder = workspace:FindFirstChild(folderName)
-            if folder then
-                for _, obj in pairs(folder:GetDescendants()) do
-                    checkAndCache(obj)
+    -- ==========================================
+    -- 3D РЕНДЕР: ТОЛЬКО ДОМ, ИДЕАЛЬНАЯ КАМЕРА
+    -- ==========================================
+    local function buildCleanPreview(houseType, viewportFrame)
+        local Resources = ReplicatedStorage:FindFirstChild("Resources")
+        if not Resources then return end
+        
+        local houseExteriors = Resources:FindFirstChild("HouseExteriors")
+        local houseModel = houseExteriors and houseExteriors:FindFirstChild(houseType)
+        
+        if houseModel then
+            local displayHouse = houseModel:Clone()
+            
+            if displayHouse:FindFirstChild("Doors") then displayHouse.Doors:Destroy() end
+            for _, part in pairs(displayHouse:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    local n = string.lower(part.Name)
+                    if part.Transparency >= 1 or n == "plot" or n == "base" or n == "hitbox" or n == "driveway" or n == "floor" then
+                        part:Destroy()
+                    else
+                        part.Anchored = true
+                        part.CanCollide = false
+                    end
+                elseif not part:IsA("Model") and not part:IsA("Folder") then
+                    part:Destroy() 
+                end
+            end
+            
+            displayHouse.Parent = viewportFrame
+            
+            local cf, size = displayHouse:GetBoundingBox()
+            return displayHouse, size, cf.Position
+        end
+        return nil, nil, nil
+    end
+
+    local function getServerHouses()
+        local houses = {}
+        local workspaceExteriors = workspace:FindFirstChild("HouseExteriors")
+        if not workspaceExteriors then return houses end
+
+        for _, plot in pairs(workspaceExteriors:GetChildren()) do
+            local houseModel = plot:GetChildren()[1]
+            if houseModel and houseModel:FindFirstChild("Doors") and houseModel.Doors:FindFirstChild("MainDoor") then
+                local mainDoor = houseModel.Doors.MainDoor
+                local config = mainDoor:FindFirstChild("WorkingParts") and mainDoor.WorkingParts:FindFirstChild("Configuration")
+                
+                if config and config:FindFirstChild("house_owner") then
+                    local ownerName = config.house_owner.Value
+                    local touchPart = mainDoor.WorkingParts:FindFirstChild("TouchToEnter")
+                    
+                   if ownerName and ownerName ~= "" and touchPart then
+                        table.insert(houses, {
+                            Owner = ownerName,
+                            HouseType = houseModel.Name,
+                            DoorPart = touchPart
+                        })
+                    end
                 end
             end
         end
-    end)
+        return houses
+    end
 
-    -- 2. Глобальный слушатель: автоматически ловит новые дома, когда они спавнятся
-    workspace.DescendantAdded:Connect(function(obj)
-        checkAndCache(obj)
-    end)
-    -- =====================================
+    -- ==========================================
+    -- 2D ИНТЕРФЕЙС И ЛОГИКА ТЕЛЕПОРТА
+    -- ==========================================
+    Library.Utils.Make("TextLabel", { 
+        Text = "Teleport to house:", 
+        Size = UDim2.new(1, 0, 0, 20), 
+        BackgroundTransparency = 1, 
+        Font = Enum.Font.GothamMedium, 
+        TextSize = 13, 
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Parent = Tab.Page 
+    }, { TextColor3 = "SubText" })
 
-    Tab:CreateToggle({
-        Name = "Auto Bypass Doors (Optimized)",
-        Description = "Мгновенное срабатывание. Снимает замки и не садит FPS.",
-        Default = false,
-        Flag = "Exploit_AutoDoors",
-        Callback = function(state)
-            AutoDoorToggle = state
+    local Container = Library.Utils.Make("Frame", { 
+        Size = UDim2.new(1, 0, 0, 0), 
+        AutomaticSize = Enum.AutomaticSize.Y, 
+        BackgroundTransparency = 1, 
+        Parent = Tab.Page 
+    })
+    
+    Library.Utils.Make("UIGridLayout", { 
+        CellSize = UDim2.new(0.48, 0, 0, 150), 
+        CellPadding = UDim2.new(0.04, 0, 0, 15), 
+        SortOrder = Enum.SortOrder.LayoutOrder, 
+        Parent = Container 
+    })
+
+    local function createHouseCard(houseData, index)
+        local Tile = Library.Utils.Make("TextButton", { Text = "", AutoButtonColor = false, ClipsDescendants = false, Parent = Container }, { BackgroundColor3 = "Section" })
+        Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 12), Parent = Tile})
+        Library.Utils.Make("UIStroke", {Thickness = 1, Transparency = 0.5, Parent = Tile}, {Color = "Stroke"})
+        
+        Library.Utils.Make("UIPadding", { 
+            PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 8), 
+            PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8), 
+            Parent = Tile 
+        })
+
+        local RippleContainer = Library.Utils.Make("Frame", { Size = UDim2.new(1, 16, 1, 16), Position = UDim2.new(0, -8, 0, -8), BackgroundTransparency = 1, ClipsDescendants = true, ZIndex = 10, Parent = Tile })
+        Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 12), Parent = RippleContainer})
+
+        local Viewport = Library.Utils.Make("ViewportFrame", {
+            Size = UDim2.new(1, -16, 1, -40), 
+            Position = UDim2.new(0, 8, 0, 8), 
+            BackgroundColor3 = Color3.fromRGB(20, 20, 25), 
+            BorderSizePixel = 0,
+            ClipsDescendants = true,
+            ZIndex = 1, 
+            Parent = Tile
+        })
+        Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 8), Parent = Viewport})
+        Library.Utils.Make("UIStroke", {Thickness = 1, Transparency = 0.7, Parent = Viewport}, {Color = "Stroke"})
+
+        local AccentLine = Library.Utils.Make("Frame", { 
+            Size = UDim2.new(0.35, 0, 0, 3), 
+            Position = UDim2.new(1, -6, 1, -6), 
+            AnchorPoint = Vector2.new(1, 1), 
+            BorderSizePixel = 0, 
+            ZIndex = 5, 
+            Parent = Viewport 
+        }, { BackgroundColor3 = "Accent" })
+        Library.Utils.Make("UICorner", {CornerRadius = UDim.new(1, 0), Parent = AccentLine})
+
+        local displayHouse, houseSize, centerPos = buildCleanPreview(houseData.HouseType, Viewport)
+        
+        if displayHouse and houseSize and centerPos then
+            local VpCamera = Instance.new("Camera")
+            VpCamera.FieldOfView = 50 
+            Viewport.CurrentCamera = VpCamera
+            VpCamera.Parent = Viewport
             
-            if AutoDoorToggle then
-                task.spawn(function()
-                    while AutoDoorToggle do
-                        local char = LocalPlayer.Character
-                        local hrp = char and char:FindFirstChild("HumanoidRootPart")
-                        
-                        if hrp then
-                            local closestDoor = nil
-                            local touchPart = nil
-                            local shortestDist = 4
-                            
-                            -- Перебираем только кэш (очень быстро)
-                            for tp, doorModel in pairs(CachedDoors) do
-                                -- ИСПРАВЛЕНО: Теперь тут стоит двоеточие ":" 
-                                if tp and tp.Parent and tp:IsDescendantOf(workspace) then 
-                                    local dist = (hrp.Position - tp.Position).Magnitude
-                                    if dist < shortestDist then
-                                        closestDoor = doorModel
-                                        touchPart = tp
-                                        shortestDist = dist
-                                    end
-                                else
-                                    -- Если дверь удалилась с карты, чистим память
-                                    CachedDoors[tp] = nil
-                                end
-                            end
+            local radius = houseSize.Magnitude / 2
+            local distance = (radius / math.tan(math.rad(VpCamera.FieldOfView / 2))) * 1.1
+            
+            local angle = 0
+            RunService.RenderStepped:Connect(function(dt)
+                if not Viewport.Parent then return end
+                angle = angle + math.rad(25 * dt)
+                local camPos = centerPos + Vector3.new(math.cos(angle) * distance * 0.8, distance * 0.4, math.sin(angle) * distance * 0.8)
+                VpCamera.CFrame = CFrame.lookAt(camPos, centerPos)
+            end)
+        end
 
-                            -- Взлом и вход
-                            if closestDoor and touchPart then
-                                if closestDoor ~= lastTouchedDoor then
-                                    if successDoors and DoorsM then
-                                        local doorObj = DoorsM.get_door(closestDoor)
-                                        if doorObj then
-                                            -- Взламываем все статусы (включая замки)
-                                            doorObj.is_open = true
-                                            doorObj.can_enter = true
-                                            doorObj.locked = false
-                                            doorObj.is_locked = false 
-                                            
-                                            -- Обновляем UI двери, если функция существует
-                                            if type(doorObj.update) == "function" then
-                                                pcall(function() doorObj:update() end)
-                                            end
-                                        end
-                                    end
-                                    
-                                    -- Эмуляция касания
-                                    if firetouchinterest then
-                                        firetouchinterest(hrp, touchPart, 0)
-                                        task.wait(0.1)
-                                        firetouchinterest(hrp, touchPart, 1)
-                                    end
-                                    
-                                    lastTouchedDoor = closestDoor
-                                    task.wait(4) -- Ожидание телепорта
+        local Avatar = Library.Utils.Make("ImageLabel", {
+            Size = UDim2.new(0, 28, 0, 28), 
+            Position = UDim2.new(0, 14, 1, -8), 
+            AnchorPoint = Vector2.new(0, 1), 
+            BackgroundColor3 = Color3.fromRGB(30, 30, 35), 
+            BackgroundTransparency = 0, 
+            ZIndex = 4, 
+            Parent = Tile
+        })
+        Library.Utils.Make("UICorner", {CornerRadius = UDim.new(1, 0), Parent = Avatar})
+        Library.Utils.Make("UIStroke", {Thickness = 2, Parent = Avatar}, {Color = "Section"}) 
+        applyAvatar(Avatar, houseData.Owner, index) 
+
+        local NameLbl = Library.Utils.Make("TextLabel", { 
+            Text = houseData.Owner, 
+            Size = UDim2.new(1, -54, 0, 20), 
+            Position = UDim2.new(0, 48, 1, -12), 
+            AnchorPoint = Vector2.new(0, 1), 
+            BackgroundTransparency = 1, 
+            TextXAlignment = Enum.TextXAlignment.Left,
+            Font = Enum.Font.GothamMedium, 
+            TextSize = 13, 
+            TextTruncate = Enum.TextTruncate.AtEnd, 
+            ZIndex = 3, 
+            Parent = Tile 
+        }, { TextColor3 = "Text" })
+
+        local Scale = Instance.new("UIScale", Tile)
+
+        Library:Connect(Tile.MouseEnter, function()
+            Library.Utils.TBT(AccentLine, 0.3, {Size = UDim2.new(0.6, 0, 0, 4)})
+            Library.Utils.TBT(Viewport, 0.3, {BackgroundColor3 = Color3.fromRGB(25, 25, 30)})
+        end)
+
+        Library:Connect(Tile.MouseLeave, function()
+            Library.Utils.TBT(AccentLine, 0.3, {Size = UDim2.new(0.35, 0, 0, 3)})
+            Library.Utils.TBT(Viewport, 0.3, {BackgroundColor3 = Color3.fromRGB(20, 20, 25)})
+        end)
+
+        Library:Connect(Tile.MouseButton1Down, function() 
+            Library.Utils.TBT(Scale, 0.1, {Scale = 0.96}) 
+        end)
+
+        Library:Connect(Tile.MouseButton1Click, function()
+            Library.Utils.TBT(Scale, 0.15, {Scale = 1}, Enum.EasingStyle.Bounce)
+            Library.Utils.CreateRipple(RippleContainer)
+            
+            local char = LocalPlayer.Character
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            
+            if hrp then
+                -- ПРОВЕРКА НА ТЕЛЕПОРТ: Если мы в доме (высота > 8500), не пускаем
+                local posY = hrp.Position.Y
+                if posY > 8500 then
+                    if Library.Notify then
+                        Library:Notify("Error", "Сначала выйди из дома на улицу!", 4)
+                    end
+                    return 
+                end
+
+                local touchPart = houseData.DoorPart
+                -- Защита от телепорта к пропавшей двери
+                if not touchPart or not touchPart.Parent then 
+                    if Library.Notify then Library:Notify("Error", "Дом не найден (возможно игрок вышел)!", 3) end
+                    return 
+                end
+
+                -- ТЕЛЕПОРТ ПРЯМО В ДВЕРЬ (чтобы сервер точно засчитал дистанцию)
+                hrp.CFrame = touchPart.CFrame
+                
+                if Library.Notify then
+                    Library:Notify("Teleport", "Entering " .. houseData.Owner .. "'s house...", 3, "10723426722")
+                end
+
+                -- АВТО-ВХОД (Идеальная интеграция твоего кода)
+                task.spawn(function()
+                    task.wait(0.25) -- Даем серверу время зарегать новую позицию (очень важно для Adopt Me)
+                    
+                    local doorModel = touchPart.Parent.Parent
+                    
+                    -- 1. Снимаем замки
+                    pcall(function()
+                        local successDoors, DoorsM = pcall(function()
+                            return require(ReplicatedStorage.ClientModules.Core.DoorsM.DoorsM)
+                        end)
+                        
+                        if successDoors and DoorsM then
+                            local doorObj = DoorsM.get_door(doorModel)
+                            if doorObj then
+                                doorObj.is_open = true
+                                doorObj.can_enter = true
+                                doorObj.locked = false
+                                doorObj.is_locked = false 
+                                if type(doorObj.update) == "function" then
+                                    pcall(function() doorObj:update() end)
                                 end
-                            else
-                                lastTouchedDoor = nil
                             end
                         end
-                        
-                        task.wait(0.2)
+                    end)
+                    
+                    -- 2. Эмулируем касание (firetouchinterest)
+                    if firetouchinterest then
+                        firetouchinterest(hrp, touchPart, 0)
+                        task.wait(0.1)
+                        firetouchinterest(hrp, touchPart, 1)
                     end
                 end)
             end
+        end)
+    end
+
+    -- ==========================================
+    -- АВТО-ОБНОВЛЕНИЕ КАРТОЧЕК С КЭШЕМ
+    -- ==========================================
+    local refreshThread = nil
+    local CachedHouses = {} -- Глобальный кэш домов (сохраняет список, если мы зашли в интерьер)
+
+    local function updateHouseCards()
+        for _, child in ipairs(Container:GetChildren()) do
+            if child:IsA("TextButton") then
+                child:Destroy()
+            end
         end
-    })
+
+        local success, err = pcall(function()
+            local houses = getServerHouses()
+            
+            -- Если дома найдены (мы на улице), обновляем кэш
+            if #houses > 0 then
+                CachedHouses = houses
+            else
+                -- Если домов нет (мы зашли в интерьер и экстерьеры пропали), загружаем старый список
+                houses = CachedHouses 
+            end
+            
+            if #houses > 0 then
+                for index, houseData in ipairs(houses) do
+                    createHouseCard(houseData, index)
+                end
+            else
+                -- Самый крайний случай (вообще пусто)
+                createHouseCard({
+                    Owner = LocalPlayer.Name,
+                    HouseType = "Micro",
+                    DoorPart = nil
+                }, 1)
+            end
+        end)
+        
+        if not success then warn("[Dusk&Shine Teleport] Ошибка рендера: ", err) end
+    end
+
+    local function queueRefresh()
+        if refreshThread then task.cancel(refreshThread) end
+        refreshThread = task.spawn(function()
+            task.wait(1.5) 
+            updateHouseCards()
+        end)
+    end
+
+    queueRefresh()
+
+    local workspaceExteriors = workspace:WaitForChild("HouseExteriors", 5)
+    if workspaceExteriors then
+        workspaceExteriors.DescendantAdded:Connect(function(descendant)
+            if descendant.Parent and descendant.Parent.Parent == workspaceExteriors then
+                queueRefresh()
+            end
+        end)
+        
+        workspaceExteriors.DescendantRemoving:Connect(function(descendant)
+            if descendant.Parent and descendant.Parent.Parent == workspaceExteriors then
+                queueRefresh()
+            end
+        end)
+    end
+    
+    Players.PlayerRemoving:Connect(queueRefresh)
 end
+
 return Module
