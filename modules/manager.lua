@@ -352,7 +352,14 @@ function Module:CreateFileCard(fileName)
         if not length or length > 28 then RenameBox.Text = lastValidText else lastValidText = filteredText end
     end)
     
+    -- Достаем часы, минуты и секунды из имени файла (формат AdoptMeHouse_HHMMSS)
+    local rawTime = fileName:match("_(%d%d)(%d%d)(%d%d)$")
     local timeStr = os.date("%H:%M:%S")
+    if rawTime then
+        local h, m, s = fileName:match("_(%d%d)(%d%d)(%d%d)$")
+        timeStr = h .. ":" .. m .. ":" .. s
+    end
+
     Library.Utils.Make("TextLabel", { Text = "Last-saved " .. timeStr, Size = UDim2.new(1, -110, 0, 15), Position = UDim2.new(0, 54, 0.5, 8), BackgroundTransparency = 1, Font = Enum.Font.GothamMedium, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left, Parent = Card }, { TextColor3 = "SubText" })
 
     local OptionsBtn = Library.Utils.Make("TextButton", { Text = "•••", Size = UDim2.new(0, 34, 0, 24), AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Font = Enum.Font.GothamBold, TextSize = 14, AutoButtonColor = false, Parent = Card }, { BackgroundColor3 = "Sidebar", TextColor3 = "SubText" })
