@@ -1587,11 +1587,25 @@ function Library:CreateWindow(config)
                 pcall(toggleCallback, newState)
             end
 
+            -- Визуальное переключение режима (для системы конфигов)
+            local function SetMode(newModeName)
+                Library.Flags[flag .. "_Mode"] = newModeName
+                for name, stroke in pairs(ModeCards) do
+                    stroke.Color = (name == newModeName) and Color3.fromRGB(220, 20, 20) or Color3.fromRGB(0, 0, 0)
+                end
+                pcall(modeCallback, newModeName)
+            end
+
             Library:Connect(Sw.MouseButton1Click, function() SetState(not Library.Flags[flag .. "_State"]) end)
+            
+            -- РЕГИСТРАЦИЯ В СИСТЕМЕ КОНФИГОВ
+            Library.ConfigUpdaters[flag .. "_State"] = SetState
+            Library.ConfigUpdaters[flag .. "_Mode"] = SetMode
             
             return {
                 Container = F,
                 SetState = SetState,
+                SetMode = SetMode,
                 GetState = function() return Library.Flags[flag .. "_State"] end,
                 GetMode = function() return Library.Flags[flag .. "_Mode"] end
             }
@@ -1734,74 +1748,97 @@ end
     end
 
     -- ==========================================
-    -- 7. МЕНЕДЖЕР КОНФИГОВ (CONFIG SYSTEM)
-    -- ==========================================
-    local HttpService = game:GetService("HttpService")
-    Library.ConfigFolder = "DuskAndShineConfigs"
+-- 7. МЕНЕДЖЕР КОНФИГОВ (CONFIG SYSTEM)
+-- ==========================================
+local HttpService = game:GetService("HttpService")
+Library.ConfigFolder = "DuskAndShineConfigs"
+Library.AutoLoadFile = "autoload"
 
-    function Library:SaveConfig(fileName)
-        if not writefile then 
-            warn("[Dusk] Executor does not support file saving.")
-            return 
-        end
+function Library:InitConfigSystem()
+    if not isfolder then return end
+    if not isfolder(self.ConfigFolder) then 
+        makefolder(self.ConfigFolder) 
+    end
+end
 
-        if not isfolder(self.ConfigFolder) then 
-            makefolder(self.ConfigFolder) 
-        end
-        
-        local saveTable = {}
-        -- Умный обход: кодируем специфические типы данных
-        for flag, value in pairs(self.Flags) do
-            if typeof(value) == "Color3" then
-                saveTable[flag] = { R = value.R, G = value.G, B = value.B, isColor = true }
-            elseif typeof(value) == "EnumItem" then
-                saveTable[flag] = { Key = value.Name, isKeybind = true }
-            else
-                saveTable[flag] = value
-            end
-        end
-
-        local success, json = pcall(function() return HttpService:JSONEncode(saveTable) end)
-        if success then
-            writefile(self.ConfigFolder .. "/" .. fileName .. ".json", json)
-            self:Notify("Config System", "Successfully saved: " .. fileName, 3)
+function Library:SaveConfig(fileName)
+    if not writefile then 
+        warn("[Dusk] Executor does not support file saving.")
+        return 
+    end
+    self:InitConfigSystem()
+    
+    local saveTable = {}
+    for flag, value in pairs(self.Flags) do
+        if typeof(value) == "Color3" then
+            saveTable[flag] = { R = value.R, G = value.G, B = value.B, isColor = true }
+        elseif typeof(value) == "EnumItem" then
+            saveTable[flag] = { Key = value.Name, isKeybind = true }
         else
-            self:Notify("Error", "Failed to encode config!", 3)
+            saveTable[flag] = value
         end
     end
 
-    function Library:LoadConfig(fileName)
-        if not readfile or not isfile(self.ConfigFolder .. "/" .. fileName .. ".json") then 
-            self:Notify("Error", "Config file not found!", 3)
-            return 
-        end
-        
-        local json = readfile(self.ConfigFolder .. "/" .. fileName .. ".json")
-        local success, data = pcall(function() return HttpService:JSONDecode(json) end)
-        
-        if success and type(data) == "table" then
-            for flag, value in pairs(data) do
-                -- Декодируем специфические типы обратно
-                if type(value) == "table" then
-                    if value.isColor then
-                        value = Color3.new(value.R, value.G, value.B)
-                    elseif value.isKeybind then
-                        value = Enum.KeyCode[value.Key]
-                    end
-                end
-                
-                -- Обновляем данные в ядре
-                self.Flags[flag] = value
-                
-                -- Если компонент зарегистрировал функцию апдейта (SetState, SetValue) - вызываем её!
-                if self.ConfigUpdaters[flag] then
-                    pcall(self.ConfigUpdaters[flag], value)
+    local success, json = pcall(function() return HttpService:JSONEncode(saveTable) end)
+    if success then
+        writefile(self.ConfigFolder .. "/" .. fileName .. ".json", json)
+        if self.Notify then self:Notify("Config System", "Successfully saved: " .. fileName, 3) end
+    else
+        if self.Notify then self:Notify("Error", "Failed to encode config!", 3) end
+    end
+end
+
+function Library:LoadConfig(fileName)
+    if not readfile or not isfile(self.ConfigFolder .. "/" .. fileName .. ".json") then 
+        if self.Notify then self:Notify("Error", "Config file not found!", 3) end
+        return false
+    end
+    
+    local json = readfile(self.ConfigFolder .. "/" .. fileName .. ".json")
+    local success, data = pcall(function() return HttpService:JSONDecode(json) end)
+    
+    if success and type(data) == "table" then
+        for flag, value in pairs(data) do
+            if type(value) == "table" then
+                if value.isColor then
+                    value = Color3.new(value.R, value.G, value.B)
+                elseif value.isKeybind then
+                    value = Enum.KeyCode[value.Key]
                 end
             end
-            self:Notify("Config System", "Successfully loaded: " .. fileName, 3)
-        else
-            self:Notify("Error", "Failed to read config!", 3)
+            
+            self.Flags[flag] = value
+            
+            -- Триггерим визуальное обновление элемента
+            if self.ConfigUpdaters[flag] then
+                pcall(self.ConfigUpdaters[flag], value)
+            end
+        end
+        if self.Notify then self:Notify("Config System", "Successfully loaded: " .. fileName, 3) end
+        return true
+    else
+        if self.Notify then self:Notify("Error", "Failed to read config!", 3) end
+        return false
+    end
+end
+
+function Library:DeleteConfig(fileName)
+    if isfile and isfile(self.ConfigFolder .. "/" .. fileName .. ".json") and delfile then
+        delfile(self.ConfigFolder .. "/" .. fileName .. ".json")
+        if self.Notify then self:Notify("Config System", "Deleted: " .. fileName, 3) end
+    end
+end
+
+function Library:GetConfigs()
+    self:InitConfigSystem()
+    local list = {}
+    if listfiles then
+        for _, file in ipairs(listfiles(self.ConfigFolder)) do
+            local fileName = file:match("([^/\\]+)%.json$")
+            if fileName then table.insert(list, fileName) end
         end
     end
+    return list
+end
 
 return Library
