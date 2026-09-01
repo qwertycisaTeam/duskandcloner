@@ -536,7 +536,7 @@ function Module:CreateFileCard(fileName)
         local div = Library.Utils.Make("Frame", { Size = UDim2.new(1, -12, 0, 1), Position = UDim2.new(0, 6, 0, 0), BackgroundTransparency = 0.8, ZIndex = 1002, Parent = Content }, { BackgroundColor3 = "Stroke" })
         Library.Utils.TBT(div, 0.15, {BackgroundTransparency = 0.8})
         
-        AddAction("Delete File", "rbxassetid://10709771804", "Red", "Red", true, function() self:DeleteHouse(fileName); self:RefreshList(); Library:Notify("Deleted", fileName .. " has been removed.", 2) end)
+        AddAction("Delete File", "rbxassetid://73828703188217", "Red", "Red", true, function() self:DeleteHouse(fileName); self:RefreshList(); Library:Notify("Deleted", fileName .. " has been removed.", 2) end)
     end
 
     Library:Connect(OptionsBtn.MouseButton1Click, function()
