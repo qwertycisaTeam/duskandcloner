@@ -529,14 +529,14 @@ function Module:CreateFileCard(fileName)
             end)
         end
 
-        AddAction("Rename", "rbxassetid://10709772863", "SubText", "Text", false, function() TitleLbl.Visible = false; RenameBox.Visible = true; RenameBox.Text = fileName; RenameBox:CaptureFocus() end)
-        AddAction("Duplicate", "rbxassetid://10709772421", "SubText", "Text", false, function() local data = self:LoadHouse(fileName); if data then self:SaveHouse(fileName .. "_copy", data); self:RefreshList(); Library:Notify("File Manager", "Duplicated: " .. fileName, 2) end end)
-        AddAction("Copy Code", "rbxassetid://10709771146", "SubText", "Accent", false, function() local data = self:LoadHouse(fileName); if data and setclipboard then setclipboard(HttpService:JSONEncode(data)); Library:Notify("Copied", "JSON code copied to clipboard!", 2) end end)
+        AddAction("Rename", "rbxassetid://77580518418895", "SubText", "Text", false, function() TitleLbl.Visible = false; RenameBox.Visible = true; RenameBox.Text = fileName; RenameBox:CaptureFocus() end)
+        AddAction("Duplicate", "rbxassetid://91403080584860", "SubText", "Text", false, function() local data = self:LoadHouse(fileName); if data then self:SaveHouse(fileName .. "_copy", data); self:RefreshList(); Library:Notify("File Manager", "Duplicated: " .. fileName, 2) end end)
+        AddAction("Copy Code", "rbxassetid://76443890191204", "SubText", "Accent", false, function() local data = self:LoadHouse(fileName); if data and setclipboard then setclipboard(HttpService:JSONEncode(data)); Library:Notify("Copied", "JSON code copied to clipboard!", 2) end end)
         
         local div = Library.Utils.Make("Frame", { Size = UDim2.new(1, -12, 0, 1), Position = UDim2.new(0, 6, 0, 0), BackgroundTransparency = 0.8, ZIndex = 1002, Parent = Content }, { BackgroundColor3 = "Stroke" })
         Library.Utils.TBT(div, 0.15, {BackgroundTransparency = 0.8})
         
-        AddAction("Delete File", "rbxassetid://73828703188217", "Red", "Red", true, function() self:DeleteHouse(fileName); self:RefreshList(); Library:Notify("Deleted", fileName .. " has been removed.", 2) end)
+        AddAction("Delete File", "rbxassetid://14002617467", "Red", "Red", true, function() self:DeleteHouse(fileName); self:RefreshList(); Library:Notify("Deleted", fileName .. " has been removed.", 2) end)
     end
 
     Library:Connect(OptionsBtn.MouseButton1Click, function()
