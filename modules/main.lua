@@ -323,30 +323,32 @@ function Module:Init(Library, Window, Tab)
             
             local rawFurniture = savedHouse.furniture or savedHouse
             local pendingChanges = {}
-
+            
             table.sort(rawFurniture, function(a, b)
                 return a.cframe[2] < b.cframe[2]
             end)
-
+            
             local downloadApi = ReplicatedStorage:WaitForChild("API"):WaitForChild("DownloadsAPI/Download")
             local buyFurnituresRemote = ReplicatedStorage:WaitForChild("API"):WaitForChild("HousingAPI/BuyFurnitures")
-            local pushFurnitureEvent = ReplicatedStorage:WaitForChild("API"):WaitForChild("HousingAPI/PushFurnitureChanges")
-
-            -- 1. ПРЕДВАРИТЕЛЬНОЕ КЭШИРОВАНИЕ
+            
+            -- 1. Предварительное кэширование
             local uniqueIDs = {}
-            for _, item in ipairs(rawFurniture) do
-                uniqueIDs[item.id] = true
-            end
+            for _, item in ipairs(rawFurniture) do uniqueIDs[item.id] = true end
             for id, _ in pairs(uniqueIDs) do
                 task.spawn(function() pcall(function() downloadApi:InvokeServer("Furniture", id) end) end)
             end
             task.wait(0.5)
-
-            -- 2. МИКРО-ПАКЕТИРОВАНИЕ (ПО 5 ПРЕДМЕТОВ)
+            
+            -- 2. ДЕБАГ-БАТЧИНГ (ПО 5 ПРЕДМЕТОВ)
             local BATCH_SIZE = 5 
             local currentBatch = {}
             local batchReferences = {}
-
+            local totalBought = 0
+            local totalFailed = 0
+            
+            print("=== НАЧАЛО ПОСТРОЙКИ (DEBUG MODE) ===")
+            print("Всего предметов в файле:", #rawFurniture)
+            
             for i, item in ipairs(rawFurniture) do
                 local baseCFrame = CFrame.new(unpack(item.cframe))
                 local localCFrame = baseCFrame + Vector3.new(0, MICRO_SHIFT_Y, 0)
@@ -360,23 +362,43 @@ function Module:Init(Library, Window, Tab)
                 
                 table.insert(currentBatch, { kind = item.id, properties = buyProps })
                 table.insert(batchReferences, { item = item, localCFrame = localCFrame, buyProps = buyProps })
-
+            
                 if #currentBatch >= BATCH_SIZE or i == #rawFurniture then
-                    local buildSuccess, response = pcall(function() return buyFurnituresRemote:InvokeServer(currentBatch) end)
+                    print(string.format("[DEBUG] Отправка пакета: %d предметов. Прогресс: %d/%d", #currentBatch, i, #rawFurniture))
                     
-                    if buildSuccess and type(response) == "table" and response.success and response.results then
-                        for resultIndex, createdItem in ipairs(response.results) do
-                            if createdItem.unique then
-                                local ref = batchReferences[resultIndex]
-                                local changeArgs = {
-                                    unique = createdItem.unique,
-                                    cframe = ref.localCFrame
-                                }
-                                if ref.item.scale and ref.item.scale ~= 1 then changeArgs.scale = ref.item.scale end
-                                if ref.buyProps.colors then changeArgs.colors = ref.buyProps.colors end
-                                
-                                table.insert(pendingChanges, changeArgs)
+                    local buildSuccess, response = pcall(function() 
+                        return buyFurnituresRemote:InvokeServer(currentBatch) 
+                    end)
+                    
+                    if not buildSuccess then
+                        -- Ошибка самого Roblox (InvokeServer упал)
+                        warn("[ERROR] Сбой pcall (InvokeServer)! Ошибка:", tostring(response))
+                        totalFailed = totalFailed + #currentBatch
+                    else
+                        if type(response) == "table" then
+                            if response.success then
+                                -- Сервер принял пачку
+                                print("[SUCCESS] Пакет успешно куплен!")
+                                for resultIndex, createdItem in ipairs(response.results) do
+                                    if createdItem.unique then
+                                        totalBought = totalBought + 1
+                                        local ref = batchReferences[resultIndex]
+                                        local changeArgs = { unique = createdItem.unique, cframe = ref.localCFrame }
+                                        if ref.item.scale and ref.item.scale ~= 1 then changeArgs.scale = ref.item.scale end
+                                        if ref.buyProps.colors then changeArgs.colors = ref.buyProps.colors end
+                                        table.insert(pendingChanges, changeArgs)
+                                    else
+                                        warn("[WARNING] Предмет куплен, но unique ID отсутствует!")
+                                    end
+                                end
+                            else
+                                -- Сервер отклонил покупку (Анти-спам, нет денег и т.д.)
+                                warn("[FAILED] Сервер отклонил пакет!")
+                                warn("Ответ сервера:", HttpService:JSONEncode(response))
+                                totalFailed = totalFailed + #currentBatch
                             end
+                        else
+                            warn("[ERROR] Неизвестный формат ответа от сервера:", typeof(response), tostring(response))
                         end
                     end
                     
@@ -389,6 +411,8 @@ function Module:Init(Library, Window, Tab)
                 end
             end
             
+            print("=== ИТОГИ ПОСТРОЙКИ ===")
+            print(string.format("Успешно: %d | Провалено: %d", totalBought, totalFailed))
             Library:Notify("Постройка", "Применяю размеры и цвета...", 3)
             
             local chunk = {}
