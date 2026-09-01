@@ -323,20 +323,31 @@ function Module:Init(Library, Window, Tab)
             
             local rawFurniture = savedHouse.furniture or savedHouse
             local pendingChanges = {}
-            
+
             table.sort(rawFurniture, function(a, b)
                 return a.cframe[2] < b.cframe[2]
             end)
-            
+
             local downloadApi = ReplicatedStorage:WaitForChild("API"):WaitForChild("DownloadsAPI/Download")
             local buyFurnituresRemote = ReplicatedStorage:WaitForChild("API"):WaitForChild("HousingAPI/BuyFurnitures")
             local pushFurnitureEvent = ReplicatedStorage:WaitForChild("API"):WaitForChild("HousingAPI/PushFurnitureChanges")
-            
-            local downloadApi = ReplicatedStorage:WaitForChild("API"):WaitForChild("DownloadsAPI/Download")
-            local buyFurnituresRemote = ReplicatedStorage:WaitForChild("API"):WaitForChild("HousingAPI/BuyFurnitures")
-            
+
+            -- 1. ПРЕДВАРИТЕЛЬНОЕ КЭШИРОВАНИЕ
+            local uniqueIDs = {}
+            for _, item in ipairs(rawFurniture) do
+                uniqueIDs[item.id] = true
+            end
+            for id, _ in pairs(uniqueIDs) do
+                task.spawn(function() pcall(function() downloadApi:InvokeServer("Furniture", id) end) end)
+            end
+            task.wait(0.5)
+
+            -- 2. МИКРО-ПАКЕТИРОВАНИЕ (ПО 5 ПРЕДМЕТОВ)
+            local BATCH_SIZE = 5 
+            local currentBatch = {}
+            local batchReferences = {}
+
             for i, item in ipairs(rawFurniture) do
-                local fId = item.id
                 local baseCFrame = CFrame.new(unpack(item.cframe))
                 local localCFrame = baseCFrame + Vector3.new(0, MICRO_SHIFT_Y, 0)
                 
@@ -347,30 +358,34 @@ function Module:Init(Library, Window, Tab)
                     buyProps.colors = c3table
                 end
                 
-                -- Асинхронная прогрузка (не тормозит скрипт)
-                task.spawn(function()
-                    pcall(function() downloadApi:InvokeServer("Furniture", fId) end)
-                end)
-                
-                -- Покупка строго 1 предмета
-                local currentBatch = {{ kind = fId, properties = buyProps }}
-                local buildSuccess, response = pcall(function() return buyFurnituresRemote:InvokeServer(currentBatch) end)
-                
-                if buildSuccess and type(response) == "table" and response.success and response.results and response.results[1] and response.results[1].unique then
-                    local createdItem = response.results[1]
-                    local changeArgs = {
-                        unique = createdItem.unique,
-                        cframe = localCFrame
-                    }
-                    if item.scale and item.scale ~= 1 then changeArgs.scale = item.scale end
-                    if buyProps.colors then changeArgs.colors = buyProps.colors end
+                table.insert(currentBatch, { kind = item.id, properties = buyProps })
+                table.insert(batchReferences, { item = item, localCFrame = localCFrame, buyProps = buyProps })
+
+                if #currentBatch >= BATCH_SIZE or i == #rawFurniture then
+                    local buildSuccess, response = pcall(function() return buyFurnituresRemote:InvokeServer(currentBatch) end)
                     
-                    table.insert(pendingChanges, changeArgs)
-                end
-                
-                -- Применение задержки из ползунка
-                if CurrentBuildDelay > 0 then
-                    task.wait(CurrentBuildDelay)
+                    if buildSuccess and type(response) == "table" and response.success and response.results then
+                        for resultIndex, createdItem in ipairs(response.results) do
+                            if createdItem.unique then
+                                local ref = batchReferences[resultIndex]
+                                local changeArgs = {
+                                    unique = createdItem.unique,
+                                    cframe = ref.localCFrame
+                                }
+                                if ref.item.scale and ref.item.scale ~= 1 then changeArgs.scale = ref.item.scale end
+                                if ref.buyProps.colors then changeArgs.colors = ref.buyProps.colors end
+                                
+                                table.insert(pendingChanges, changeArgs)
+                            end
+                        end
+                    end
+                    
+                    currentBatch = {}
+                    batchReferences = {}
+                    
+                    if CurrentBuildDelay > 0 then
+                        task.wait(CurrentBuildDelay)
+                    end
                 end
             end
             
