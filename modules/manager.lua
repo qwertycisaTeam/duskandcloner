@@ -267,8 +267,11 @@ function Module:Init(Library, Window, Tab)
 
             local rawAmbiance = targetData.house_interior.ambiance or {}
             local parsedParticles = {}
-            if rawAmbiance.custom_props and rawAmbiance.custom_props.Custom then
-                parsedParticles = rawAmbiance.custom_props.Custom
+            
+            if rawAmbiance.custom_props and type(rawAmbiance.custom_props.Custom) == "table" then
+                for k, v in pairs(rawAmbiance.custom_props.Custom) do
+                    parsedParticles[k] = v
+                end
             end
             
             local saveData = {
