@@ -283,7 +283,7 @@ function Module:Init(Library, Window, Tab)
                             Haze = atmData.Haze or 0, 
                             Color = toColor3(atmData.Color)
                         },
-                        Custom = ambianceData.Custom
+                        Custom = savedHouse.particles or {}
                     }
                 }}
                 local ambianceRemote = ReplicatedStorage:WaitForChild("API"):FindFirstChild("AmbianceAPI/UpdateAmbiance")
@@ -292,13 +292,14 @@ function Module:Init(Library, Window, Tab)
             
             if savedHouse.ambiance then loadAmbiance(savedHouse.ambiance) end
 
-            if savedHouse.particles then
-                local ParticleRemote = ReplicatedStorage:WaitForChild("API"):FindFirstChild("AmbianceAPI/UpdateAmbianceProperties")
-                if ParticleRemote then
-                    pcall(function() ParticleRemote:FireServer({ Custom = savedHouse.particles }) end)
+            local hasParticles = false
+            if type(savedHouse.particles) == "table" then
+                for _, _ in pairs(savedHouse.particles) do
+                    hasParticles = true
+                    break
                 end
             end
-
+                    
             if CopyTextures and savedHouse.textures then
                 Library:Notify("Постройка", "Применяю обои и полы...", 2)
                 local BuyTextureRemote = ReplicatedStorage:WaitForChild("API"):FindFirstChild("HousingAPI/BuyTexture")
