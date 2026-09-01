@@ -22,7 +22,7 @@ end
 function Module:Init(Library, Window, Tab)
     local LocalPlayer = Players.LocalPlayer
     local SelectedHouse = nil
-    local CurrentBuildDelay = 0.05 
+    local CurrentBatchSize = 25
     local CopyTextures = true
     local HouseDropdown 
 
@@ -332,6 +332,9 @@ function Module:Init(Library, Window, Tab)
             local buyFurnituresRemote = ReplicatedStorage:WaitForChild("API"):WaitForChild("HousingAPI/BuyFurnitures")
             local pushFurnitureEvent = ReplicatedStorage:WaitForChild("API"):WaitForChild("HousingAPI/PushFurnitureChanges")
             
+            local currentBatch = {}
+            local batchReferences = {}
+
             for i, item in ipairs(rawFurniture) do
                 local fId = item.id
                 local baseCFrame = CFrame.new(unpack(item.cframe))
@@ -344,24 +347,36 @@ function Module:Init(Library, Window, Tab)
                     buyProps.colors = c3table
                 end
                 
-                local currentBatch = {{ kind = fId, properties = buyProps }}
-            
-                pcall(function() downloadApi:InvokeServer("Furniture", fId) end)
-                local buildSuccess, response = pcall(function() return buyFurnituresRemote:InvokeServer(currentBatch) end)
+                task.spawn(function()
+                    pcall(function() downloadApi:InvokeServer("Furniture", fId) end)
+                end)
                 
-                if buildSuccess and type(response) == "table" and response.success and response.results and response.results[1] and response.results[1].unique then
-                    local createdItem = response.results[1]
-                    local changeArgs = {
-                        unique = createdItem.unique,
-                        cframe = localCFrame
-                    }
-                    if item.scale and item.scale ~= 1 then changeArgs.scale = item.scale end
-                    if buyProps.colors then changeArgs.colors = buyProps.colors end
+                table.insert(currentBatch, { kind = fId, properties = buyProps })
+                table.insert(batchReferences, { item = item, localCFrame = localCFrame, buyProps = buyProps })
+
+                if #currentBatch >= CurrentBatchSize or i == #rawFurniture then
+                    local buildSuccess, response = pcall(function() return buyFurnituresRemote:InvokeServer(currentBatch) end)
                     
-                    table.insert(pendingChanges, changeArgs)
+                    if buildSuccess and type(response) == "table" and response.success and response.results then
+                        for resultIndex, createdItem in ipairs(response.results) do
+                            if createdItem.unique then
+                                local ref = batchReferences[resultIndex]
+                                local changeArgs = {
+                                    unique = createdItem.unique,
+                                    cframe = ref.localCFrame
+                                }
+                                if ref.item.scale and ref.item.scale ~= 1 then changeArgs.scale = ref.item.scale end
+                                if ref.buyProps.colors then changeArgs.colors = ref.buyProps.colors end
+                                
+                                table.insert(pendingChanges, changeArgs)
+                            end
+                        end
+                    end
+                    
+                    currentBatch = {}
+                    batchReferences = {}
+                    task.wait(0.6)
                 end
-                
-                task.wait(CurrentBuildDelay)
             end
             
             Library:Notify("Постройка", "Применяю размеры и цвета...", 3)
@@ -395,13 +410,13 @@ function Module:Init(Library, Window, Tab)
     })
 
     Tab:CreateSlider({
-        Name = "Build Delay (ms)",
-        Min = 10,
-        Max = 500,
-        Default = 50,
-        Flag = "Replicator_BuildDelay",
+        Name = "Items per Batch (Speed)",
+        Min = 5,
+        Max = 100,
+        Default = 25,
+        Flag = "Replicator_BatchSize",
         Callback = function(value)
-            CurrentBuildDelay = value / 1000 
+            CurrentBatchSize = value
         end
     })
 
