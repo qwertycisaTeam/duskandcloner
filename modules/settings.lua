@@ -357,46 +357,6 @@ function Module:Init(Library, Window, Tab)
         task.wait(0.2) -- Даем либе долю секунды на создание элементов
         for _, frame in ipairs(Tab.Page:GetChildren()) do
             
-            -- ПРОКАЧКА ДРОПДАУНОВ (Ищем фреймы высотой 40 пикселей)
-            if frame:IsA("Frame") and frame.Size == UDim2.new(1, 0, 0, 40) then 
-                local btn = frame:FindFirstChildWhichIsA("TextButton")
-                if btn then
-                    -- Добавляем контрастный фон
-                    btn.BackgroundColor3 = Color3.fromRGB(32, 32, 38)
-                    
-                    -- Усиливаем обводку
-                    local stroke = btn:FindFirstChildWhichIsA("UIStroke") or Instance.new("UIStroke", btn)
-                    stroke.Thickness = 1
-                    stroke.Transparency = 0
-                    stroke.Color = Color3.fromRGB(70, 70, 80)
-                    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-                    
-                    -- Добавляем 3D-глубину снизу
-                    if not btn:FindFirstChild("DepthGlow") then
-                        local depth = Instance.new("Frame", btn)
-                        depth.Name = "DepthGlow"
-                        depth.Size = UDim2.new(1, 0, 0, 3)
-                        depth.Position = UDim2.new(0, 0, 1, -3)
-                        depth.BackgroundColor3 = Color3.fromRGB(20, 20, 24)
-                        depth.BorderSizePixel = 0
-                        local dc = Instance.new("UICorner", depth)
-                        dc.CornerRadius = UDim.new(0, 6)
-                    end
-                    
-                    -- Добавляем иконку стрелочки вниз
-                    if not btn:FindFirstChild("DropArrow") then
-                        local arrow = Instance.new("ImageLabel", btn)
-                        arrow.Name = "DropArrow"
-                        arrow.Size = UDim2.new(0, 14, 0, 14)
-                        arrow.Position = UDim2.new(1, -10, 0.5, 0)
-                        arrow.AnchorPoint = Vector2.new(1, 0.5)
-                        arrow.BackgroundTransparency = 1
-                        arrow.Image = "rbxassetid://6031091004"
-                        arrow.ImageColor3 = Color3.fromRGB(150, 150, 160)
-                    end
-                end
-            end
-            
             -- ФИКС ТЕКСТА В ТОГГЛАХ (Ищем фреймы высотой 70 пикселей)
             if frame:IsA("Frame") and frame.Size == UDim2.new(1, 0, 0, 70) then
                 for _, child in ipairs(frame:GetChildren()) do
