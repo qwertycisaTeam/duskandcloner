@@ -330,25 +330,20 @@ function Module:Init(Library, Window, Tab)
             
             local downloadApi = ReplicatedStorage:WaitForChild("API"):WaitForChild("DownloadsAPI/Download")
             local buyFurnituresRemote = ReplicatedStorage:WaitForChild("API"):WaitForChild("HousingAPI/BuyFurnitures")
-            
-            -- 1. Предварительное кэширование
+            local pushFurnitureEvent = ReplicatedStorage:WaitForChild("API"):WaitForChild("HousingAPI/PushFurnitureChanges")
+
+            -- 1. ПРЕДВАРИТЕЛЬНОЕ КЭШИРОВАНИЕ
             local uniqueIDs = {}
             for _, item in ipairs(rawFurniture) do uniqueIDs[item.id] = true end
             for id, _ in pairs(uniqueIDs) do
                 task.spawn(function() pcall(function() downloadApi:InvokeServer("Furniture", id) end) end)
             end
             task.wait(0.5)
-            
-            -- 2. ДЕБАГ-БАТЧИНГ (ПО 5 ПРЕДМЕТОВ)
-            local BATCH_SIZE = 5 
-            local currentBatch = {}
-            local batchReferences = {}
-            local totalBought = 0
-            local totalFailed = 0
-            
-            print("=== НАЧАЛО ПОСТРОЙКИ (DEBUG MODE) ===")
-            print("Всего предметов в файле:", #rawFurniture)
-            
+
+            -- 2. ДЕБАГ И АВТО-ПОВТОР
+            warn("=== БИЛДЕР ЗАПУЩЕН | ВСЕГО ПРЕДМЕТОВ: " .. tostring(#rawFurniture) .. " ===")
+            local totalBought, totalFailed = 0, 0
+
             for i, item in ipairs(rawFurniture) do
                 local baseCFrame = CFrame.new(unpack(item.cframe))
                 local localCFrame = baseCFrame + Vector3.new(0, MICRO_SHIFT_Y, 0)
@@ -360,56 +355,40 @@ function Module:Init(Library, Window, Tab)
                     buyProps.colors = c3table
                 end
                 
-                table.insert(currentBatch, { kind = item.id, properties = buyProps })
-                table.insert(batchReferences, { item = item, localCFrame = localCFrame, buyProps = buyProps })
-            
-                if #currentBatch >= BATCH_SIZE or i == #rawFurniture then
-                    print(string.format("[DEBUG] Отправка пакета: %d предметов. Прогресс: %d/%d", #currentBatch, i, #rawFurniture))
+                local currentBatch = {{ kind = item.id, properties = buyProps }}
+                
+                local successPurchase = false
+                local attempts = 0
+                local maxAttempts = 3 
+
+                repeat
+                    attempts = attempts + 1
+                    local buildSuccess, response = pcall(function() return buyFurnituresRemote:InvokeServer(currentBatch) end)
                     
-                    local buildSuccess, response = pcall(function() 
-                        return buyFurnituresRemote:InvokeServer(currentBatch) 
-                    end)
-                    
-                    if not buildSuccess then
-                        -- Ошибка самого Roblox (InvokeServer упал)
-                        warn("[ERROR] Сбой pcall (InvokeServer)! Ошибка:", tostring(response))
-                        totalFailed = totalFailed + #currentBatch
-                    else
-                        if type(response) == "table" then
-                            if response.success then
-                                -- Сервер принял пачку
-                                print("[SUCCESS] Пакет успешно куплен!")
-                                for resultIndex, createdItem in ipairs(response.results) do
-                                    if createdItem.unique then
-                                        totalBought = totalBought + 1
-                                        local ref = batchReferences[resultIndex]
-                                        local changeArgs = { unique = createdItem.unique, cframe = ref.localCFrame }
-                                        if ref.item.scale and ref.item.scale ~= 1 then changeArgs.scale = ref.item.scale end
-                                        if ref.buyProps.colors then changeArgs.colors = ref.buyProps.colors end
-                                        table.insert(pendingChanges, changeArgs)
-                                    else
-                                        warn("[WARNING] Предмет куплен, но unique ID отсутствует!")
-                                    end
-                                end
-                            else
-                                -- Сервер отклонил покупку (Анти-спам, нет денег и т.д.)
-                                warn("[FAILED] Сервер отклонил пакет!")
-                                warn("Ответ сервера:", HttpService:JSONEncode(response))
-                                totalFailed = totalFailed + #currentBatch
-                            end
-                        else
-                            warn("[ERROR] Неизвестный формат ответа от сервера:", typeof(response), tostring(response))
+                    if buildSuccess and type(response) == "table" and response.success then
+                        successPurchase = true
+                        totalBought = totalBought + 1
+                        if response.results and response.results[1] and response.results[1].unique then
+                            local changeArgs = { unique = response.results[1].unique, cframe = localCFrame }
+                            if item.scale and item.scale ~= 1 then changeArgs.scale = item.scale end
+                            if buyProps.colors then changeArgs.colors = buyProps.colors end
+                            table.insert(pendingChanges, changeArgs)
                         end
+                    else
+                        warn(string.format("[WARNING] Сбой покупки предмета %d. Попытка %d из %d", i, attempts, maxAttempts))
+                        if type(response) == "table" then
+                            warn("Причина от сервера:", HttpService:JSONEncode(response))
+                        end
+                        task.wait(1.5) -- Ожидание перед повторной попыткой
                     end
-                    
-                    currentBatch = {}
-                    batchReferences = {}
-                    
-                    if CurrentBuildDelay > 0 then
-                        task.wait(CurrentBuildDelay)
-                    end
-                end
+                until successPurchase or attempts >= maxAttempts
+
+                if not successPurchase then totalFailed = totalFailed + 1 end
+                
+                if CurrentBuildDelay > 0 then task.wait(CurrentBuildDelay) end
             end
+
+            warn(string.format("=== ИТОГ: Успешно: %d | Пропущено: %d ===", totalBought, totalFailed))
             
             print("=== ИТОГИ ПОСТРОЙКИ ===")
             print(string.format("Успешно: %d | Провалено: %d", totalBought, totalFailed))
