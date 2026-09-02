@@ -1747,7 +1747,7 @@ end
         end)
     end
 
-    -- ==========================================
+-- ==========================================
 -- 7. МЕНЕДЖЕР КОНФИГОВ (CONFIG SYSTEM)
 -- ==========================================
 local HttpService = game:GetService("HttpService")
@@ -1761,14 +1761,12 @@ function Library:InitConfigSystem()
     end
 end
 
-function Library:SaveConfig(fileName)
-    if not writefile then 
-        warn("[Dusk] Executor does not support file saving.")
-        return 
-    end
+function Library:SaveConfig(fileName, quiet)
+    if not writefile then return end
     self:InitConfigSystem()
     
-    local saveTable = {}
+    local saveTable = { _Theme = self.CurrentThemeName }
+    
     for flag, value in pairs(self.Flags) do
         if typeof(value) == "Color3" then
             saveTable[flag] = { R = value.R, G = value.G, B = value.B, isColor = true }
@@ -1782,50 +1780,39 @@ function Library:SaveConfig(fileName)
     local success, json = pcall(function() return HttpService:JSONEncode(saveTable) end)
     if success then
         writefile(self.ConfigFolder .. "/" .. fileName .. ".json", json)
-        if self.Notify then self:Notify("Config System", "Successfully saved: " .. fileName, 3) end
-    else
-        if self.Notify then self:Notify("Error", "Failed to encode config!", 3) end
+        if not quiet and self.Notify then self:Notify("Config System", "Successfully saved", 3) end
     end
 end
 
-function Library:LoadConfig(fileName)
-    if not readfile or not isfile(self.ConfigFolder .. "/" .. fileName .. ".json") then 
-        if self.Notify then self:Notify("Error", "Config file not found!", 3) end
-        return false
-    end
+function Library:LoadConfig(fileName, quiet)
+    if not readfile or not isfile(self.ConfigFolder .. "/" .. fileName .. ".json") then return false end
     
     local json = readfile(self.ConfigFolder .. "/" .. fileName .. ".json")
     local success, data = pcall(function() return HttpService:JSONDecode(json) end)
     
     if success and type(data) == "table" then
+        if data._Theme then self:SetTheme(data._Theme) end
+
         for flag, value in pairs(data) do
-            if type(value) == "table" then
-                if value.isColor then
-                    value = Color3.new(value.R, value.G, value.B)
-                elseif value.isKeybind then
-                    value = Enum.KeyCode[value.Key]
+            if flag ~= "_Theme" then
+                if type(value) == "table" then
+                    if value.isColor then value = Color3.new(value.R, value.G, value.B)
+                    elseif value.isKeybind then value = Enum.KeyCode[value.Key] end
                 end
-            end
-            
-            self.Flags[flag] = value
-            
-            -- Триггерим визуальное обновление элемента
-            if self.ConfigUpdaters[flag] then
-                pcall(self.ConfigUpdaters[flag], value)
+                
+                self.Flags[flag] = value
+                if self.ConfigUpdaters[flag] then pcall(self.ConfigUpdaters[flag], value) end
             end
         end
-        if self.Notify then self:Notify("Config System", "Successfully loaded: " .. fileName, 3) end
+        if not quiet and self.Notify then self:Notify("Config System", "Successfully loaded", 3) end
         return true
-    else
-        if self.Notify then self:Notify("Error", "Failed to read config!", 3) end
-        return false
     end
+    return false
 end
 
 function Library:DeleteConfig(fileName)
     if isfile and isfile(self.ConfigFolder .. "/" .. fileName .. ".json") and delfile then
         delfile(self.ConfigFolder .. "/" .. fileName .. ".json")
-        if self.Notify then self:Notify("Config System", "Deleted: " .. fileName, 3) end
     end
 end
 
