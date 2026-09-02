@@ -1619,19 +1619,29 @@ function Library:CreateWindow(config)
         return Tab
     end
 
-
-    function Window:Build()
+function Window:Build()
         -- Запускаем лоадер, передавая ему наш ScreenGui
         Library:RunLoader(ScreenGui, function()
             -- Этот код выполнится только после того, как лоадер исчезнет
             MainFrame.Visible = true
             Library.Utils.TBT(MainFrame, 0.5, {GroupTransparency = 0})
+
+            -- ==========================================
+            -- ГЛОБАЛЬНАЯ НЕВИДИМАЯ СИСТЕМА СОХРАНЕНИЯ
+            -- ==========================================
+            task.spawn(function()
+                -- 1. Тихая загрузка всех сохраненных настроек
+                if isfile and isfile(Library.ConfigFolder .. "/" .. Library.AutoLoadFile .. ".json") then
+                    Library:LoadConfig(Library.AutoLoadFile, true)
+                end
+                
+                -- 2. Глобальный цикл фонового сохранения (каждые 3 секунды)
+                while task.wait(3) do
+                    Library:SaveConfig(Library.AutoLoadFile, true) 
+                end
+            end)
         end)
     end
-
-    return Window
-end
-
     -- ==========================================
     -- 6. СИСТЕМА УВЕДОМЛЕНИЙ (NOTIFICATIONS)
     -- ==========================================
