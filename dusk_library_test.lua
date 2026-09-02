@@ -222,8 +222,14 @@ function Library:SetTheme(themeName)
         self.CurrentTheme.Accent = DefaultAccents[themeName]
     end
 
+    -- === ФИКС СИНХРОНИЗАЦИИ ЦВЕТА ===
+    -- Заставляем Color Picker обновиться под новую тему, чтобы авто-сейв не сохранял старый цвет
+    if self.ConfigUpdaters and self.ConfigUpdaters["ThemeAccent"] then
+        -- pcall защищает от ошибки на этапе загрузки, когда пикер еще не создан
+        pcall(self.ConfigUpdaters["ThemeAccent"], self.CurrentTheme.Accent)
+    end
+
     for UIElement, Props in pairs(self.ThemeObjects) do
-        -- Убрали лишнюю проверку, так как таблица слабая (удаленные элементы исчезают сами)
         for Property, ThemeKey in pairs(Props) do
             Library.Utils.TBT(UIElement, 0.3, {[Property] = self.CurrentTheme[ThemeKey]})
             
@@ -1790,7 +1796,12 @@ function Library:SaveConfig(fileName, quiet)
     end
 
     local success, json = pcall(function() return HttpService:JSONEncode(saveTable) end)
+    
     if success then
+        -- ФИКС ФРИЗОВ: Если ничего не поменялось, отменяем запись на диск
+        if self.LastSavedJSON == json then return end 
+        self.LastSavedJSON = json -- Запоминаем текущее состояние
+        
         writefile(self.ConfigFolder .. "/" .. fileName .. ".json", json)
         if not quiet and self.Notify then self:Notify("Config System", "Successfully saved", 3) end
     end
