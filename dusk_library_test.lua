@@ -1803,7 +1803,7 @@ function Library:SaveConfig(fileName, quiet)
         self.LastSavedJSON = json -- Запоминаем текущее состояние
         
         writefile(self.ConfigFolder .. "/" .. fileName .. ".json", json)
-        end
+        if not quiet and self.Notify then self:Notify("Config System", "Successfully saved", 3) end
     end
 end
 
