@@ -476,9 +476,9 @@ function Module:Init(Library, Window, Tab)
     end)
 
     -- 2. Глобальный слушатель: автоматически ловит новые дома, когда они спавнятся
-    workspace.DescendantAdded:Connect(function(obj)
+    table.insert(Library.Connections, workspace.DescendantAdded:Connect(function(obj)
         checkAndCache(obj)
-    end)
+    end))
 
 Tab:CreateToggle({
         Name = "Auto Bypass Doors",
