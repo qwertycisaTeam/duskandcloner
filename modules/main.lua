@@ -92,7 +92,7 @@ function Module:Init(Library, Window, Tab)
             end
             SelectedHouse = nil 
         end
-        Library:Notify("Builder", "Список домов успешно обновлен!", 2)
+        Library:Notify("Builder", "House list successfully refreshed!", 2)
     end)
 
     local TopDivider = Library.Utils.Make("Frame", {
@@ -231,26 +231,26 @@ function Module:Init(Library, Window, Tab)
         local blueprint = workspace:FindFirstChild("HouseInteriors") and workspace.HouseInteriors:FindFirstChild("blueprint")
         
         if camY < 500 or camY > 8500 or not blueprint or #blueprint:GetChildren() == 0 then
-            return Library:Notify("Ошибка", "Строить можно только находясь внутри дома!", 4)
+            return Library:Notify("Error", "You can only build while inside a house!", 4)
         end
         if not SelectedHouse or SelectedHouse == "" or SelectedHouse == "Select..." then
-            return Library:Notify("Ошибка", "Сначала выбери дом в меню!", 3)
+            return Library:Notify("Error", "Select a house schematic first!", 3)
         end
         
         local filePath = FolderName .. "/" .. SelectedHouse .. ".json"
         if not isfile(filePath) then
-            return Library:Notify("Ошибка", "Файл не найден на диске!", 3)
+            return Library:Notify("Error", "File not found on disk!", 3)
         end
 
         task.spawn(function()
-            Library:Notify("Запуск", "Читаем файл: " .. SelectedHouse, 2)
+            Library:Notify("Builder", "Reading file: " .. SelectedHouse, 2)
             
             local success, fileData = pcall(function() return readfile(filePath) end)
-            if not success then return Library:Notify("Ошибка", "Не удалось прочитать файл!", 3) end
+            if not success then return Library:Notify("Error", "Failed to read file!", 3) end
             
             local decodeSuccess, savedHouse = pcall(function() return HttpService:JSONDecode(fileData) end)
             if not decodeSuccess or not savedHouse.furniture then
-                return Library:Notify("Ошибка", "Файл поврежден или имеет неверный формат!", 3)
+                return Library:Notify("Error", "File corrupted or invalid format!", 3)
             end
 
             local ACTUALLY_BUILD = true
@@ -309,7 +309,7 @@ function Module:Init(Library, Window, Tab)
             end
                     
             if CopyTextures and savedHouse.textures then
-                Library:Notify("Постройка", "Применяю обои и полы...", 2)
+                Library:Notify("Builder", "Applying wallpapers and floors...", 2)
                 local BuyTextureRemote = ReplicatedStorage:WaitForChild("API"):FindFirstChild("HousingAPI/BuyTexture")
                 if BuyTextureRemote then
                     for roomName, texData in pairs(savedHouse.textures) do
@@ -327,7 +327,7 @@ function Module:Init(Library, Window, Tab)
 
             if not ACTUALLY_BUILD then return end
             
-            Library:Notify("Постройка", "Начинаю закупку предметов...", 3)
+            Library:Notify("Builder", "Starting furniture purchase...", 3)
             
             local rawFurniture = savedHouse.furniture or savedHouse
             local pendingChanges = {}
@@ -400,7 +400,7 @@ function Module:Init(Library, Window, Tab)
             
             print("=== ИТОГИ ПОСТРОЙКИ ===")
             print(string.format("Успешно: %d | Провалено: %d", totalBought, totalFailed))
-            Library:Notify("Постройка", "Применяю размеры и цвета...", 3)
+            Library:Notify("Builder", "Applying sizes and colors...", 3)
             
             local chunk = {}
             for i, change in ipairs(pendingChanges) do
@@ -411,7 +411,7 @@ function Module:Init(Library, Window, Tab)
                     task.wait(0.5) 
                 end
             end
-            Library:Notify("Успех", "Дом " .. SelectedHouse .. " успешно построен!", 5)
+            Library:Notify("Success", "House successfully built!", 5)
         end)
     end)
 
@@ -422,7 +422,7 @@ function Module:Init(Library, Window, Tab)
 
     Tab:CreateToggle({
         Name = "Copy Textures (Wallpapers/Floors)",
-        Description = "Копировать обои и покрытие полов",
+        Description = "Copy wallpapers and floor materials.",
         Default = true,
         Flag = "Replicator_CopyTextures",
         Callback = function(state)
@@ -440,120 +440,6 @@ function Module:Init(Library, Window, Tab)
             CurrentBuildDelay = value / 1000 
         end
     })
-
--- ==========================================
-    -- 5. AUTO-DOOR BYPASS (OPTIMIZED & FIXED)
-    -- ==========================================
-    local successDoors, DoorsM = pcall(function()
-        return require(ReplicatedStorage.ClientModules.Core.DoorsM.DoorsM)
-    end)
-
-    local AutoDoorToggle = false
-    local lastTouchedDoor = nil
-    
-    -- === НАДЕЖНАЯ СИСТЕМА КЭШИРОВАНИЯ ===
-    local CachedDoors = {}
-
-    local function checkAndCache(obj)
-        -- Быстрая проверка, чтобы не грузить игру
-        if obj.Name == "TouchToEnter" and obj.Parent and obj.Parent.Name == "WorkingParts" then
-            CachedDoors[obj] = obj.Parent.Parent 
-        end
-    end
-
-    -- 1. Единоразово собираем двери, которые УЖЕ есть на карте
-    task.spawn(function()
-        local foldersToSearch = {"Interiors", "HouseExteriors", "Properties"}
-        for _, folderName in ipairs(foldersToSearch) do
-            local folder = workspace:FindFirstChild(folderName)
-            if folder then
-                for _, obj in pairs(folder:GetDescendants()) do
-                    checkAndCache(obj)
-                end
-            end
-        end
-    end)
-
-    -- 2. Глобальный слушатель: автоматически ловит новые дома, когда они спавнятся
-    workspace.DescendantAdded:Connect(function(obj)
-        checkAndCache(obj)
-    end)
-    -- =====================================
-
-    Tab:CreateToggle({
-        Name = "Auto Bypass Doors (Optimized)",
-        Description = "Мгновенное срабатывание. Снимает замки и не садит FPS.",
-        Default = false,
-        Flag = "Exploit_AutoDoors",
-        Callback = function(state)
-            AutoDoorToggle = state
-            
-            if AutoDoorToggle then
-                task.spawn(function()
-                    while AutoDoorToggle do
-                        local char = LocalPlayer.Character
-                        local hrp = char and char:FindFirstChild("HumanoidRootPart")
-                        
-                        if hrp then
-                            local closestDoor = nil
-                            local touchPart = nil
-                            local shortestDist = 2
-                            
-                            -- Перебираем только кэш (очень быстро)
-                            for tp, doorModel in pairs(CachedDoors) do
-                                -- ИСПРАВЛЕНО: Теперь тут стоит двоеточие ":" 
-                                if tp and tp.Parent and tp:IsDescendantOf(workspace) then 
-                                    local dist = (hrp.Position - tp.Position).Magnitude
-                                    if dist < shortestDist then
-                                        closestDoor = doorModel
-                                        touchPart = tp
-                                        shortestDist = dist
-                                    end
-                                else
-                                    -- Если дверь удалилась с карты, чистим память
-                                    CachedDoors[tp] = nil
-                                end
-                            end
-
-                            -- Взлом и вход
-                            if closestDoor and touchPart then
-                                if closestDoor ~= lastTouchedDoor then
-                                    if successDoors and DoorsM then
-                                        local doorObj = DoorsM.get_door(closestDoor)
-                                        if doorObj then
-                                            -- Взламываем все статусы (включая замки)
-                                            doorObj.is_open = true
-                                            doorObj.can_enter = true
-                                            doorObj.locked = false
-                                            doorObj.is_locked = false 
-                                            
-                                            -- Обновляем UI двери, если функция существует
-                                            if type(doorObj.update) == "function" then
-                                                pcall(function() doorObj:update() end)
-                                            end
-                                        end
-                                    end
-                                    
-                                    -- Эмуляция касания
-                                    if firetouchinterest then
-                                        firetouchinterest(hrp, touchPart, 0)
-                                        task.wait(0.1)
-                                        firetouchinterest(hrp, touchPart, 1)
-                                    end
-                                    
-                                    lastTouchedDoor = closestDoor
-                                    task.wait(4) -- Ожидание телепорта
-                                end
-                            else
-                                lastTouchedDoor = nil
-                            end
-                        end
-                        
-                        task.wait(0.2)
-                    end
-                end)
-            end
-        end
-    })
 end
+
 return Module
