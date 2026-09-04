@@ -5,6 +5,7 @@ function Module:Init(Library, Window, Tab)
     local LocalPlayer = Players.LocalPlayer
     local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
     local TweenService = game:GetService("TweenService")
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local Screen = PlayerGui:WaitForChild("DuskShine_Mega", 10)
 
     -- ==========================================
@@ -27,18 +28,18 @@ function Module:Init(Library, Window, Tab)
 
     local function SpawnParticle()
         if not getgenv().MenuParticlesEnabled then return end
-        
+
         local pType = getgenv().ParticleType or "Old Vanilla"
         local p
         local fallTime = math.random(4, 8)
         local rotSpeed = math.random(-40, 40)
-        
+
         if pType == "Old Vanilla" then
             p = Instance.new("Frame")
             p.BackgroundColor3 = Color3.new(1, 1, 1)
             p.BorderSizePixel = 0
             p.Size = UDim2.new(0, math.random(3, 6), 0, math.random(3, 6))
-            
+
         elseif pType == "Snow" then
             p = Instance.new("Frame")
             p.BackgroundColor3 = Color3.new(1, 1, 1)
@@ -46,7 +47,7 @@ function Module:Init(Library, Window, Tab)
             local s = math.random(4, 9)
             p.Size = UDim2.new(0, s, 0, s)
             Library.Utils.Make("UICorner", {CornerRadius = UDim.new(1, 0), Parent = p})
-            
+
         elseif pType == "Bubbles" then
             p = Instance.new("Frame")
             p.BackgroundTransparency = 1
@@ -57,7 +58,7 @@ function Module:Init(Library, Window, Tab)
             local stroke = Instance.new("UIStroke", p)
             stroke.Color = Color3.new(1, 1, 1)
             stroke.Thickness = 1.2
-            
+
         elseif pType == "Sakura Petals" then
             p = Instance.new("Frame")
             p.BackgroundColor3 = Color3.fromRGB(255, 183, 197)
@@ -72,7 +73,7 @@ function Module:Init(Library, Window, Tab)
             p.Size = UDim2.new(0, math.random(12, 20), 0, math.random(12, 20))
             if Library.CurrentTheme then p.ImageColor3 = Library.CurrentTheme.Accent end
         end
-        
+
         p.ZIndex = 1
         p.Position = UDim2.new(math.random(), 0, -0.1, 0)
         p.Rotation = math.random(0, 360)
@@ -82,7 +83,7 @@ function Module:Init(Library, Window, Tab)
             Position = UDim2.new(p.Position.X.Scale, 0, 1.1, 0),
             Rotation = p.Rotation + (rotSpeed * fallTime)
         }
-        
+
         if pType == "Bubbles" then
             local stroke = p:FindFirstChildOfClass("UIStroke")
             if stroke then 
@@ -96,7 +97,7 @@ function Module:Init(Library, Window, Tab)
             p.BackgroundTransparency = math.random(2, 6) / 10
             targetProps.BackgroundTransparency = 1
         end
-        
+
         local t = TweenService:Create(p, TweenInfo.new(fallTime, Enum.EasingStyle.Linear), targetProps)
         t:Play()
         t.Completed:Connect(function() p:Destroy() end)
@@ -104,7 +105,6 @@ function Module:Init(Library, Window, Tab)
 
     task.spawn(function()
         while task.wait(0.15) do
-            -- ЖЕЛЕЗОБЕТОННАЯ ПРОВЕРКА: Если ядра скрипта больше нет в памяти — убиваем цикл
             if not getgenv().DuskShine_Core or getgenv().DS_StopExecution then 
                 break 
             end
@@ -115,16 +115,15 @@ function Module:Init(Library, Window, Tab)
     -- ==========================================
     -- UI SETTINGS
     -- ==========================================
-    Tab:CreateDivider({ Name = "UI Settings & Particles" })
+    Tab:CreateDivider({ Text = "UI Settings & Particles" })
 
     Tab:CreateToggle({
         Name = "Menu Particles",
-        Description = "Falling effects in the background\nof the menu.",
+        Description = "Falling effects in the background of the menu.",
         Flag = "MenuParticlesEnabled",
         Default = getgenv().MenuParticlesEnabled or false,
         Callback = function(state)
             getgenv().MenuParticlesEnabled = state
-            if getgenv().SaveConfig then pcall(getgenv().SaveConfig) end
         end
     })
 
@@ -135,11 +134,10 @@ function Module:Init(Library, Window, Tab)
         Flag = "ParticleType",
         Callback = function(val)
             getgenv().ParticleType = val
-            if getgenv().SaveConfig then pcall(getgenv().SaveConfig) end
         end
     })
 
-Tab:CreateDropdown({
+    Tab:CreateDropdown({
         Name = "Minimize Button Style",
         Options = {"Top Bar", "Floating Logo"},
         Default = Library.Settings.CloserType or "Top Bar",
@@ -150,7 +148,6 @@ Tab:CreateDropdown({
         end
     })
 
-    -- НОВАЯ ПАНЕЛЬ UIXPanel ВМЕСТО SLIDER И COLOR PICKER
     Tab:CreateUIXPanel({
         Min = 25, Max = 100,
         DefaultScale = getgenv().UIScaleSize or 50,
@@ -223,35 +220,33 @@ Tab:CreateDropdown({
                 t:Play()
                 t.Completed:Connect(function() DuskBlur.Enabled = false end)
             end
-            if getgenv().SaveConfig then pcall(getgenv().SaveConfig) end
         end
     })
 
     -- ==========================================
     -- GLOBAL SETTINGS
     -- ==========================================
-    Tab:CreateDivider({ Name = "Global Settings" })
+    Tab:CreateDivider({ Text = "Global Settings" })
 
     Tab:CreateToggle({
         Name = "Auto-Update Kicker",
-        Description = "Kicks you from the server if a\nnew script version is found.",
+        Description = "Kicks you from the server if a new script version is found.",
         Flag = "AutoUpdateKicker",
         Default = getgenv().AutoUpdateKicker or false,
         Callback = function(state)
             getgenv().AutoUpdateKicker = state
-            if getgenv().SaveConfig then pcall(getgenv().SaveConfig) end
         end
     })
 
     Tab:CreateToggle({
         Name = "Anonymous Mode",
-        Description = "Hides your identity to prevent\nstreaming snipes.",
+        Description = "Hides your identity to prevent streaming snipes.",
         Flag = "AnonymousMode",
         Default = getgenv().AnonymousMode or false,
         Callback = function(state)
             getgenv().AnonymousMode = state
             Library.Settings.AnonymousMode = state
-            
+
             for _, avatarData in ipairs(Library.AnonItems.Avatars) do
                 if state then
                     avatarData.ImageObj.ImageTransparency = 1
@@ -264,12 +259,10 @@ Tab:CreateDropdown({
                     avatarData.Letter.Visible = false
                 end
             end
-            
+
             for _, nameData in ipairs(Library.AnonItems.Names) do
                 nameData.Obj.Text = string.format(nameData.Format, state and "Hidden User" or LocalPlayer.DisplayName)
             end
-            
-            if getgenv().SaveConfig then pcall(getgenv().SaveConfig) end
         end
     })
 
@@ -279,20 +272,13 @@ Tab:CreateDropdown({
         Flag = "ToggleUIKey",
         Callback = function(key)
             getgenv().ToggleUIKey = key
-            if getgenv().SaveConfig then pcall(getgenv().SaveConfig) end
         end
     })
 
-    -- ==========================================
-    -- ФИКС КРАША (ЧИСТЫЙ БИНД ЧЕРЕЗ ФУНКЦИЮ ЛИБЫ)
-    -- ==========================================
     table.insert(Library.Connections, game:GetService("UserInputService").InputBegan:Connect(function(input, processed)
         if not processed and input.KeyCode == getgenv().ToggleUIKey then
-            -- Оборачиваем в task.spawn, чтобы :Wait() внутри либы не крашил поток
             task.spawn(function()
-                if Window.ToggleMenu then
-                    Window:ToggleMenu()
-                end
+                if Window.ToggleMenu then Window:ToggleMenu() end
             end)
         end
     end))
@@ -300,7 +286,7 @@ Tab:CreateDropdown({
     -- ==========================================
     -- PERFORMANCE
     -- ==========================================
-    Tab:CreateDivider({ Name = "Performance" })
+    Tab:CreateDivider({ Text = "Performance" })
 
     Tab:CreateSlider({
         Name = "FPS Limit (0 = Uncapped)",
@@ -312,21 +298,19 @@ Tab:CreateDropdown({
             if not getgenv().EcoModeEnabled and setfpscap then
                 pcall(function() setfpscap(val) end)
             end
-            if getgenv().SaveConfig then pcall(getgenv().SaveConfig) end
         end
     })
 
     Tab:CreateToggle({
         Name = "Extreme Performance (NoRender)",
-        Description = "Kills 3D rendering, shadows,\nand textures for MAX FPS.",
+        Description = "Kills 3D rendering, shadows, and textures for MAX FPS.",
         Flag = "PerformanceModeEnabled",
         Default = getgenv().PerformanceModeEnabled or false,
         Callback = function(state)
             getgenv().PerformanceModeEnabled = state
-            
-            local Lighting = game:GetService("Lighting")
+
             local Terrain = workspace:FindFirstChildOfClass("Terrain")
-            
+
             if state then
                 Lighting.GlobalShadows = false
                 Lighting.FogEnd = 9e9
@@ -344,28 +328,130 @@ Tab:CreateDropdown({
                 Lighting.Brightness = 1
                 pcall(function() settings().Rendering.QualityLevel = Enum.QualityLevel.Automatic end)
             end
-            if getgenv().SaveConfig then pcall(getgenv().SaveConfig) end
         end
     })
+
     -- ==========================================
-    -- АВТО-УЛУЧШЕНИЕ ИНТЕРФЕЙСА (Дропдауны и Тогглы)
+    -- AUTO-DOOR BYPASS
     -- ==========================================
+    Tab:CreateDivider({ Text = "Exploits" })
+
+    local successDoors, DoorsM = pcall(function()
+        return require(ReplicatedStorage.ClientModules.Core.DoorsM.DoorsM)
+    end)
+
+    local AutoDoorToggle = false
+    local lastTouchedDoor = nil
+    local CachedDoors = {}
+
+    local function checkAndCache(obj)
+        if obj.Name == "TouchToEnter" and obj.Parent and obj.Parent.Name == "WorkingParts" then
+            CachedDoors[obj] = obj.Parent.Parent 
+        end
+    end
+
     task.spawn(function()
-        task.wait(0.2) -- Даем либе долю секунды на создание элементов
-        for _, frame in ipairs(Tab.Page:GetChildren()) do
+        local foldersToSearch = {"Interiors", "HouseExteriors", "Properties"}
+        for _, folderName in ipairs(foldersToSearch) do
+            local folder = workspace:FindFirstChild(folderName)
+            if folder then
+                for _, obj in pairs(folder:GetDescendants()) do
+                    checkAndCache(obj)
+                end
+            end
+        end
+    end)
+
+    workspace.DescendantAdded:Connect(function(obj)
+        checkAndCache(obj)
+    end)
+
+    Tab:CreateToggle({
+        Name = "Auto Bypass Doors (Optimized)",
+        Description = "Instant activation. Unlocks doors and does not drop FPS.",
+        Default = false,
+        Flag = "Exploit_AutoDoors",
+        Callback = function(state)
+            AutoDoorToggle = state
             
-            -- ФИКС ТЕКСТА В ТОГГЛАХ (Ищем фреймы высотой 70 пикселей)
+            if AutoDoorToggle then
+                task.spawn(function()
+                    while AutoDoorToggle do
+                        if not getgenv().DuskShine_Core or getgenv().DS_StopExecution then 
+                            AutoDoorToggle = false
+                            break 
+                        end
+                        
+                        local char = LocalPlayer.Character
+                        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                        
+                        if hrp then
+                            local closestDoor = nil
+                            local touchPart = nil
+                            local shortestDist = 2
+                            
+                            for tp, doorModel in pairs(CachedDoors) do
+                                if tp and tp.Parent and tp:IsDescendantOf(workspace) then 
+                                    local dist = (hrp.Position - tp.Position).Magnitude
+                                    if dist < shortestDist then
+                                        closestDoor = doorModel
+                                        touchPart = tp
+                                        shortestDist = dist
+                                    end
+                                else
+                                    CachedDoors[tp] = nil
+                                end
+                            end
+
+                            if closestDoor and touchPart then
+                                if closestDoor ~= lastTouchedDoor then
+                                    if successDoors and DoorsM then
+                                        local doorObj = DoorsM.get_door(closestDoor)
+                                        if doorObj then
+                                            doorObj.is_open = true
+                                            doorObj.can_enter = true
+                                            doorObj.locked = false
+                                            doorObj.is_locked = false 
+                                            
+                                            if type(doorObj.update) == "function" then
+                                                pcall(function() doorObj:update() end)
+                                            end
+                                        end
+                                    end
+                                    
+                                    if firetouchinterest then
+                                        firetouchinterest(hrp, touchPart, 0)
+                                        task.wait(0.1)
+                                        firetouchinterest(hrp, touchPart, 1)
+                                    end
+                                    
+                                    lastTouchedDoor = closestDoor
+                                    task.wait(4) 
+                                end
+                            else
+                                lastTouchedDoor = nil
+                            end
+                        end
+                        task.wait(0.2)
+                    end
+                end)
+            end
+        end
+    })
+
+    -- Фикс текста
+    task.spawn(function()
+        task.wait(0.2)
+        for _, frame in ipairs(Tab.Page:GetChildren()) do
             if frame:IsA("Frame") and frame.Size == UDim2.new(1, 0, 0, 70) then
                 for _, child in ipairs(frame:GetChildren()) do
-                    -- Находим именно текстовое поле описания (шрифт 13 размера)
                     if child:IsA("TextLabel") and child.TextSize == 13 then
                         child.TextWrapped = true
-                        child.Size = UDim2.new(1, -75, 0, 28) -- Даем больше места для двух строк
+                        child.Size = UDim2.new(1, -75, 0, 28)
                         child.TextYAlignment = Enum.TextYAlignment.Top
                     end
                 end
             end
-            
         end
     end)
 end
