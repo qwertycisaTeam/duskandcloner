@@ -135,7 +135,7 @@ function Module:Init(Library, Window, Tab)
         end
     })
 
-    Tab:CreateDropdown({
+Tab:CreateDropdown({
         Name = "Minimize Button Style",
         Options = {"Top Bar", "Floating Logo"},
         Default = Library.Settings.CloserType or "Top Bar",
@@ -143,28 +143,23 @@ function Module:Init(Library, Window, Tab)
         Callback = function(val)
             Library.Settings.CloserType = val
             getgenv().CloserType = val
-            if getgenv().SaveConfig then pcall(getgenv().SaveConfig) end
         end
     })
 
-    Tab:CreateSlider({
-        Name = "UI Scale (%)",
+    -- НОВАЯ ПАНЕЛЬ UIXPanel ВМЕСТО SLIDER И COLOR PICKER
+    Tab:CreateUIXPanel({
         Min = 25, Max = 100,
-        Default = getgenv().UIScaleSize or 50,
-        Flag = "UIScaleSize",
-        Callback = function(val)
+        DefaultScale = getgenv().UIScaleSize or 50,
+        ScaleFlag = "UIScaleSize",
+        ScaleCallback = function(val)
             getgenv().UIScaleSize = val
             local UIScaleObj = Screen and Screen:FindFirstChildOfClass("UIScale")
             if UIScaleObj then UIScaleObj.Scale = val / 100 end
-            if getgenv().SaveConfig then pcall(getgenv().SaveConfig) end
-        end
-    })
+        end,
 
-    Tab:CreateColorPicker({
-        Name = "UI Accent Color",
-        Default = Library.CurrentTheme.Accent or Color3.fromRGB(255, 255, 255),
-        Flag = "ThemeAccent",
-        Callback = function(col)
+        DefaultColor = Library.CurrentTheme.Accent or Color3.fromRGB(255, 255, 255),
+        ColorFlag = "ThemeAccent",
+        ColorCallback = function(col)
             Library.CurrentTheme.Accent = col
             Library.Themes.Dark.Accent = col
             Library.Themes.Light.Accent = col
@@ -187,7 +182,6 @@ function Module:Init(Library, Window, Tab)
                     end
                 end
             end
-            if getgenv().SaveConfig then pcall(getgenv().SaveConfig) end
         end
     })
 
