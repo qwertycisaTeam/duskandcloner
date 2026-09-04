@@ -104,6 +104,10 @@ function Module:Init(Library, Window, Tab)
 
     task.spawn(function()
         while task.wait(0.15) do
+            -- ЖЕЛЕЗОБЕТОННАЯ ПРОВЕРКА: Если ядра скрипта больше нет в памяти — убиваем цикл
+            if not getgenv().DuskShine_Core or getgenv().DS_StopExecution then 
+                break 
+            end
             if Window.MainFrame.Visible then SpawnParticle() end
         end
     end)
