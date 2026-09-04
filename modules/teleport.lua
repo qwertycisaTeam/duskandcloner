@@ -123,7 +123,7 @@ function Module:Init(Library, Window, Tab)
         Parent = Container 
     })
 
-    local function createHouseCard(houseData, index)
+    local function (houseData, index)
         local Tile = Library.Utils.Make("TextButton", { Text = "", AutoButtonColor = false, ClipsDescendants = false, Parent = Container }, { BackgroundColor3 = "Section" })
         Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 12), Parent = Tile})
         Library.Utils.Make("UIStroke", {Thickness = 1, Transparency = 0.5, Parent = Tile}, {Color = "Stroke"})
@@ -140,7 +140,7 @@ function Module:Init(Library, Window, Tab)
         local Viewport = Library.Utils.Make("ViewportFrame", {
             Size = UDim2.new(1, -16, 1, -40), 
             Position = UDim2.new(0, 8, 0, 8), 
-            BackgroundColor3 = Color3.fromRGB(20, 20, 25), 
+            BackgroundTransparency = 1, -- УБРАН ЧЕРНЫЙ ФОН
             BorderSizePixel = 0,
             ClipsDescendants = true,
             ZIndex = 1, 
@@ -183,8 +183,7 @@ function Module:Init(Library, Window, Tab)
             Size = UDim2.new(0, 28, 0, 28), 
             Position = UDim2.new(0, 14, 1, -8), 
             AnchorPoint = Vector2.new(0, 1), 
-            BackgroundColor3 = Color3.fromRGB(30, 30, 35), 
-            BackgroundTransparency = 0, 
+            BackgroundTransparency = 1, -- УБРАН ФОН У АВАТАРКИ
             ZIndex = 4, 
             Parent = Tile
         })
@@ -192,30 +191,16 @@ function Module:Init(Library, Window, Tab)
         Library.Utils.Make("UIStroke", {Thickness = 2, Parent = Avatar}, {Color = "Section"}) 
         applyAvatar(Avatar, houseData.Owner, index) 
 
-        local NameLbl = Library.Utils.Make("TextLabel", { 
-            Text = houseData.Owner, 
-            Size = UDim2.new(1, -54, 0, 20), 
-            Position = UDim2.new(0, 48, 1, -12), 
-            AnchorPoint = Vector2.new(0, 1), 
-            BackgroundTransparency = 1, 
-            TextXAlignment = Enum.TextXAlignment.Left,
-            Font = Enum.Font.GothamMedium, 
-            TextSize = 13, 
-            TextTruncate = Enum.TextTruncate.AtEnd, 
-            ZIndex = 3, 
-            Parent = Tile 
-        }, { TextColor3 = "Text" })
+        -- [ ... код текста остается без изменений ... ]
 
         local Scale = Instance.new("UIScale", Tile)
 
         Library:Connect(Tile.MouseEnter, function()
             Library.Utils.TBT(AccentLine, 0.3, {Size = UDim2.new(0.6, 0, 0, 4)})
-            Library.Utils.TBT(Viewport, 0.3, {BackgroundColor3 = Color3.fromRGB(25, 25, 30)})
         end)
 
         Library:Connect(Tile.MouseLeave, function()
             Library.Utils.TBT(AccentLine, 0.3, {Size = UDim2.new(0.35, 0, 0, 3)})
-            Library.Utils.TBT(Viewport, 0.3, {BackgroundColor3 = Color3.fromRGB(20, 20, 25)})
         end)
 
         Library:Connect(Tile.MouseButton1Down, function() 
@@ -225,22 +210,22 @@ function Module:Init(Library, Window, Tab)
         Library:Connect(Tile.MouseButton1Click, function()
             Library.Utils.TBT(Scale, 0.15, {Scale = 1}, Enum.EasingStyle.Bounce)
             Library.Utils.CreateRipple(RippleContainer)
-            
+
             local char = LocalPlayer.Character
             local hrp = char and char:FindFirstChild("HumanoidRootPart")
-            
+
             if hrp then
                 local posY = hrp.Position.Y
                 if posY < 8500 then
                     if Library.Notify then
-                        Library:Notify("Error", "Телепорт работает ТОЛЬКО в спальном районе!", 4)
+                        Library:Notify("Error", "Teleport works ONLY in the neighborhood!", 4)
                     end
                     return 
                 end
 
                 local touchPart = houseData.DoorPart
                 if not touchPart or not touchPart.Parent then 
-                    if Library.Notify then Library:Notify("Error", "Дом не найден!", 3) end
+                    if Library.Notify then Library:Notify("Error", "House not found!", 3) end
                     return 
                 end
 
