@@ -29,7 +29,7 @@ local Library = {
         CloserType = "Top Bar"
     },
     Connections = {},
-    ThemeObjects = {},
+    ThemeObjects = setmetatable({}, {__mode = "k"}),
     AnonItems = { Avatars = {}, Names = {}, UIDs = {} },
     Utils = {}
 }
@@ -207,9 +207,7 @@ function Library.Utils.Make(className, properties, themeProps)
                 Library.Utils.ApplyGradient(inst, Library.CurrentTheme.Accent)
             end
 
-            inst.Destroying:Connect(function()
-                Library.ThemeObjects[inst] = nil
-            end)
+            
         end
     end
     return inst
