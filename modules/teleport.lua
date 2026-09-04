@@ -13,17 +13,17 @@ function Module:Init(Library, Window, Tab)
     local function applyAvatar(imageLabel, username, index)
         task.spawn(function()
             task.wait(index * 0.15) 
-            
+
             local userId = nil
             local player = Players:FindFirstChild(username)
-            
+
             if player then
                 userId = player.UserId
             else
                 local success, id = pcall(function() return Players:GetUserIdFromNameAsync(username) end)
                 if success then userId = id end
             end
-            
+
             if userId then
                 imageLabel.Image = "rbxthumb://type=AvatarHeadShot&id=" .. userId .. "&w=150&h=150"
             else
@@ -38,13 +38,13 @@ function Module:Init(Library, Window, Tab)
     local function buildCleanPreview(houseType, viewportFrame)
         local Resources = ReplicatedStorage:FindFirstChild("Resources")
         if not Resources then return end
-        
+
         local houseExteriors = Resources:FindFirstChild("HouseExteriors")
         local houseModel = houseExteriors and houseExteriors:FindFirstChild(houseType)
-        
+
         if houseModel then
             local displayHouse = houseModel:Clone()
-            
+
             if displayHouse:FindFirstChild("Doors") then displayHouse.Doors:Destroy() end
             for _, part in pairs(displayHouse:GetDescendants()) do
                 if part:IsA("BasePart") then
@@ -59,9 +59,9 @@ function Module:Init(Library, Window, Tab)
                     part:Destroy() 
                 end
             end
-            
+
             displayHouse.Parent = viewportFrame
-            
+
             local cf, size = displayHouse:GetBoundingBox()
             return displayHouse, size, cf.Position
         end
@@ -78,11 +78,11 @@ function Module:Init(Library, Window, Tab)
             if houseModel and houseModel:FindFirstChild("Doors") and houseModel.Doors:FindFirstChild("MainDoor") then
                 local mainDoor = houseModel.Doors.MainDoor
                 local config = mainDoor:FindFirstChild("WorkingParts") and mainDoor.WorkingParts:FindFirstChild("Configuration")
-                
+
                 if config and config:FindFirstChild("house_owner") then
                     local ownerName = config.house_owner.Value
                     local touchPart = mainDoor.WorkingParts:FindFirstChild("TouchToEnter")
-                    
+
                    if ownerName and ownerName ~= "" and touchPart then
                         table.insert(houses, {
                             Owner = ownerName,
@@ -115,7 +115,7 @@ function Module:Init(Library, Window, Tab)
         BackgroundTransparency = 1, 
         Parent = Tab.Page 
     })
-    
+
     Library.Utils.Make("UIGridLayout", { 
         CellSize = UDim2.new(0.48, 0, 0, 150), 
         CellPadding = UDim2.new(0.04, 0, 0, 15), 
@@ -123,11 +123,11 @@ function Module:Init(Library, Window, Tab)
         Parent = Container 
     })
 
-    local function (houseData, index)
+    local function createHouseCard(houseData, index)
         local Tile = Library.Utils.Make("TextButton", { Text = "", AutoButtonColor = false, ClipsDescendants = false, Parent = Container }, { BackgroundColor3 = "Section" })
         Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 12), Parent = Tile})
         Library.Utils.Make("UIStroke", {Thickness = 1, Transparency = 0.5, Parent = Tile}, {Color = "Stroke"})
-        
+
         Library.Utils.Make("UIPadding", { 
             PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 8), 
             PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8), 
@@ -140,7 +140,7 @@ function Module:Init(Library, Window, Tab)
         local Viewport = Library.Utils.Make("ViewportFrame", {
             Size = UDim2.new(1, -16, 1, -40), 
             Position = UDim2.new(0, 8, 0, 8), 
-            BackgroundTransparency = 1, -- УБРАН ЧЕРНЫЙ ФОН
+            BackgroundTransparency = 1,
             BorderSizePixel = 0,
             ClipsDescendants = true,
             ZIndex = 1, 
@@ -160,16 +160,16 @@ function Module:Init(Library, Window, Tab)
         Library.Utils.Make("UICorner", {CornerRadius = UDim.new(1, 0), Parent = AccentLine})
 
         local displayHouse, houseSize, centerPos = buildCleanPreview(houseData.HouseType, Viewport)
-        
+
         if displayHouse and houseSize and centerPos then
             local VpCamera = Instance.new("Camera")
             VpCamera.FieldOfView = 50 
             Viewport.CurrentCamera = VpCamera
             VpCamera.Parent = Viewport
-            
+
             local radius = houseSize.Magnitude / 2
             local distance = (radius / math.tan(math.rad(VpCamera.FieldOfView / 2))) * 1.1
-            
+
             local angle = 0
             RunService.RenderStepped:Connect(function(dt)
                 if not Viewport.Parent then return end
@@ -183,7 +183,7 @@ function Module:Init(Library, Window, Tab)
             Size = UDim2.new(0, 28, 0, 28), 
             Position = UDim2.new(0, 14, 1, -8), 
             AnchorPoint = Vector2.new(0, 1), 
-            BackgroundTransparency = 1, -- УБРАН ФОН У АВАТАРКИ
+            BackgroundTransparency = 1, 
             ZIndex = 4, 
             Parent = Tile
         })
@@ -191,7 +191,19 @@ function Module:Init(Library, Window, Tab)
         Library.Utils.Make("UIStroke", {Thickness = 2, Parent = Avatar}, {Color = "Section"}) 
         applyAvatar(Avatar, houseData.Owner, index) 
 
-        -- [ ... код текста остается без изменений ... ]
+        local NameLbl = Library.Utils.Make("TextLabel", { 
+            Text = houseData.Owner, 
+            Size = UDim2.new(1, -54, 0, 20), 
+            Position = UDim2.new(0, 48, 1, -12), 
+            AnchorPoint = Vector2.new(0, 1), 
+            BackgroundTransparency = 1, 
+            TextXAlignment = Enum.TextXAlignment.Left,
+            Font = Enum.Font.GothamMedium, 
+            TextSize = 13, 
+            TextTruncate = Enum.TextTruncate.AtEnd, 
+            ZIndex = 3, 
+            Parent = Tile 
+        }, { TextColor3 = "Text" })
 
         local Scale = Instance.new("UIScale", Tile)
 
@@ -218,7 +230,7 @@ function Module:Init(Library, Window, Tab)
                 local posY = hrp.Position.Y
                 if posY < 8500 then
                     if Library.Notify then
-                        Library:Notify("Error", "Teleport works ONLY in the neighborhood!", 4)
+                        Library:Notify("Error", "Teleport ONLY works in the neighborhood!", 4)
                     end
                     return 
                 end
@@ -229,29 +241,21 @@ function Module:Init(Library, Window, Tab)
                     return 
                 end
 
-                -- 1. Телепортируемся в триггер, но разворачиваем персонажа ЛИЦОМ в дом
-                -- (Смотрим на точку, которая находится на 5 стадов позади двери)
                 local lookTarget = (touchPart.CFrame * CFrame.new(0, 0, -5)).Position
                 hrp.CFrame = CFrame.lookAt(touchPart.Position, lookTarget)
-                
+
                 if Library.Notify then
                     Library:Notify("Teleport", "Entering " .. houseData.Owner .. "'s house...", 3, "10723426722")
                 end
 
-                -- ==========================================
-                -- ЛОГИКА МГНОВЕННОГО ВХОДА
-                -- ==========================================
                 task.spawn(function()
                     task.wait(0.25) 
-                    
                     local doorModel = touchPart.Parent.Parent
-                    
-                    -- 2. Снимаем замки
                     pcall(function()
                         local successDoors, DoorsM = pcall(function()
                             return require(ReplicatedStorage.ClientModules.Core.DoorsM.DoorsM)
                         end)
-                        
+
                         if successDoors and DoorsM then
                             local doorObj = DoorsM.get_door(doorModel)
                             if doorObj then
@@ -265,12 +269,9 @@ function Module:Init(Library, Window, Tab)
                             end
                         end
                     end)
-                    
-                    -- 3. МИКРО-ДВИЖЕНИЕ ВПЕРЕД (Толкаем персонажа лицом вглубь дома)
-                    -- Вектор -Z (0, 0, -0.5) означает движение вперед туда, куда смотрит лицо
+
                     hrp.CFrame = hrp.CFrame * CFrame.new(0, 0, -0.5)
-                    
-                    -- 4. Добивка эмуляцией
+
                     if firetouchinterest then
                         firetouchinterest(hrp, touchPart, 0)
                         task.wait(0.1)
@@ -281,9 +282,6 @@ function Module:Init(Library, Window, Tab)
         end)
     end
 
-    -- ==========================================
-    -- АВТО-ОБНОВЛЕНИЕ КАРТОЧЕК С КЭШЕМ
-    -- ==========================================
     local refreshThread = nil
     local CachedHouses = {}
 
@@ -296,14 +294,13 @@ function Module:Init(Library, Window, Tab)
 
         local success, err = pcall(function()
             local houses = getServerHouses()
-            
-            -- Логика кэша: обновляем кэш только если дома реально найдены
+
             if #houses > 0 then
                 CachedHouses = houses
             else
                 houses = CachedHouses 
             end
-            
+
             if #houses > 0 then
                 for index, houseData in ipairs(houses) do
                     createHouseCard(houseData, index)
@@ -316,8 +313,8 @@ function Module:Init(Library, Window, Tab)
                 }, 1)
             end
         end)
-        
-        if not success then warn("[Dusk&Shine Teleport] Ошибка рендера: ", err) end
+
+        if not success then warn("[Dusk&Shine Teleport] Render error: ", err) end
     end
 
     local function queueRefresh()
@@ -337,15 +334,117 @@ function Module:Init(Library, Window, Tab)
                 queueRefresh()
             end
         end)
-        
+
         workspaceExteriors.DescendantRemoving:Connect(function(descendant)
             if descendant.Parent and descendant.Parent.Parent == workspaceExteriors then
                 queueRefresh()
             end
         end)
     end
-    
+
     Players.PlayerRemoving:Connect(queueRefresh)
+    
+    -- ==========================================
+    -- 5. AUTO-DOOR BYPASS (OPTIMIZED & FIXED)
+    -- ==========================================
+    local successDoors, DoorsM = pcall(function()
+        return require(ReplicatedStorage.ClientModules.Core.DoorsM.DoorsM)
+    end)
+
+    local AutoDoorToggle = false
+    local lastTouchedDoor = nil
+    
+    local CachedDoors = {}
+
+    local function checkAndCache(obj)
+        if obj.Name == "TouchToEnter" and obj.Parent and obj.Parent.Name == "WorkingParts" then
+            CachedDoors[obj] = obj.Parent.Parent 
+        end
+    end
+
+    task.spawn(function()
+        local foldersToSearch = {"Interiors", "HouseExteriors", "Properties"}
+        for _, folderName in ipairs(foldersToSearch) do
+            local folder = workspace:FindFirstChild(folderName)
+            if folder then
+                for _, obj in pairs(folder:GetDescendants()) do
+                    checkAndCache(obj)
+                end
+            end
+        end
+    end)
+
+    workspace.DescendantAdded:Connect(function(obj)
+        checkAndCache(obj)
+    end)
+
+    Tab:CreateToggle({
+        Name = "Auto Bypass Doors (Optimized)",
+        Description = "Instant activation. Unlocks doors and does not drop FPS.",
+        Default = false,
+        Flag = "Exploit_AutoDoors",
+        Callback = function(state)
+            AutoDoorToggle = state
+            
+            if AutoDoorToggle then
+                task.spawn(function()
+                    while AutoDoorToggle do
+                        local char = LocalPlayer.Character
+                        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                        
+                        if hrp then
+                            local closestDoor = nil
+                            local touchPart = nil
+                            local shortestDist = 2
+                            
+                            for tp, doorModel in pairs(CachedDoors) do
+                                if tp and tp.Parent and tp:IsDescendantOf(workspace) then 
+                                    local dist = (hrp.Position - tp.Position).Magnitude
+                                    if dist < shortestDist then
+                                        closestDoor = doorModel
+                                        touchPart = tp
+                                        shortestDist = dist
+                                    end
+                                else
+                                    CachedDoors[tp] = nil
+                                end
+                            end
+
+                            if closestDoor and touchPart then
+                                if closestDoor ~= lastTouchedDoor then
+                                    if successDoors and DoorsM then
+                                        local doorObj = DoorsM.get_door(closestDoor)
+                                        if doorObj then
+                                            doorObj.is_open = true
+                                            doorObj.can_enter = true
+                                            doorObj.locked = false
+                                            doorObj.is_locked = false 
+                                            
+                                            if type(doorObj.update) == "function" then
+                                                pcall(function() doorObj:update() end)
+                                            end
+                                        end
+                                    end
+                                    
+                                    if firetouchinterest then
+                                        firetouchinterest(hrp, touchPart, 0)
+                                        task.wait(0.1)
+                                        firetouchinterest(hrp, touchPart, 1)
+                                    end
+                                    
+                                    lastTouchedDoor = closestDoor
+                                    task.wait(4) 
+                                end
+                            else
+                                lastTouchedDoor = nil
+                            end
+                        end
+                        task.wait(0.2)
+                    end
+                end)
+            end
+        end
+    })
 end
 
 return Module
