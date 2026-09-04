@@ -115,7 +115,7 @@ function Module:Init(Library, Window, Tab)
     -- ==========================================
     -- UI SETTINGS
     -- ==========================================
-    Tab:CreateSection({ Name = "UI Settings & Particles" })
+    Tab:CreateDivider({ Name = "UI Settings & Particles" })
 
     Tab:CreateToggle({
         Name = "Menu Particles",
@@ -230,7 +230,7 @@ Tab:CreateDropdown({
     -- ==========================================
     -- GLOBAL SETTINGS
     -- ==========================================
-    Tab:CreateSection({ Name = "Global Settings" })
+    Tab:CreateDivider({ Name = "Global Settings" })
 
     Tab:CreateToggle({
         Name = "Auto-Update Kicker",
@@ -300,7 +300,7 @@ Tab:CreateDropdown({
     -- ==========================================
     -- PERFORMANCE
     -- ==========================================
-    Tab:CreateSection({ Name = "Performance" })
+    Tab:CreateDivider({ Name = "Performance" })
 
     Tab:CreateSlider({
         Name = "FPS Limit (0 = Uncapped)",
