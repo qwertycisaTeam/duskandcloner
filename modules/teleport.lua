@@ -327,23 +327,22 @@ function Module:Init(Library, Window, Tab)
 
     queueRefresh()
 
-    local workspaceExteriors = workspace:WaitForChild("HouseExteriors", 5)
+local workspaceExteriors = workspace:WaitForChild("HouseExteriors", 5)
     if workspaceExteriors then
-        workspaceExteriors.DescendantAdded:Connect(function(descendant)
+        table.insert(Library.Connections, workspaceExteriors.DescendantAdded:Connect(function(descendant)
             if descendant.Parent and descendant.Parent.Parent == workspaceExteriors then
                 queueRefresh()
             end
-        end)
+        end))
 
-        workspaceExteriors.DescendantRemoving:Connect(function(descendant)
+        table.insert(Library.Connections, workspaceExteriors.DescendantRemoving:Connect(function(descendant)
             if descendant.Parent and descendant.Parent.Parent == workspaceExteriors then
                 queueRefresh()
             end
-        end)
+        end))
     end
 
-    Players.PlayerRemoving:Connect(queueRefresh)
-    
+   table.insert(Library.Connections, Players.PlayerRemoving:Connect(queueRefresh))
 end
 
 return Module
