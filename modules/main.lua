@@ -480,7 +480,7 @@ function Module:Init(Library, Window, Tab)
         checkAndCache(obj)
     end)
 
-    Tab:CreateToggle({
+Tab:CreateToggle({
         Name = "Auto Bypass Doors",
         Description = "Instant activation. Unlocks doors and does not drop FPS.",
         Default = false,
@@ -491,8 +491,11 @@ function Module:Init(Library, Window, Tab)
             if AutoDoorToggle then
                 task.spawn(function()
                     while AutoDoorToggle do
-                        -- Безопасный обрыв цикла при краше (логика while не тронута)
-                        if getgenv().DS_StopExecution then break end
+                        -- УЛЬТИМАТИВНАЯ ПРОВЕРКА: Если окно удалено или нажат крестик — убиваем цикл!
+                        if getgenv().DS_StopExecution or not Window.MainFrame or not Window.MainFrame.Parent then 
+                            AutoDoorToggle = false
+                            break 
+                        end
                         
                         local char = LocalPlayer.Character
                         local hrp = char and char:FindFirstChild("HumanoidRootPart")
@@ -504,7 +507,6 @@ function Module:Init(Library, Window, Tab)
                             
                             -- Перебираем только кэш (очень быстро)
                             for tp, doorModel in pairs(CachedDoors) do
-                                -- ИСПРАВЛЕНО: Теперь тут стоит двоеточие ":" 
                                 if tp and tp.Parent and tp:IsDescendantOf(workspace) then 
                                     local dist = (hrp.Position - tp.Position).Magnitude
                                     if dist < shortestDist then
@@ -513,7 +515,6 @@ function Module:Init(Library, Window, Tab)
                                         shortestDist = dist
                                     end
                                 else
-                                    -- Если дверь удалилась с карты, чистим память
                                     CachedDoors[tp] = nil
                                 end
                             end
@@ -524,20 +525,17 @@ function Module:Init(Library, Window, Tab)
                                     if successDoors and DoorsM then
                                         local doorObj = DoorsM.get_door(closestDoor)
                                         if doorObj then
-                                            -- Взламываем все статусы (включая замки)
                                             doorObj.is_open = true
                                             doorObj.can_enter = true
                                             doorObj.locked = false
                                             doorObj.is_locked = false 
                                             
-                                            -- Обновляем UI двери, если функция существует
                                             if type(doorObj.update) == "function" then
                                                 pcall(function() doorObj:update() end)
                                             end
                                         end
                                     end
                                     
-                                    -- Эмуляция касания
                                     if firetouchinterest then
                                         firetouchinterest(hrp, touchPart, 0)
                                         task.wait(0.1)
