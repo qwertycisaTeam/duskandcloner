@@ -1,4 +1,6 @@
--- [lib by rio] Latest Update: 09.08.26 / library version 2 [рефакторинг от 10.08]
+--[[lib by rio] Latest Update: 09.08.26 / library version 2 [рефакторинг от 10.08] / 03.09 library ver 3 [loader, size of mac buttons, polzunok updated, CreateUIXPanel функция для settings.
+CreateSlider тоже обновлен, добавлен черный выделительный прямоугольник под count.
+v4 от 4 сент, fixed scrolling & scale sync [важный очень фикс)]]
 
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -222,14 +224,8 @@ function Library:SetTheme(themeName)
         self.CurrentTheme.Accent = DefaultAccents[themeName]
     end
 
-    -- === ФИКС СИНХРОНИЗАЦИИ ЦВЕТА ===
-    -- Заставляем Color Picker обновиться под новую тему, чтобы авто-сейв не сохранял старый цвет
-    if self.ConfigUpdaters and self.ConfigUpdaters["ThemeAccent"] then
-        -- pcall защищает от ошибки на этапе загрузки, когда пикер еще не создан
-        pcall(self.ConfigUpdaters["ThemeAccent"], self.CurrentTheme.Accent)
-    end
-
     for UIElement, Props in pairs(self.ThemeObjects) do
+        -- Убрали лишнюю проверку, так как таблица слабая (удаленные элементы исчезают сами)
         for Property, ThemeKey in pairs(Props) do
             Library.Utils.TBT(UIElement, 0.3, {[Property] = self.CurrentTheme[ThemeKey]})
             
@@ -274,27 +270,34 @@ function Library:RunLoader(ScreenGui, OnComplete)
     local BarFill = Library.Utils.Make("Frame", { Size = UDim2.new(0, 0, 1, 0), BorderSizePixel = 0, Parent = BarBG }, { BackgroundColor3 = "Accent" })
     Library.Utils.Make("UICorner", {CornerRadius = UDim.new(1, 0), Parent = BarFill})
 
-    Library.Utils.TBT(LoaderCard, 0.2, {BackgroundTransparency = 0.05}) 
-    Library.Utils.TBT(Stroke, 0.2, {Transparency = 0}) 
-    Library.Utils.TBT(Logo, 0.25, {ImageTransparency = 0, Position = UDim2.new(0.5, 0, 0.3, 0)}) 
-    Library.Utils.TBT(Title, 0.25, {TextTransparency = 0}) 
-    Library.Utils.TBT(Status, 0.25, {TextTransparency = 0}) 
-    Library.Utils.TBT(BarBG, 0.25, {BackgroundTransparency = 0})
+    Library.Utils.TBT(LoaderCard, 0.5, {BackgroundTransparency = 0.05}) 
+    Library.Utils.TBT(Stroke, 0.5, {Transparency = 0}) 
+    Library.Utils.TBT(Logo, 0.6, {ImageTransparency = 0, Position = UDim2.new(0.5, 0, 0.3, 0)}) 
+    Library.Utils.TBT(Title, 0.6, {TextTransparency = 0}) 
+    Library.Utils.TBT(Status, 0.6, {TextTransparency = 0}) 
+    Library.Utils.TBT(BarBG, 0.6, {BackgroundTransparency = 0})
     
-    -- Запускаем быструю заливку бара
-    Library.Utils.TBT(BarFill, 0.4, {Size = UDim2.new(1, 0, 1, 0)}).Completed:Wait()
+    task.wait(0.6)
 
-    -- Моментальное исчезновение
-    Library.Utils.TBT(LoaderCard, 0.2, {BackgroundTransparency = 1, Size = UDim2.new(0, 400, 0, 240)}) 
-    Library.Utils.TBT(Stroke, 0.2, {Transparency = 1}) 
-    Library.Utils.TBT(Logo, 0.2, {ImageTransparency = 1}) 
-    Library.Utils.TBT(Title, 0.2, {TextTransparency = 1})
-    Library.Utils.TBT(Status, 0.2, {TextTransparency = 1}) 
-    Library.Utils.TBT(BarBG, 0.2, {BackgroundTransparency = 1}) 
-    Library.Utils.TBT(BarFill, 0.2, {BackgroundTransparency = 1}) 
-    Library.Utils.TBT(Blur, 0.3, {Size = 0})
+    Status.Text = "Injecting Scripts..."
+    Library.Utils.TBT(BarFill, 0.8, {Size = UDim2.new(0.6, 0, 1, 0)}).Completed:Wait()
     
-    task.wait(0.25)
+    Status.Text = "Starting UI..."
+    Library.Utils.TBT(BarFill, 0.5, {Size = UDim2.new(1, 0, 1, 0)}).Completed:Wait()
+
+    task.wait(0.3)
+
+    -- Классическое плавное исчезновение
+    Library.Utils.TBT(LoaderCard, 0.4, {BackgroundTransparency = 1, Size = UDim2.new(0, 400, 0, 240)}) 
+    Library.Utils.TBT(Stroke, 0.4, {Transparency = 1}) 
+    Library.Utils.TBT(Logo, 0.3, {ImageTransparency = 1}) 
+    Library.Utils.TBT(Title, 0.3, {TextTransparency = 1})
+    Library.Utils.TBT(Status, 0.3, {TextTransparency = 1}) 
+    Library.Utils.TBT(BarBG, 0.3, {BackgroundTransparency = 1}) 
+    Library.Utils.TBT(BarFill, 0.3, {BackgroundTransparency = 1}) 
+    Library.Utils.TBT(Blur, 0.5, {Size = 0})
+    
+    task.wait(0.5)
     LoaderCard:Destroy()
     Blur:Destroy()
     if OnComplete then OnComplete() end
@@ -317,7 +320,7 @@ function Library:CreateWindow(config)
     })
     Library.Utils.Make("UIListLayout", { HorizontalAlignment = "Right", VerticalAlignment = "Bottom", Padding = UDim.new(0, 5), Parent = NotifyHolder })
 
-    local BaseScale = (getgenv().UIScaleSize or 100) / 100
+    local BaseScale = (getgenv().UIScaleSize or 125) / 125
     local MainUIScale = Library.Utils.Make("UIScale", { Parent = ScreenGui, Scale = BaseScale })
 
     Library:Connect(Camera:GetPropertyChangedSignal("ViewportSize"), function()
@@ -326,7 +329,7 @@ function Library:CreateWindow(config)
     end)
 
     local MainFrame = Library.Utils.Make("CanvasGroup", {
-        Size = UDim2.new(0, 460, 0, 410), AnchorPoint = Vector2.new(0.5, 0.5),
+        Size = UDim2.new(0, 680, 0, 450), AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.new(0.5, 0, 0.5, 0), BorderSizePixel = 0, GroupTransparency = 1,
         Visible = false, BackgroundTransparency = 0.15, Parent = ScreenGui
     }, { BackgroundColor3 = "Background" })
@@ -392,11 +395,23 @@ function Library:CreateWindow(config)
     local OnlineText = Library.Utils.Make("TextLabel", { Text = "Loading...", AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.new(0,0,1,0), BackgroundTransparency = 1, Font = Enum.Font.GothamMedium, TextSize = 12, Parent = OnlinePill }, { TextColor3 = "SubText" })
 
     -- 3. Кнопки управления (Mac Buttons)
-    local MacFrame = Library.Utils.Make("Frame", { Size = UDim2.new(0, 60, 0, 20), AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -25, 0.5, 0), BackgroundTransparency = 1, Parent = Header })
+    local MacFrame = Library.Utils.Make("Frame", { 
+        Size = UDim2.new(0, 80, 0, 20), -- Увеличили ширину контейнера с 60 до 80
+        AnchorPoint = Vector2.new(1, 0.5), 
+        Position = UDim2.new(1, -25, 0.5, 0), 
+        BackgroundTransparency = 1, 
+        Parent = Header 
+    })
     Library.Utils.Make("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Right, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder, Parent = MacFrame })
 
     local function MakeMac(colorKey, layoutOrder, callback)
-        local b = Library.Utils.Make("TextButton", { LayoutOrder = layoutOrder, Text = "", Size = UDim2.new(0, 14, 0, 14), Parent = MacFrame }, { BackgroundColor3 = colorKey })
+        local b = Library.Utils.Make("TextButton", { 
+            LayoutOrder = layoutOrder, 
+            Text = "", 
+            Size = UDim2.new(0, 18, 0, 18), -- Увеличили размер кнопок с 14 до 18
+            Parent = MacFrame 
+        }, { BackgroundColor3 = colorKey })
+        
         Library.Utils.Make("UICorner", { CornerRadius = UDim.new(1, 0), Parent = b })
         Library:Connect(b.MouseButton1Click, callback)
         Library:Connect(b.MouseEnter, function() Library.Utils.TBT(b, 0.2, {BackgroundTransparency = 0.3}) end)
@@ -404,6 +419,14 @@ function Library:CreateWindow(config)
         return b
     end
 
+    -- 4. Строка поиска (Search)
+    local SearchContainer = Library.Utils.Make("Frame", { Size = UDim2.new(0, 160, 0, 32), AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -95, 0.5, 0), BackgroundTransparency = 1, Parent = Header })
+    local SearchBg = Library.Utils.Make("Frame", { Size = UDim2.new(1, 0, 1, 0), Parent = SearchContainer }, { BackgroundColor3 = "Section" })
+    Library.Utils.Make("UICorner", { CornerRadius = UDim.new(1, 0), Parent = SearchBg })
+    Library.Utils.Make("UIStroke", { Parent = SearchBg }, { Color = "Stroke" })
+    
+    Library.Utils.Make("ImageLabel", { Size = UDim2.new(0, 16, 0, 16), Position = UDim2.new(1, -24, 0.5, 0), AnchorPoint = Vector2.new(0, 0.5), BackgroundTransparency = 1, Image = "rbxassetid://3926305904", ImageRectOffset = Vector2.new(964, 324), ImageRectSize = Vector2.new(36, 36), Parent = SearchContainer }, { ImageColor3 = "SubText" })
+    local SearchInput = Library.Utils.Make("TextBox", { Size = UDim2.new(1, -40, 1, 0), Position = UDim2.new(0, 12, 0, 0), BackgroundTransparency = 1, PlaceholderText = "Search...", Text = "", Font = Enum.Font.GothamMedium, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, ClearTextOnFocus = false, Parent = SearchContainer }, { TextColor3 = "Text", PlaceholderColor3 = "SubText" })
 
     -- ==========================================
     -- ЛОГИКА СВОРАЧИВАНИЯ (MINIMIZE / FLOATING LOGO)
@@ -446,7 +469,7 @@ function Library:CreateWindow(config)
             end
 
             MainFrame.Visible = true
-            Library.Utils.TBT(MainFrame, 0.4, {GroupTransparency = 0, Size = UDim2.new(0, 460, 0, 410)}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+            Library.Utils.TBT(MainFrame, 0.4, {GroupTransparency = 0, Size = UDim2.new(0, 680, 0, 450)}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
         end
     end
 
@@ -576,7 +599,8 @@ function Library:CreateWindow(config)
         Page.Size = UDim2.new(1, -4, 1, -15); Page.Position = UDim2.new(0, 0, 0, 5)
         Page.BackgroundTransparency = 1; Page.BorderSizePixel = 0; Page.ScrollBarThickness = 2 
         Page.ScrollBarImageTransparency = 0.2; Page.Visible = false; Page.Parent = self.PagesContainer
-        Page.AutomaticCanvasSize = Enum.AutomaticSize.None
+        Page.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        Page.CanvasSize = UDim2.new(0, 0, 0, 0)
         
         Library.ThemeObjects[Page] = { ScrollBarImageColor3 = "SubText" }
         Page.ScrollBarImageColor3 = Library.CurrentTheme.SubText
@@ -585,11 +609,6 @@ function Library:CreateWindow(config)
         Layout.Padding = UDim.new(0, 12); Layout.SortOrder = Enum.SortOrder.LayoutOrder
         local Pad = Instance.new("UIPadding", Page)
         Pad.PaddingTop = UDim.new(0, 10); Pad.PaddingLeft = UDim.new(0, 25); Pad.PaddingRight = UDim.new(0, 25); Pad.PaddingBottom = UDim.new(0, 15)
-
-        -- ЖЕСТКАЯ МАТЕМАТИКА СКРОЛЛА (Ни пикселем больше)
-        Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-            Page.CanvasSize = UDim2.new(0, 0, 0, Layout.AbsoluteContentSize.Y + 25)
-        end)
 
         local Btn = Instance.new("ImageButton", self.TabsContainer)
         Btn.Size = UDim2.new(0, 32, 0, 32); Btn.BackgroundTransparency = 1; Btn.AutoButtonColor = false
@@ -913,9 +932,27 @@ function Library:CreateWindow(config)
             local F = Library.Utils.Make("Frame", { Size = UDim2.new(1, 0, 0, 60), Parent = Page }, { BackgroundColor3 = "Section" })
             Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 10), Parent = F})
 
-            Library.Utils.Make("TextLabel", { Text = title, Size = UDim2.new(1, -30, 0, 20), Position = UDim2.new(0, 15, 0, 10), BackgroundTransparency = 1, FontFace = MainFont, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, Parent = F }, { TextColor3 = "Text" })
+            -- Заголовок слайдера
+            Library.Utils.Make("TextLabel", { Text = title, Size = UDim2.new(1, -100, 0, 20), Position = UDim2.new(0, 15, 0, 10), BackgroundTransparency = 1, FontFace = MainFont, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, Parent = F }, { TextColor3 = "Text" })
             
-            local ValText = Library.Utils.Make("TextLabel", { Text = tostring(default), Size = UDim2.new(0, 50, 0, 20), Position = UDim2.new(1, -65, 0, 10), BackgroundTransparency = 1, FontFace = MainFont, TextSize = 14, Parent = F }, { TextColor3 = "SubText" })
+            local InputBG = Library.Utils.Make("Frame", { 
+                Size = UDim2.new(0, 45, 0, 22), 
+                Position = UDim2.new(1, -60, 0, 9), 
+                Parent = F 
+            }, { BackgroundColor3 = "Sidebar" })
+            Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 6), Parent = InputBG})
+            Library.Utils.Make("UIStroke", {Parent = InputBG}, {Color = "Stroke"})
+
+            -- Само поле ввода текста
+            local ValInput = Library.Utils.Make("TextBox", { 
+                Text = tostring(default), 
+                Size = UDim2.new(1, 0, 1, 0), 
+                BackgroundTransparency = 1, 
+                FontFace = MainFont, 
+                TextSize = 13, 
+                ClearTextOnFocus = false,
+                Parent = InputBG 
+            }, { TextColor3 = "Text" })
 
             local SliderBG = Library.Utils.Make("Frame", { Size = UDim2.new(1, -30, 0, 6), Position = UDim2.new(0, 15, 0, 40), Parent = F }, { BackgroundColor3 = "Sidebar" })
             Library.Utils.Make("UICorner", {CornerRadius = UDim.new(1, 0), Parent = SliderBG})
@@ -924,18 +961,27 @@ function Library:CreateWindow(config)
             local SliderFill = Library.Utils.Make("Frame", { Size = UDim2.new(fillPct, 0, 1, 0), Parent = SliderBG }, { BackgroundColor3 = "Accent" })
             Library.Utils.Make("UICorner", {CornerRadius = UDim.new(1, 0), Parent = SliderFill})
 
-            local Trigger = Library.Utils.Make("TextButton", { Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Text = "", Parent = SliderBG })
+            local Trigger = Library.Utils.Make("TextButton", { Size = UDim2.new(1, 0, 1, 20), Position = UDim2.new(0, 0, 0.5, 0), AnchorPoint = Vector2.new(0, 0.5), BackgroundTransparency = 1, Text = "", Parent = SliderBG })
 
             local dragging = false
 
-            local function Update(input)
+            -- Функция обновления при ручном вводе
+            local function UpdateSliderValue(newVal)
+                newVal = math.clamp(newVal, min, max)
+                Library.Flags[flag] = newVal
+                ValInput.Text = tostring(newVal)
+                SliderFill.Size = UDim2.new((newVal - min) / (max - min), 0, 1, 0)
+                pcall(callback, newVal)
+            end
+
+            -- Функция обновления при перетягивании ползунка
+            local function UpdateFromMouse(input)
                 local pos = UDim2.new(math.clamp((input.Position.X - SliderBG.AbsolutePosition.X) / SliderBG.AbsoluteSize.X, 0, 1), 0, 1, 0)
                 SliderFill.Size = pos
                 local val = math.floor(min + ((max - min) * pos.X.Scale))
-                ValText.Text = tostring(val)
-                
                 if Library.Flags[flag] ~= val then
                     Library.Flags[flag] = val
+                    ValInput.Text = tostring(val)
                     pcall(callback, val)
                 end
             end
@@ -943,7 +989,7 @@ function Library:CreateWindow(config)
             Library:Connect(Trigger.InputBegan, function(input)
                 if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                     dragging = true
-                    Update(input)
+                    UpdateFromMouse(input)
                 end
             end)
 
@@ -955,24 +1001,24 @@ function Library:CreateWindow(config)
 
             Library:Connect(UserInputService.InputChanged, function(input)
                 if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-                    Update(input)
+                    UpdateFromMouse(input)
                 end
             end)
 
-           local function UpdateSliderValue(newVal)
-                newVal = math.clamp(newVal, min, max)
-                Library.Flags[flag] = newVal
-                ValText.Text = tostring(newVal)
-                SliderFill.Size = UDim2.new((newVal - min) / (max - min), 0, 1, 0)
-                pcall(callback, newVal)
-            end
+            -- Обработка потери фокуса текстового поля (когда пользователь нажал Enter)
+            ValInput.FocusLost:Connect(function()
+                local num = tonumber(ValInput.Text:match("%d+"))
+                if num then
+                    UpdateSliderValue(num)
+                else
+                    ValInput.Text = tostring(Library.Flags[flag])
+                end
+            end)
 
-            -- 2. Регистрируем её в ядре (чтобы при загрузке JSON ползунок сам передвинулся)
             Library.ConfigUpdaters[flag] = UpdateSliderValue
 
-            -- 3. Возвращаем таблицу для использования в скрипте игры
             return {
-                SetValue = UpdateSliderValue, -- Ссылаемся на нашу функцию
+                SetValue = UpdateSliderValue,
                 GetValue = function() return Library.Flags[flag] end
             }
         end
@@ -1130,88 +1176,161 @@ function Library:CreateWindow(config)
             }
         end
 
-        function Tab:CreateColorPicker(config)
+        function Tab:CreateUIXPanel(config)
             config = config or {}
-            local title = config.Name or "Color Picker"
-            local default = config.Default or Color3.new(1, 1, 1)
-            local flag = config.Flag or title:gsub("%s+", "")
-            local callback = config.Callback or function() end
+            local min = config.Min or 25
+            local max = config.Max or 175
+            local defaultScale = config.DefaultScale or 50
+            local scaleFlag = config.ScaleFlag or "UIScaleSize"
+            local scaleCallback = config.ScaleCallback or function() end
 
-            Library.Flags[flag] = default
+            local defaultColor = config.DefaultColor or Color3.new(1, 1, 1)
+            local colorFlag = config.ColorFlag or "ThemeAccent"
+            local colorCallback = config.ColorCallback or function() end
 
-            local F = Library.Utils.Make("Frame", { Size = UDim2.new(1, 0, 0, 70), Parent = Page }, { BackgroundColor3 = "Section" })
+            Library.Flags[scaleFlag] = defaultScale
+            Library.Flags[colorFlag] = defaultColor
+
+            local F = Library.Utils.Make("Frame", { Size = UDim2.new(1, 0, 0, 95), Parent = Page }, { BackgroundColor3 = "Section" })
             Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 10), Parent = F})
 
-            Library.Utils.Make("TextLabel", { Text = title, Size = UDim2.new(1, -70, 0, 20), Position = UDim2.new(0, 15, 0, 10), BackgroundTransparency = 1, FontFace = MainFont, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, Parent = F }, { TextColor3 = "Text" })
+            Library.Utils.Make("TextLabel", { Text = "SCALE", Size = UDim2.new(0, 50, 0, 20), Position = UDim2.new(0, 15, 0, 15), BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left, Parent = F }, { TextColor3 = "SubText" })
 
-            local ColorPreview = Library.Utils.Make("Frame", { Size = UDim2.new(0, 40, 0, 20), Position = UDim2.new(1, -55, 0, 10), BackgroundColor3 = default, Parent = F })
+            local InputBG = Library.Utils.Make("Frame", { Size = UDim2.new(0, 45, 0, 22), Position = UDim2.new(1, -60, 0, 14), Parent = F }, { BackgroundColor3 = "Sidebar" })
+            Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 6), Parent = InputBG})
+            Library.Utils.Make("UIStroke", {Parent = InputBG}, {Color = "Stroke"})
+
+            local ValInput = Library.Utils.Make("TextBox", { Text = tostring(defaultScale), Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 12, ClearTextOnFocus = false, Parent = InputBG }, { TextColor3 = "Text" })
+
+            local SliderBG = Library.Utils.Make("Frame", { Size = UDim2.new(1, -150, 0, 6), Position = UDim2.new(0, 75, 0, 22), Parent = F }, { BackgroundColor3 = "Sidebar" })
+            Library.Utils.Make("UICorner", {CornerRadius = UDim.new(1, 0), Parent = SliderBG})
+
+            local fillPct = math.clamp((defaultScale - min) / (max - min), 0, 1)
+            local SliderFill = Library.Utils.Make("Frame", { Size = UDim2.new(fillPct, 0, 1, 0), Parent = SliderBG }, { BackgroundColor3 = "Accent" })
+            Library.Utils.Make("UICorner", {CornerRadius = UDim.new(1, 0), Parent = SliderFill})
+            
+            local Knob = Library.Utils.Make("Frame", { Size = UDim2.new(0, 14, 0, 14), Position = UDim2.new(fillPct, 0, 0.5, 0), AnchorPoint = Vector2.new(0.5, 0.5), Parent = SliderBG }, { BackgroundColor3 = "Text" })
+            Library.Utils.Make("UICorner", {CornerRadius = UDim.new(1, 0), Parent = Knob})
+
+            local Trigger = Library.Utils.Make("TextButton", { Size = UDim2.new(1, 0, 1, 24), Position = UDim2.new(0, 0, 0.5, 0), AnchorPoint = Vector2.new(0, 0.5), BackgroundTransparency = 1, Text = "", Parent = SliderBG })
+
+            Library.Utils.Make("TextLabel", { Text = "COLOR", Size = UDim2.new(0, 50, 0, 20), Position = UDim2.new(0, 15, 0, 57), BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left, Parent = F }, { TextColor3 = "SubText" })
+
+            local ColorPreview = Library.Utils.Make("Frame", { Size = UDim2.new(0, 45, 0, 20), Position = UDim2.new(1, -60, 0, 57), BackgroundColor3 = defaultColor, Parent = F })
             Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 6), Parent = ColorPreview})
+            Library.Utils.Make("UIStroke", {Color = Color3.new(0,0,0), Thickness = 1, Parent = ColorPreview})
 
-            local Bar = Library.Utils.Make("ImageButton", { Size = UDim2.new(1, -30, 0, 15), Position = UDim2.new(0, 15, 0, 40), BackgroundColor3 = Color3.new(1,1,1), AutoButtonColor = false, Parent = F })
+            local Bar = Library.Utils.Make("ImageButton", { Size = UDim2.new(1, -150, 0, 12), Position = UDim2.new(0, 75, 0, 61), BackgroundColor3 = Color3.new(1,1,1), AutoButtonColor = false, Parent = F })
             Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 4), Parent = Bar})
 
             local Grad = Instance.new("UIGradient")
             Grad.Color = ColorSequence.new{
-                ColorSequenceKeypoint.new(0.00, Color3.fromRGB(255, 0, 0)),
-                ColorSequenceKeypoint.new(0.17, Color3.fromRGB(255, 255, 0)),
-                ColorSequenceKeypoint.new(0.33, Color3.fromRGB(0, 255, 0)),
-                ColorSequenceKeypoint.new(0.50, Color3.fromRGB(0, 255, 255)),
-                ColorSequenceKeypoint.new(0.67, Color3.fromRGB(0, 0, 255)),
-                ColorSequenceKeypoint.new(0.83, Color3.fromRGB(255, 0, 255)),
+                ColorSequenceKeypoint.new(0.00, Color3.fromRGB(255, 0, 0)), ColorSequenceKeypoint.new(0.17, Color3.fromRGB(255, 255, 0)),
+                ColorSequenceKeypoint.new(0.33, Color3.fromRGB(0, 255, 0)), ColorSequenceKeypoint.new(0.50, Color3.fromRGB(0, 255, 255)),
+                ColorSequenceKeypoint.new(0.67, Color3.fromRGB(0, 0, 255)), ColorSequenceKeypoint.new(0.83, Color3.fromRGB(255, 0, 255)),
                 ColorSequenceKeypoint.new(1.00, Color3.fromRGB(255, 0, 0))
             }
             Grad.Parent = Bar
 
-            local h, s, v = default:ToHSV()
-            local Selector = Library.Utils.Make("Frame", { Size = UDim2.new(0, 4, 1, 4), Position = UDim2.new(h, 0, 0.5, 0), AnchorPoint = Vector2.new(0.5, 0.5), BackgroundColor3 = Color3.new(1,1,1), BorderColor3 = Color3.new(0,0,0), BorderSizePixel = 1, Parent = Bar })
+            local h, s, v = defaultColor:ToHSV()
+            local Selector = Library.Utils.Make("Frame", { Size = UDim2.new(0, 4, 1, 6), Position = UDim2.new(h, 0, 0.5, 0), AnchorPoint = Vector2.new(0.5, 0.5), BackgroundColor3 = Color3.new(1,1,1), BorderColor3 = Color3.new(0,0,0), BorderSizePixel = 1, Parent = Bar })
 
-            local dragging = false
-
-            local function UpdateColor(input)
-                local r = math.clamp((input.Position.X - Bar.AbsolutePosition.X) / Bar.AbsoluteSize.X, 0, 1)
-                Selector.Position = UDim2.new(r, 0, 0.5, 0)
-                local col = Color3.fromHSV(r, 1, 1)
-                ColorPreview.BackgroundColor3 = col
+            local draggingScale = false
+            
+            local function UpdateScaleVisuals(val)
+                val = math.clamp(val, min, max)
+                ValInput.Text = tostring(val)
+                local pct = (val - min) / (max - min)
+                Library.Utils.TBT(SliderFill, 0.1, {Size = UDim2.new(pct, 0, 1, 0)})
+                Library.Utils.TBT(Knob, 0.1, {Position = UDim2.new(pct, 0, 0.5, 0)})
                 
-                if Library.Flags[flag] ~= col then
-                    Library.Flags[flag] = col
-                    pcall(callback, col)
+                if Library.Flags[scaleFlag] ~= val then
+                    Library.Flags[scaleFlag] = val
+                    pcall(scaleCallback, val)
+                end
+            end
+
+            local function HandleScaleInput(input)
+                if SliderBG and SliderBG.AbsoluteSize.X > 0 then
+                    local pct = math.clamp((input.Position.X - SliderBG.AbsolutePosition.X) / SliderBG.AbsoluteSize.X, 0, 1)
+                    local val = math.floor(min + ((max - min) * pct))
+                    UpdateScaleVisuals(val)
+                end
+            end
+
+            Library:Connect(Trigger.InputBegan, function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                    draggingScale = true
+                    HandleScaleInput(input)
+                end
+            end)
+            
+            Library:Connect(UserInputService.InputEnded, function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                    draggingScale = false
+                end
+            end)
+            
+            Library:Connect(UserInputService.InputChanged, function(input)
+                if draggingScale and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+                    HandleScaleInput(input)
+                end
+            end)
+
+            ValInput.FocusLost:Connect(function()
+                local num = tonumber(ValInput.Text:match("%d+"))
+                if num then
+                    UpdateScaleVisuals(num)
+                else
+                    ValInput.Text = tostring(Library.Flags[scaleFlag])
+                end
+            end)
+
+            local draggingColor = false
+            
+            local function UpdateColorVisuals(input)
+                if Bar and Bar.AbsoluteSize.X > 0 then
+                    local r = math.clamp((input.Position.X - Bar.AbsolutePosition.X) / Bar.AbsoluteSize.X, 0, 1)
+                    Selector.Position = UDim2.new(r, 0, 0.5, 0)
+                    local col = Color3.fromHSV(r, 1, 1)
+                    ColorPreview.BackgroundColor3 = col
+                    
+                    if Library.Flags[colorFlag] ~= col then
+                        Library.Flags[colorFlag] = col
+                        pcall(colorCallback, col)
+                    end
                 end
             end
 
             Library:Connect(Bar.InputBegan, function(input)
                 if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                    dragging = true
-                    UpdateColor(input)
+                    draggingColor = true
+                    UpdateColorVisuals(input)
                 end
             end)
-
+            
             Library:Connect(UserInputService.InputEnded, function(input)
                 if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                    dragging = false
+                    draggingColor = false
                 end
             end)
-
+            
             Library:Connect(UserInputService.InputChanged, function(input)
-                if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-                    UpdateColor(input)
+                if draggingColor and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+                    UpdateColorVisuals(input)
                 end
             end)
 
-            local function SetColorValue(color)
-                Library.Flags[flag] = color
+            Library.ConfigUpdaters[scaleFlag] = UpdateScaleVisuals
+            Library.ConfigUpdaters[colorFlag] = function(color)
+                Library.Flags[colorFlag] = color
                 ColorPreview.BackgroundColor3 = color
                 local hC = color:ToHSV()
                 Selector.Position = UDim2.new(hC, 0, 0.5, 0)
-                pcall(callback, color)
+                pcall(colorCallback, color)
             end
-
-            Library.ConfigUpdaters[flag] = SetColorValue
-
-            return {
-                SetValue = SetColorValue,
-                GetValue = function() return Library.Flags[flag] end
-            }
+            
+            return { Container = F }
         end
 
         function Tab:CreateInput(config)
@@ -1593,25 +1712,11 @@ function Library:CreateWindow(config)
                 pcall(toggleCallback, newState)
             end
 
-            -- Визуальное переключение режима (для системы конфигов)
-            local function SetMode(newModeName)
-                Library.Flags[flag .. "_Mode"] = newModeName
-                for name, stroke in pairs(ModeCards) do
-                    stroke.Color = (name == newModeName) and Color3.fromRGB(220, 20, 20) or Color3.fromRGB(0, 0, 0)
-                end
-                pcall(modeCallback, newModeName)
-            end
-
             Library:Connect(Sw.MouseButton1Click, function() SetState(not Library.Flags[flag .. "_State"]) end)
-            
-            -- РЕГИСТРАЦИЯ В СИСТЕМЕ КОНФИГОВ
-            Library.ConfigUpdaters[flag .. "_State"] = SetState
-            Library.ConfigUpdaters[flag .. "_Mode"] = SetMode
             
             return {
                 Container = F,
                 SetState = SetState,
-                SetMode = SetMode,
                 GetState = function() return Library.Flags[flag .. "_State"] end,
                 GetMode = function() return Library.Flags[flag .. "_Mode"] end
             }
@@ -1625,31 +1730,162 @@ function Library:CreateWindow(config)
         return Tab
     end
 
-function Window:Build()
+    -- ==========================================
+    -- ГЛОБАЛЬНЫЙ ПОИСК (GLOBAL SEARCH)
+    -- ==========================================
+    local SearchPage = Library.Utils.Make("ScrollingFrame", {
+        Name = "GlobalSearchPage", Size = UDim2.new(1, -20, 1, -10), Position = UDim2.new(0, 10, 0, 5),
+        BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 3, Visible = false, ZIndex = 50, Parent = Pages
+    }, { ScrollBarImageColor3 = "SubText" })
+
+    local SearchLayout = Library.Utils.Make("UIListLayout", { Padding = UDim.new(0, 12), SortOrder = Enum.SortOrder.LayoutOrder, Parent = SearchPage })
+    Library.Utils.Make("UIPadding", { PaddingTop = UDim.new(0, 10), PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 20), PaddingBottom = UDim.new(0, 15), Parent = SearchPage })
+
+    SearchLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        SearchPage.CanvasSize = UDim2.new(0, 0, 0, SearchLayout.AbsoluteContentSize.Y + 20)
+    end)
+
+    local isSearchOpen = false
+    local originalParents = {}
+    local SearchClickBtn = Library.Utils.Make("TextButton", {Size = UDim2.new(0, 30, 0, 30), Position = UDim2.new(1, -30, 0, 0), BackgroundTransparency = 1, Text = "", ZIndex = 10, Parent = SearchContainer})
+
+    local function RestoreSearch()
+        SearchPage.Visible = false
+        for elem, data in pairs(originalParents) do
+            if elem and data.Parent then
+                elem.Parent = data.Parent
+                elem.LayoutOrder = data.OriginalOrder 
+                elem.Visible = true
+            end
+        end
+        table.clear(originalParents)
+        
+        if Window and Window.CurrentTab then
+            for _, tab in ipairs(Window.Tabs) do
+                if tab.Btn == Window.CurrentTab then
+                    tab.Page.Visible = true
+                    break
+                end
+            end
+        end
+    end
+
+    local function CloseSearch()
+        isSearchOpen = false
+        SearchInput.Text = ""
+        Library.Utils.TBT(SearchContainer, 0.4, {Size = UDim2.new(0, 32, 0, 32)}, Enum.EasingStyle.Quint)
+        Library.Utils.TBT(SearchInput, 0.2, {TextTransparency = 1})
+        Library.ThemeObjects[SearchContainer:FindFirstChildOfClass("ImageLabel")] = { ImageColor3 = "SubText" }
+        Library.Utils.TBT(SearchContainer:FindFirstChildOfClass("ImageLabel"), 0.3, {ImageColor3 = Library.CurrentTheme.SubText})
+        task.delay(0.2, function() if not isSearchOpen then SearchInput.Visible = false end end)
+    end
+
+    Library:Connect(SearchClickBtn.MouseButton1Click, function()
+        isSearchOpen = not isSearchOpen
+        local searchIcon = SearchContainer:FindFirstChildOfClass("ImageLabel")
+        if isSearchOpen then
+            SearchInput.Visible = true
+            Library.Utils.TBT(SearchContainer, 0.4, {Size = UDim2.new(0, 160, 0, 32)}, Enum.EasingStyle.Quint)
+            Library.Utils.TBT(SearchInput, 0.3, {TextTransparency = 0})
+            Library.ThemeObjects[searchIcon] = { ImageColor3 = "Accent" }
+            Library.Utils.TBT(searchIcon, 0.3, {ImageColor3 = Library.CurrentTheme.Accent})
+            SearchInput:CaptureFocus()
+        else
+            CloseSearch()
+        end
+    end)
+
+    Library:Connect(SearchInput:GetPropertyChangedSignal("Text"), function()
+        local query = string.lower(SearchInput.Text):match("^%s*(.-)%s*$") or ""
+        if query == "" then RestoreSearch(); return end
+
+        for _, tab in ipairs(Window.Tabs) do tab.Page.Visible = false end
+        SearchPage.Visible = true
+        
+        if not next(originalParents) then
+            local pageIndex = 0
+            for _, tab in ipairs(Window.Tabs) do
+                pageIndex = pageIndex + 1
+                for _, elem in ipairs(tab.Page:GetChildren()) do
+                    if elem:IsA("GuiObject") and not elem:IsA("UIListLayout") and not elem:IsA("UIPadding") and not string.find(elem.Name, "SubPage") then
+                        originalParents[elem] = { Parent = tab.Page, OriginalOrder = elem.LayoutOrder, AbsoluteOrder = (pageIndex * 1000) + (elem.LayoutOrder or 0), TabRef = tab }
+                    end
+                end
+            end
+        end
+        
+        local matchedElements = {}
+        for elem, data in pairs(originalParents) do
+            local match = false
+            local rawText = ""
+            for _, desc in ipairs(elem:GetDescendants()) do 
+                if desc:IsA("TextLabel") or desc:IsA("TextBox") or desc:IsA("TextButton") then
+                    rawText = rawText .. " " .. tostring(desc.Text or "")
+                end
+            end
+            
+            local cleanText = string.lower(string.gsub(rawText, "<[^>]+>", ""))
+            if string.find(cleanText, query, 1, true) then match = true end
+            if string.find(cleanText, "update log") or string.len(cleanText) > 100 then match = false end
+            
+            if match then table.insert(matchedElements, {Element = elem, Data = data})
+            elseif elem.Parent == SearchPage then elem.Parent = data.Parent; elem.LayoutOrder = data.OriginalOrder end
+        end
+        
+        table.sort(matchedElements, function(a, b) return (a.Data.AbsoluteOrder or 0) < (b.Data.AbsoluteOrder or 0) end)
+        for i, item in ipairs(matchedElements) do item.Element.Parent = SearchPage; item.Element.LayoutOrder = i; item.Element.Visible = true end
+        task.defer(function() SearchPage.CanvasPosition = Vector2.new(0, 0) end)
+    end)
+
+    Library:Connect(UserInputService.InputBegan, function(input)
+        if not isSearchOpen or not SearchPage.Visible then return end
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            local mPos = input.Position
+            local spPos = SearchPage.AbsolutePosition
+            local spSize = SearchPage.AbsoluteSize
+            
+            if mPos.X >= spPos.X and mPos.X <= spPos.X + spSize.X and mPos.Y >= spPos.Y and mPos.Y <= spPos.Y + spSize.Y then
+                for elem, data in pairs(originalParents) do
+                    if elem.Parent == SearchPage and elem.Visible then
+                        local pos = elem.AbsolutePosition; local size = elem.AbsoluteSize
+                        if mPos.X >= pos.X and mPos.X <= pos.X + size.X and mPos.Y >= pos.Y and mPos.Y <= pos.Y + size.Y then
+                            -- Закрываем поиск и чистим текст ПРЯМО ТУТ
+                            CloseSearch() 
+                            Window:SelectTab(data.TabRef)
+                            
+                            task.spawn(function()
+                                task.wait(0.15) 
+                                local targetY = elem.AbsolutePosition.Y - data.Parent.AbsolutePosition.Y + data.Parent.CanvasPosition.Y
+                                Library.Utils.TBT(data.Parent, 0.3, {CanvasPosition = Vector2.new(0, targetY - 15)}, Enum.EasingStyle.Cubic)
+                                
+                                local stroke = elem:FindFirstChildOfClass("UIStroke")
+                                if stroke then
+                                    local oColor = stroke.Color; local oThick = stroke.Thickness
+                                    Library.Utils.TBT(stroke, 0.2, {Color = Library.CurrentTheme.Accent, Thickness = 2.5})
+                                    task.wait(0.6)
+                                    Library.Utils.TBT(stroke, 0.5, {Color = oColor, Thickness = oThick})
+                                end
+                            end)
+                            break
+                        end
+                    end
+                end
+            end
+        end
+    end)
+
+    function Window:Build()
         -- Запускаем лоадер, передавая ему наш ScreenGui
         Library:RunLoader(ScreenGui, function()
             -- Этот код выполнится только после того, как лоадер исчезнет
             MainFrame.Visible = true
             Library.Utils.TBT(MainFrame, 0.5, {GroupTransparency = 0})
-
-            -- ==========================================
-            -- ГЛОБАЛЬНАЯ НЕВИДИМАЯ СИСТЕМА СОХРАНЕНИЯ
-            -- ==========================================
-            task.spawn(function()
-                -- 1. Тихая загрузка всех сохраненных настроек
-                if isfile and isfile(Library.ConfigFolder .. "/" .. Library.AutoLoadFile .. ".json") then
-                    Library:LoadConfig(Library.AutoLoadFile, true)
-                end
-                
-                -- 2. Глобальный цикл фонового сохранения (каждые 3 секунды)
-                while task.wait(3) do
-                    Library:SaveConfig(Library.AutoLoadFile, true) 
-                end
-            end)
         end)
     end
+
     return Window
-    end
+end
+
     -- ==========================================
     -- 6. СИСТЕМА УВЕДОМЛЕНИЙ (NOTIFICATIONS)
     -- ==========================================
@@ -1765,90 +2001,75 @@ function Window:Build()
         end)
     end
 
--- ==========================================
--- 7. МЕНЕДЖЕР КОНФИГОВ (CONFIG SYSTEM)
--- ==========================================
-local HttpService = game:GetService("HttpService")
-Library.ConfigFolder = "DuskAndShineConfigs"
-Library.AutoLoadFile = "autoload"
+    -- ==========================================
+    -- 7. МЕНЕДЖЕР КОНФИГОВ (CONFIG SYSTEM)
+    -- ==========================================
+    local HttpService = game:GetService("HttpService")
+    Library.ConfigFolder = "DuskAndShineConfigs"
 
-function Library:InitConfigSystem()
-    if not isfolder then return end
-    if not isfolder(self.ConfigFolder) then 
-        makefolder(self.ConfigFolder) 
-    end
-end
-
-function Library:SaveConfig(fileName, quiet)
-    if not writefile then return end
-    self:InitConfigSystem()
-    
-    local saveTable = { _Theme = self.CurrentThemeName }
-    
-    for flag, value in pairs(self.Flags) do
-        if typeof(value) == "Color3" then
-            saveTable[flag] = { R = value.R, G = value.G, B = value.B, isColor = true }
-        elseif typeof(value) == "EnumItem" then
-            saveTable[flag] = { Key = value.Name, isKeybind = true }
-        else
-            saveTable[flag] = value
+    function Library:SaveConfig(fileName)
+        if not writefile then 
+            warn("[Dusk] Executor does not support file saving.")
+            return 
         end
-    end
 
-    local success, json = pcall(function() return HttpService:JSONEncode(saveTable) end)
-    
-    if success then
-        -- ФИКС ФРИЗОВ: Если ничего не поменялось, отменяем запись на диск
-        if self.LastSavedJSON == json then return end 
-        self.LastSavedJSON = json -- Запоминаем текущее состояние
+        if not isfolder(self.ConfigFolder) then 
+            makefolder(self.ConfigFolder) 
+        end
         
-        writefile(self.ConfigFolder .. "/" .. fileName .. ".json", json)
-        if not quiet and self.Notify then self:Notify("Config System", "Successfully saved", 3) end
-    end
-end
-
-function Library:LoadConfig(fileName, quiet)
-    if not readfile or not isfile(self.ConfigFolder .. "/" .. fileName .. ".json") then return false end
-    
-    local json = readfile(self.ConfigFolder .. "/" .. fileName .. ".json")
-    local success, data = pcall(function() return HttpService:JSONDecode(json) end)
-    
-    if success and type(data) == "table" then
-        if data._Theme then self:SetTheme(data._Theme) end
-
-        for flag, value in pairs(data) do
-            if flag ~= "_Theme" then
-                if type(value) == "table" then
-                    if value.isColor then value = Color3.new(value.R, value.G, value.B)
-                    elseif value.isKeybind then value = Enum.KeyCode[value.Key] end
-                end
-                
-                self.Flags[flag] = value
-                if self.ConfigUpdaters[flag] then pcall(self.ConfigUpdaters[flag], value) end
+        local saveTable = {}
+        -- Умный обход: кодируем специфические типы данных
+        for flag, value in pairs(self.Flags) do
+            if typeof(value) == "Color3" then
+                saveTable[flag] = { R = value.R, G = value.G, B = value.B, isColor = true }
+            elseif typeof(value) == "EnumItem" then
+                saveTable[flag] = { Key = value.Name, isKeybind = true }
+            else
+                saveTable[flag] = value
             end
         end
-        if not quiet and self.Notify then self:Notify("Config System", "Successfully loaded", 3) end
-        return true
-    end
-    return false
-end
 
-function Library:DeleteConfig(fileName)
-    if isfile and isfile(self.ConfigFolder .. "/" .. fileName .. ".json") and delfile then
-        delfile(self.ConfigFolder .. "/" .. fileName .. ".json")
-    end
-end
-
-function Library:GetConfigs()
-    self:InitConfigSystem()
-    local list = {}
-    if listfiles then
-        for _, file in ipairs(listfiles(self.ConfigFolder)) do
-            local fileName = file:match("([^/\\]+)%.json$")
-            if fileName then table.insert(list, fileName) end
+        local success, json = pcall(function() return HttpService:JSONEncode(saveTable) end)
+        if success then
+            writefile(self.ConfigFolder .. "/" .. fileName .. ".json", json)
+            self:Notify("Config System", "Successfully saved: " .. fileName, 3)
+        else
+            self:Notify("Error", "Failed to encode config!", 3)
         end
     end
-    return list
-end
+
+    function Library:LoadConfig(fileName)
+        if not readfile or not isfile(self.ConfigFolder .. "/" .. fileName .. ".json") then 
+            self:Notify("Error", "Config file not found!", 3)
+            return 
+        end
+        
+        local json = readfile(self.ConfigFolder .. "/" .. fileName .. ".json")
+        local success, data = pcall(function() return HttpService:JSONDecode(json) end)
+        
+        if success and type(data) == "table" then
+            for flag, value in pairs(data) do
+                -- Декодируем специфические типы обратно
+                if type(value) == "table" then
+                    if value.isColor then
+                        value = Color3.new(value.R, value.G, value.B)
+                    elseif value.isKeybind then
+                        value = Enum.KeyCode[value.Key]
+                    end
+                end
+                
+                -- Обновляем данные в ядре
+                self.Flags[flag] = value
+                
+                -- Если компонент зарегистрировал функцию апдейта (SetState, SetValue) - вызываем её!
+                if self.ConfigUpdaters[flag] then
+                    pcall(self.ConfigUpdaters[flag], value)
+                end
+            end
+            self:Notify("Config System", "Successfully loaded: " .. fileName, 3)
+        else
+            self:Notify("Error", "Failed to read config!", 3)
+        end
+    end
 
 return Library
