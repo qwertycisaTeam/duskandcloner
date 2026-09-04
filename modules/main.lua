@@ -491,8 +491,8 @@ Tab:CreateToggle({
             if AutoDoorToggle then
                 task.spawn(function()
                     while AutoDoorToggle do
-                        -- УЛЬТИМАТИВНАЯ ПРОВЕРКА: Если окно удалено или нажат крестик — убиваем цикл!
-                        if getgenv().DS_StopExecution or not Window.MainFrame or not Window.MainFrame.Parent then 
+                        -- ЖЕЛЕЗОБЕТОННАЯ ПРОВЕРКА: Если ядра скрипта больше нет в памяти — убиваем цикл
+                        if not getgenv().DuskShine_Core or getgenv().DS_StopExecution then 
                             AutoDoorToggle = false
                             break 
                         end
