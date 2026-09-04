@@ -476,9 +476,16 @@ function Module:Init(Library, Window, Tab)
     end)
 
     -- 2. Глобальный слушатель: автоматически ловит новые дома, когда они спавнятся
-    table.insert(Library.Connections, workspace.DescendantAdded:Connect(function(obj)
-        checkAndCache(obj)
-    end))
+   -- Слушаем ТОЛЬКО нужные папки, а не весь мир игры
+    local foldersToSearch = {"Interiors", "HouseExteriors", "Properties"}
+    for _, folderName in ipairs(foldersToSearch) do
+        local folder = workspace:FindFirstChild(folderName)
+        if folder then
+            table.insert(Library.Connections, folder.DescendantAdded:Connect(function(obj)
+                checkAndCache(obj)
+            end))
+        end
+    end
 
 Tab:CreateToggle({
         Name = "Auto Bypass Doors",
