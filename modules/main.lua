@@ -452,14 +452,17 @@ function Module:Init(Library, Window, Tab)
     local AutoDoorToggle = false
     local lastTouchedDoor = nil
     
+    -- === НАДЕЖНАЯ СИСТЕМА КЭШИРОВАНИЯ ===
     local CachedDoors = {}
 
     local function checkAndCache(obj)
+        -- Быстрая проверка, чтобы не грузить игру
         if obj.Name == "TouchToEnter" and obj.Parent and obj.Parent.Name == "WorkingParts" then
             CachedDoors[obj] = obj.Parent.Parent 
         end
     end
 
+    -- 1. Единоразово собираем двери, которые УЖЕ есть на карте
     task.spawn(function()
         local foldersToSearch = {"Interiors", "HouseExteriors", "Properties"}
         for _, folderName in ipairs(foldersToSearch) do
@@ -472,12 +475,13 @@ function Module:Init(Library, Window, Tab)
         end
     end)
 
+    -- 2. Глобальный слушатель: автоматически ловит новые дома, когда они спавнятся
     workspace.DescendantAdded:Connect(function(obj)
         checkAndCache(obj)
     end)
 
     Tab:CreateToggle({
-        Name = "Auto Bypass Doors (Optimized)",
+        Name = "Auto Bypass Doors",
         Description = "Instant activation. Unlocks doors and does not drop FPS.",
         Default = false,
         Flag = "Exploit_AutoDoors",
@@ -486,8 +490,10 @@ function Module:Init(Library, Window, Tab)
             
             if AutoDoorToggle then
                 task.spawn(function()
-                    -- ВОТ ТУТ ДОБАВЛЕНА ПРОВЕРКА НА КРАШ СКРИПТА
-                    while AutoDoorToggle and not getgenv().DS_StopExecution do
+                    while AutoDoorToggle do
+                        -- Безопасный обрыв цикла при краше (логика while не тронута)
+                        if getgenv().DS_StopExecution then break end
+                        
                         local char = LocalPlayer.Character
                         local hrp = char and char:FindFirstChild("HumanoidRootPart")
                         
@@ -496,7 +502,9 @@ function Module:Init(Library, Window, Tab)
                             local touchPart = nil
                             local shortestDist = 2
                             
+                            -- Перебираем только кэш (очень быстро)
                             for tp, doorModel in pairs(CachedDoors) do
+                                -- ИСПРАВЛЕНО: Теперь тут стоит двоеточие ":" 
                                 if tp and tp.Parent and tp:IsDescendantOf(workspace) then 
                                     local dist = (hrp.Position - tp.Position).Magnitude
                                     if dist < shortestDist then
@@ -505,26 +513,31 @@ function Module:Init(Library, Window, Tab)
                                         shortestDist = dist
                                     end
                                 else
+                                    -- Если дверь удалилась с карты, чистим память
                                     CachedDoors[tp] = nil
                                 end
                             end
 
+                            -- Взлом и вход
                             if closestDoor and touchPart then
                                 if closestDoor ~= lastTouchedDoor then
                                     if successDoors and DoorsM then
                                         local doorObj = DoorsM.get_door(closestDoor)
                                         if doorObj then
+                                            -- Взламываем все статусы (включая замки)
                                             doorObj.is_open = true
                                             doorObj.can_enter = true
                                             doorObj.locked = false
                                             doorObj.is_locked = false 
                                             
+                                            -- Обновляем UI двери, если функция существует
                                             if type(doorObj.update) == "function" then
                                                 pcall(function() doorObj:update() end)
                                             end
                                         end
                                     end
                                     
+                                    -- Эмуляция касания
                                     if firetouchinterest then
                                         firetouchinterest(hrp, touchPart, 0)
                                         task.wait(0.1)
@@ -532,12 +545,13 @@ function Module:Init(Library, Window, Tab)
                                     end
                                     
                                     lastTouchedDoor = closestDoor
-                                    task.wait(4) 
+                                    task.wait(4) -- Ожидание телепорта
                                 end
                             else
                                 lastTouchedDoor = nil
                             end
                         end
+                        
                         task.wait(0.2)
                     end
                 end)
@@ -545,5 +559,4 @@ function Module:Init(Library, Window, Tab)
         end
     })
 end
-
 return Module
