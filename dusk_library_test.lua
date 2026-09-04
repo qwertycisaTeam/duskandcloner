@@ -476,12 +476,14 @@ function Library:CreateWindow(config)
     Library:Connect(FloatingClick.MouseButton1Click, ToggleMinimize)
     Library:Connect(OpenBtn.MouseButton1Click, ToggleMinimize)
 
-    -- Биндим Mac-кнопки
+    -- Биндим Mac-кнопки (Внутри функции CreateWindow)
     MakeMac("Green", 1, function() Library:ToggleTheme() end)
     MakeMac("Yellow", 2, ToggleMinimize)
     MakeMac("Red", 3, function() 
         Library.Utils.TBT(MainFrame, 0.3, {GroupTransparency = 1, Size = UDim2.new(0, 700, 0, 400)}, Enum.EasingStyle.Back, Enum.EasingDirection.In)
         task.delay(0.3, function()
+            getgenv().DS_StopExecution = true -- Глобальный флаг остановки всех циклов
+            getgenv().DuskShine_Core = nil
             Library:Destroy()
         end)
     end)
@@ -1875,17 +1877,27 @@ function Library:CreateWindow(config)
     end)
 
     function Window:Build()
-        -- Запускаем лоадер, передавая ему наш ScreenGui
         Library:RunLoader(ScreenGui, function()
-            -- Этот код выполнится только после того, как лоадер исчезнет
             MainFrame.Visible = true
             Library.Utils.TBT(MainFrame, 0.5, {GroupTransparency = 0})
+
+            -- ГЛОБАЛЬНАЯ НЕВИДИМАЯ СИСТЕМА СОХРАНЕНИЯ
+            task.spawn(function()
+                if isfile and isfile(Library.ConfigFolder .. "/" .. Library.AutoLoadFile .. ".json") then
+                    Library:LoadConfig(Library.AutoLoadFile, true)
+                end
+
+                while task.wait(3) do
+                    -- Если нажали красную кнопку, цикл останавливается
+                    if getgenv().DS_StopExecution then break end 
+                    Library:SaveConfig(Library.AutoLoadFile, true) 
+                end
+            end)
         end)
     end
 
     return Window
 end
-
     -- ==========================================
     -- 6. СИСТЕМА УВЕДОМЛЕНИЙ (NOTIFICATIONS)
     -- ==========================================
@@ -2071,5 +2083,71 @@ end
             self:Notify("Error", "Failed to read config!", 3)
         end
     end
+-- ==========================================
+-- 7. МЕНЕДЖЕР КОНФИГОВ (CONFIG SYSTEM)
+-- ==========================================
+local HttpService = game:GetService("HttpService")
+Library.ConfigFolder = "DuskAndShineConfigs"
+Library.AutoLoadFile = "autoload"
+
+function Library:InitConfigSystem()
+    if not isfolder then return end
+    if not isfolder(self.ConfigFolder) then 
+        makefolder(self.ConfigFolder) 
+    end
+end
+
+function Library:SaveConfig(fileName, quiet)
+    if not writefile then return end
+    self:InitConfigSystem()
+
+    local saveTable = { _Theme = self.CurrentThemeName }
+
+    for flag, value in pairs(self.Flags) do
+        if typeof(value) == "Color3" then
+            saveTable[flag] = { R = value.R, G = value.G, B = value.B, isColor = true }
+        elseif typeof(value) == "EnumItem" then
+            saveTable[flag] = { Key = value.Name, isKeybind = true }
+        else
+            saveTable[flag] = value
+        end
+    end
+
+    local success, json = pcall(function() return HttpService:JSONEncode(saveTable) end)
+
+    if success then
+        if self.LastSavedJSON == json then return end 
+        self.LastSavedJSON = json 
+
+        writefile(self.ConfigFolder .. "/" .. fileName .. ".json", json)
+        if not quiet and self.Notify then self:Notify("Config System", "Successfully saved", 3) end
+    end
+end
+
+function Library:LoadConfig(fileName, quiet)
+    if not readfile or not isfile(self.ConfigFolder .. "/" .. fileName .. ".json") then return false end
+
+    local json = readfile(self.ConfigFolder .. "/" .. fileName .. ".json")
+    local success, data = pcall(function() return HttpService:JSONDecode(json) end)
+
+    if success and type(data) == "table" then
+        if data._Theme then self:SetTheme(data._Theme) end
+
+        for flag, value in pairs(data) do
+            if flag ~= "_Theme" then
+                if type(value) == "table" then
+                    if value.isColor then value = Color3.new(value.R, value.G, value.B)
+                    elseif value.isKeybind then value = Enum.KeyCode[value.Key] end
+                end
+
+                self.Flags[flag] = value
+                if self.ConfigUpdaters[flag] then pcall(self.ConfigUpdaters[flag], value) end
+            end
+        end
+        if not quiet and self.Notify then self:Notify("Config System", "Successfully loaded", 3) end
+        return true
+    end
+    return false
+end
 
 return Library
