@@ -362,9 +362,15 @@ function Module:Init(Library, Window, Tab)
         end
     end)
 
-    workspace.DescendantAdded:Connect(function(obj)
-        checkAndCache(obj)
-    end)
+    local foldersToSearch = {"Interiors", "HouseExteriors", "Properties"}
+    for _, folderName in ipairs(foldersToSearch) do
+        local folder = workspace:FindFirstChild(folderName)
+        if folder then
+            table.insert(Library.Connections, folder.DescendantAdded:Connect(function(obj)
+                checkAndCache(obj)
+            end))
+        end
+    end
 
     Tab:CreateToggle({
         Name = "Auto Bypass Doors (Optimized)",
