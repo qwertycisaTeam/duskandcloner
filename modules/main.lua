@@ -475,8 +475,7 @@ function Module:Init(Library, Window, Tab)
         end
     end)
 
-    -- 2. Глобальный слушатель: автоматически ловит новые дома, когда они спавнятся
-   -- Слушаем ТОЛЬКО нужные папки, а не весь мир игры
+    -- 2. Глобальный слушатель: автоматически ловит новые дома
     local foldersToSearch = {"Interiors", "HouseExteriors", "Properties"}
     for _, folderName in ipairs(foldersToSearch) do
         local folder = workspace:FindFirstChild(folderName)
@@ -486,7 +485,7 @@ function Module:Init(Library, Window, Tab)
             end))
         end
     end
-
+    
 Tab:CreateToggle({
         Name = "Auto Bypass Doors",
         Description = "Instant activation. Unlocks doors and does not drop FPS.",
