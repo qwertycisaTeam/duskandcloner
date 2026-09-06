@@ -171,8 +171,12 @@ function Module:Init(Library, Window, Tab)
             local distance = (radius / math.tan(math.rad(VpCamera.FieldOfView / 2))) * 1.1
 
             local angle = 0
-            RunService.RenderStepped:Connect(function(dt)
-                if not Viewport.Parent then return end
+            local renderConn -- Заранее объявляем переменную
+            renderConn = RunService.RenderStepped:Connect(function(dt)
+                if not Viewport.Parent then 
+                    if renderConn then renderConn:Disconnect() end -- Жестко убиваем цикл, когда карточка удаляется
+                    return 
+                end
                 angle = angle + math.rad(25 * dt)
                 local camPos = centerPos + Vector3.new(math.cos(angle) * distance * 0.8, distance * 0.4, math.sin(angle) * distance * 0.8)
                 VpCamera.CFrame = CFrame.lookAt(camPos, centerPos)
