@@ -1850,12 +1850,14 @@ function Library:CreateWindow(config)
     end)
 
     function Window:Build()
-        Library:RunLoader(ScreenGui, function()
-            MainFrame.Visible = true
-            Library.Utils.TBT(MainFrame, 0.5, {GroupTransparency = 0})
+        task.spawn(function()
+            Library:RunLoader(ScreenGui, function()
+                MainFrame.Visible = true
+                Library.Utils.TBT(MainFrame, 0.5, {GroupTransparency = 0})
+            end)
         end)
     end
-
+    
     return Window
 end
 
