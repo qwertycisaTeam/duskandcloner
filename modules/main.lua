@@ -92,7 +92,7 @@ function Module:Init(Library, Window, Tab)
             end
             SelectedHouse = nil 
         end
-        Library:Notify("Builder", "House list successfully refreshed!", 3, "rbxassetid://10723376755", "rbxassetid://72958619361915")
+        Library:Notify("Builder", "House list successfully refreshed!", 3, "rbxassetid://10723376755", "rbxassetid://18926561608")
     end)
 
     local TopDivider = Library.Utils.Make("Frame", {
@@ -231,26 +231,26 @@ function Module:Init(Library, Window, Tab)
         local blueprint = workspace:FindFirstChild("HouseInteriors") and workspace.HouseInteriors:FindFirstChild("blueprint")
         
         if camY < 500 or camY > 8500 or not blueprint or #blueprint:GetChildren() == 0 then
-            return Library:Notify("Error", "You can only build while inside a house!", 3, "rbxassetid://10723376755", "rbxassetid://72958619361915")
+            return Library:Notify("Error", "You can only build while inside a house!", 3, "rbxassetid://10723376755", "rbxassetid://73186275216515")
         end
         if not SelectedHouse or SelectedHouse == "" or SelectedHouse == "Select..." then
-            return Library:Notify("Error", "Select a house schematic first!", 3, "rbxassetid://10723376755", "rbxassetid://72958619361915")
+            return Library:Notify("Error", "Select a house schematic first!", 3, "rbxassetid://10723376755", "rbxassetid://73186275216515")
         end
         
         local filePath = FolderName .. "/" .. SelectedHouse .. ".json"
         if not isfile(filePath) then
-            return Library:Notify("Error", "File not found on disk!", 3, "rbxassetid://10723376755", "rbxassetid://72958619361915")
+            return Library:Notify("Error", "File not found on disk!", 3, "rbxassetid://10723376755", "rbxassetid://73186275216515")
         end
 
         task.spawn(function()
-            Library:Notify("Builder", "Reading file: " .. SelectedHouse, 3, "rbxassetid://10723376755", "rbxassetid://72958619361915")
+            Library:Notify("Builder", "Reading file: " .. SelectedHouse, 3, "rbxassetid://10723376755", "rbxassetid://91727514118912")
             
             local success, fileData = pcall(function() return readfile(filePath) end)
-            if not success then return Library:Notify("Error", "Failed to read file!", 3, "rbxassetid://10723376755", "rbxassetid://72958619361915") end
+            if not success then return Library:Notify("Error", "Failed to read file!", 3, "rbxassetid://10723376755", "rbxassetid://73186275216515") end
             
             local decodeSuccess, savedHouse = pcall(function() return HttpService:JSONDecode(fileData) end)
             if not decodeSuccess or not savedHouse.furniture then
-                return Library:Notify("Error", "File corrupted or invalid format!", 3, "rbxassetid://10723376755", "rbxassetid://72958619361915")
+                return Library:Notify("Error", "File corrupted or invalid format!", 3, "rbxassetid://10723376755", "rbxassetid://73186275216515")
             end
 
             local ACTUALLY_BUILD = true
@@ -309,7 +309,7 @@ function Module:Init(Library, Window, Tab)
             end
                     
             if CopyTextures and savedHouse.textures then
-                Library:Notify("Builder", "Applying wallpapers and floors...", 3, "rbxassetid://10723376755", "rbxassetid://72958619361915")
+                Library:Notify("Builder", "Applying wallpapers and floors...", 3, "rbxassetid://10723376755", "rbxassetid://91727514118912")
                 local BuyTextureRemote = ReplicatedStorage:WaitForChild("API"):FindFirstChild("HousingAPI/BuyTexture")
                 if BuyTextureRemote then
                     for roomName, texData in pairs(savedHouse.textures) do
@@ -327,7 +327,7 @@ function Module:Init(Library, Window, Tab)
 
             if not ACTUALLY_BUILD then return end
             
-            Library:Notify("Builder", "Starting furniture purchase...", 3, "rbxassetid://10723376755", "rbxassetid://72958619361915")
+            Library:Notify("Builder", "Starting furniture purchase...", 3, "rbxassetid://10723376755", "rbxassetid://91727514118912")
             
             local rawFurniture = savedHouse.furniture or savedHouse
             local pendingChanges = {}
@@ -400,7 +400,7 @@ function Module:Init(Library, Window, Tab)
             
             print("=== ИТОГИ ПОСТРОЙКИ ===")
             print(string.format("Успешно: %d | Провалено: %d", totalBought, totalFailed))
-            Library:Notify("Builder", "Applying sizes and colors...", 3, "rbxassetid://10723376755", "rbxassetid://72958619361915")
+            Library:Notify("Builder", "Applying sizes and colors...", 3, "rbxassetid://10723376755", "rbxassetid://91727514118912")
             
             local chunk = {}
             for i, change in ipairs(pendingChanges) do
@@ -411,7 +411,7 @@ function Module:Init(Library, Window, Tab)
                     task.wait(0.5) 
                 end
             end
-            Library:Notify("Success", "House successfully built!", 3, "rbxassetid://10723376755", "rbxassetid://11400812999")
+            Library:Notify("Success", "House successfully built!", 3, "rbxassetid://10723376755", "rbxassetid://18926561608")
         end)
     end)
 
