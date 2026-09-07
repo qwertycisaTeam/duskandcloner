@@ -1,6 +1,6 @@
 --[[lib by rio] Latest Update: 09.08.26 / library version 2 [рефакторинг от 10.08] / 03.09 library ver 3 [loader, size of mac buttons, polzunok updated, CreateUIXPanel функция для settings.
 CreateSlider тоже обновлен, добавлен черный выделительный прямоугольник под count.
-v4 от 4 сент, fixed scrolling & scale sync [важный очень фикс)]]
+v4 от 4 сент, fixed scrolling & scale sync [важный очень фикс), v4.1 в тот же день, апгрейд divider]]
 
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -29,7 +29,7 @@ local Library = {
         CloserType = "Top Bar"
     },
     Connections = {},
-    ThemeObjects = setmetatable({}, {__mode = "k"}),
+    ThemeObjects = {},
     AnonItems = { Avatars = {}, Names = {}, UIDs = {} },
     Utils = {}
 }
@@ -207,7 +207,9 @@ function Library.Utils.Make(className, properties, themeProps)
                 Library.Utils.ApplyGradient(inst, Library.CurrentTheme.Accent)
             end
 
-            
+            inst.Destroying:Connect(function()
+                Library.ThemeObjects[inst] = nil
+            end)
         end
     end
     return inst
@@ -302,10 +304,14 @@ function Library:RunLoader(ScreenGui, OnComplete)
 end
 
 function Library:CreateWindow(config)
+    local Window = {}
     config = config or {}
     local windowTitle = config.Title or "Dusk &"
     local windowAccent = config.AccentTitle or "Shine"
     local versionText = config.Version
+    local customSize = config.Size or UDim2.new(0, 680, 0, 450)
+    local enableSearch = config.EnableSearch
+    if enableSearch == nil then enableSearch = true end
     
     local ScreenGui = Library.Utils.Make("ScreenGui", {
         Name = "DuskShine_Mega", Parent = PlayerGui, ResetOnSpawn = false,
@@ -327,7 +333,7 @@ function Library:CreateWindow(config)
     end)
 
     local MainFrame = Library.Utils.Make("CanvasGroup", {
-        Size = UDim2.new(0, 680, 0, 450), AnchorPoint = Vector2.new(0.5, 0.5),
+        Size = customSize, AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.new(0.5, 0, 0.5, 0), BorderSizePixel = 0, GroupTransparency = 1,
         Visible = false, BackgroundTransparency = 0.15, Parent = ScreenGui
     }, { BackgroundColor3 = "Background" })
@@ -417,15 +423,15 @@ function Library:CreateWindow(config)
         return b
     end
 
-    -- 4. Строка поиска (Search)
-    local SearchContainer = Library.Utils.Make("Frame", { Size = UDim2.new(0, 160, 0, 32), AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -95, 0.5, 0), BackgroundTransparency = 1, Parent = Header })
+    -- 4. Строка поиска (Search) [ВСЕГДА ОТКРЫТА]
+    local SearchContainer = Library.Utils.Make("Frame", { Size = UDim2.new(0, 160, 0, 32), AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -115, 0.5, 0), BackgroundTransparency = 1, Parent = Header })
+    SearchContainer.Visible = enableSearch -- Применяем настройку
     local SearchBg = Library.Utils.Make("Frame", { Size = UDim2.new(1, 0, 1, 0), Parent = SearchContainer }, { BackgroundColor3 = "Section" })
     Library.Utils.Make("UICorner", { CornerRadius = UDim.new(1, 0), Parent = SearchBg })
     Library.Utils.Make("UIStroke", { Parent = SearchBg }, { Color = "Stroke" })
-    
     Library.Utils.Make("ImageLabel", { Size = UDim2.new(0, 16, 0, 16), Position = UDim2.new(1, -24, 0.5, 0), AnchorPoint = Vector2.new(0, 0.5), BackgroundTransparency = 1, Image = "rbxassetid://3926305904", ImageRectOffset = Vector2.new(964, 324), ImageRectSize = Vector2.new(36, 36), Parent = SearchContainer }, { ImageColor3 = "SubText" })
     local SearchInput = Library.Utils.Make("TextBox", { Size = UDim2.new(1, -40, 1, 0), Position = UDim2.new(0, 12, 0, 0), BackgroundTransparency = 1, PlaceholderText = "Search...", Text = "", Font = Enum.Font.GothamMedium, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, ClearTextOnFocus = false, Parent = SearchContainer }, { TextColor3 = "Text", PlaceholderColor3 = "SubText" })
-
+    
     -- ==========================================
     -- ЛОГИКА СВОРАЧИВАНИЯ (MINIMIZE / FLOATING LOGO)
     -- ==========================================
@@ -467,21 +473,19 @@ function Library:CreateWindow(config)
             end
 
             MainFrame.Visible = true
-            Library.Utils.TBT(MainFrame, 0.4, {GroupTransparency = 0, Size = UDim2.new(0, 680, 0, 450)}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+            Library.Utils.TBT(MainFrame, 0.4, {GroupTransparency = 0, Size = customSize}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
         end
     end
 
     Library:Connect(FloatingClick.MouseButton1Click, ToggleMinimize)
     Library:Connect(OpenBtn.MouseButton1Click, ToggleMinimize)
 
-    -- Биндим Mac-кнопки (Внутри функции CreateWindow)
+    -- Биндим Mac-кнопки
     MakeMac("Green", 1, function() Library:ToggleTheme() end)
     MakeMac("Yellow", 2, ToggleMinimize)
     MakeMac("Red", 3, function() 
         Library.Utils.TBT(MainFrame, 0.3, {GroupTransparency = 1, Size = UDim2.new(0, 700, 0, 400)}, Enum.EasingStyle.Back, Enum.EasingDirection.In)
         task.delay(0.3, function()
-            getgenv().DS_StopExecution = true -- Глобальный флаг остановки всех циклов
-            getgenv().DuskShine_Core = nil
             Library:Destroy()
         end)
     end)
@@ -523,7 +527,7 @@ function Library:CreateWindow(config)
     -- ==========================================
     -- 5. ОБЪЕКТ ОКНА (WINDOW OBJECT)
     -- ==========================================
-    local Window = {
+    Window = {
         MainFrame = MainFrame,
         TabsContainer = TabsContainer,
         PagesContainer = Pages,
@@ -1390,11 +1394,14 @@ function Library:CreateWindow(config)
         function Tab:CreateDivider(config)
             config = config or {}
             local text = config.Text or ""
+            local targetParent = config.Parent or Page -- Если передан Parent, ставим туда. Иначе в основу.
+            local layoutOrder = config.LayoutOrder or 0
 
             local Container = Library.Utils.Make("Frame", { 
                 Size = UDim2.new(1, 0, 0, 30), 
                 BackgroundTransparency = 1, 
-                Parent = Page 
+                LayoutOrder = layoutOrder,
+                Parent = targetParent 
             })
 
             local Layout = Library.Utils.Make("UIListLayout", { 
@@ -1406,7 +1413,7 @@ function Library:CreateWindow(config)
                 Parent = Container 
             })
 
-            -- Левая линия (Градиент от прозрачного к цвету)
+            -- Левая линия
             local LeftLine = Library.Utils.Make("Frame", { 
                 LayoutOrder = 1, 
                 Size = UDim2.new(0.35, 0, 0, 1), 
@@ -1415,10 +1422,7 @@ function Library:CreateWindow(config)
             }, { BackgroundColor3 = "Stroke" })
             
             local LGrad = Instance.new("UIGradient", LeftLine)
-            LGrad.Transparency = NumberSequence.new({
-                NumberSequenceKeypoint.new(0, 1),
-                NumberSequenceKeypoint.new(1, 0)
-            })
+            LGrad.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0) })
 
             -- Текст по центру
             local Txt = Library.Utils.Make("TextLabel", { 
@@ -1432,7 +1436,7 @@ function Library:CreateWindow(config)
                 Parent = Container 
             }, { TextColor3 = "SubText" })
 
-            -- Правая линия (Градиент от цвета к прозрачному)
+            -- Правая линия
             local RightLine = Library.Utils.Make("Frame", { 
                 LayoutOrder = 3, 
                 Size = UDim2.new(0.35, 0, 0, 1), 
@@ -1441,10 +1445,7 @@ function Library:CreateWindow(config)
             }, { BackgroundColor3 = "Stroke" })
 
             local RGrad = Instance.new("UIGradient", RightLine)
-            RGrad.Transparency = NumberSequence.new({
-                NumberSequenceKeypoint.new(0, 0),
-                NumberSequenceKeypoint.new(1, 1)
-            })
+            RGrad.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 1) })
 
             return {
                 SetText = function(newText) Txt.Text = newText end
@@ -1745,9 +1746,7 @@ function Library:CreateWindow(config)
         SearchPage.CanvasSize = UDim2.new(0, 0, 0, SearchLayout.AbsoluteContentSize.Y + 20)
     end)
 
-    local isSearchOpen = false
     local originalParents = {}
-    local SearchClickBtn = Library.Utils.Make("TextButton", {Size = UDim2.new(0, 30, 0, 30), Position = UDim2.new(1, -30, 0, 0), BackgroundTransparency = 1, Text = "", ZIndex = 10, Parent = SearchContainer})
 
     local function RestoreSearch()
         SearchPage.Visible = false
@@ -1769,31 +1768,6 @@ function Library:CreateWindow(config)
             end
         end
     end
-
-    local function CloseSearch()
-        isSearchOpen = false
-        SearchInput.Text = ""
-        Library.Utils.TBT(SearchContainer, 0.4, {Size = UDim2.new(0, 32, 0, 32)}, Enum.EasingStyle.Quint)
-        Library.Utils.TBT(SearchInput, 0.2, {TextTransparency = 1})
-        Library.ThemeObjects[SearchContainer:FindFirstChildOfClass("ImageLabel")] = { ImageColor3 = "SubText" }
-        Library.Utils.TBT(SearchContainer:FindFirstChildOfClass("ImageLabel"), 0.3, {ImageColor3 = Library.CurrentTheme.SubText})
-        task.delay(0.2, function() if not isSearchOpen then SearchInput.Visible = false end end)
-    end
-
-    Library:Connect(SearchClickBtn.MouseButton1Click, function()
-        isSearchOpen = not isSearchOpen
-        local searchIcon = SearchContainer:FindFirstChildOfClass("ImageLabel")
-        if isSearchOpen then
-            SearchInput.Visible = true
-            Library.Utils.TBT(SearchContainer, 0.4, {Size = UDim2.new(0, 160, 0, 32)}, Enum.EasingStyle.Quint)
-            Library.Utils.TBT(SearchInput, 0.3, {TextTransparency = 0})
-            Library.ThemeObjects[searchIcon] = { ImageColor3 = "Accent" }
-            Library.Utils.TBT(searchIcon, 0.3, {ImageColor3 = Library.CurrentTheme.Accent})
-            SearchInput:CaptureFocus()
-        else
-            CloseSearch()
-        end
-    end)
 
     Library:Connect(SearchInput:GetPropertyChangedSignal("Text"), function()
         local query = string.lower(SearchInput.Text):match("^%s*(.-)%s*$") or ""
@@ -1838,7 +1812,7 @@ function Library:CreateWindow(config)
     end)
 
     Library:Connect(UserInputService.InputBegan, function(input)
-        if not isSearchOpen or not SearchPage.Visible then return end
+        if not SearchPage.Visible then return end
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             local mPos = input.Position
             local spPos = SearchPage.AbsolutePosition
@@ -1849,8 +1823,9 @@ function Library:CreateWindow(config)
                     if elem.Parent == SearchPage and elem.Visible then
                         local pos = elem.AbsolutePosition; local size = elem.AbsoluteSize
                         if mPos.X >= pos.X and mPos.X <= pos.X + size.X and mPos.Y >= pos.Y and mPos.Y <= pos.Y + size.Y then
-                            -- Закрываем поиск и чистим текст ПРЯМО ТУТ
-                            CloseSearch() 
+                            
+                            -- ФИКС: Очищаем текст. Это вызовет TextChanged и автоматом выполнит RestoreSearch
+                            SearchInput.Text = "" 
                             Window:SelectTab(data.TabRef)
                             
                             task.spawn(function()
@@ -1878,24 +1853,12 @@ function Library:CreateWindow(config)
         Library:RunLoader(ScreenGui, function()
             MainFrame.Visible = true
             Library.Utils.TBT(MainFrame, 0.5, {GroupTransparency = 0})
-
-            -- ГЛОБАЛЬНАЯ НЕВИДИМАЯ СИСТЕМА СОХРАНЕНИЯ
-            task.spawn(function()
-                if isfile and isfile(Library.ConfigFolder .. "/" .. Library.AutoLoadFile .. ".json") then
-                    Library:LoadConfig(Library.AutoLoadFile, true)
-                end
-
-                while task.wait(3) do
-                    -- Если нажали красную кнопку, цикл останавливается
-                    if getgenv().DS_StopExecution then break end 
-                    Library:SaveConfig(Library.AutoLoadFile, true) 
-                end
-            end)
         end)
     end
 
     return Window
 end
+
     -- ==========================================
     -- 6. СИСТЕМА УВЕДОМЛЕНИЙ (NOTIFICATIONS)
     -- ==========================================
@@ -2010,142 +1973,5 @@ end
             out.Completed:Connect(function() Container:Destroy() end)
         end)
     end
-
-    -- ==========================================
-    -- 7. МЕНЕДЖЕР КОНФИГОВ (CONFIG SYSTEM)
-    -- ==========================================
-    local HttpService = game:GetService("HttpService")
-    Library.ConfigFolder = "DuskAndShineConfigs"
-
-    function Library:SaveConfig(fileName)
-        if not writefile then 
-            warn("[Dusk] Executor does not support file saving.")
-            return 
-        end
-
-        if not isfolder(self.ConfigFolder) then 
-            makefolder(self.ConfigFolder) 
-        end
-        
-        local saveTable = {}
-        -- Умный обход: кодируем специфические типы данных
-        for flag, value in pairs(self.Flags) do
-            if typeof(value) == "Color3" then
-                saveTable[flag] = { R = value.R, G = value.G, B = value.B, isColor = true }
-            elseif typeof(value) == "EnumItem" then
-                saveTable[flag] = { Key = value.Name, isKeybind = true }
-            else
-                saveTable[flag] = value
-            end
-        end
-
-        local success, json = pcall(function() return HttpService:JSONEncode(saveTable) end)
-        if success then
-            writefile(self.ConfigFolder .. "/" .. fileName .. ".json", json)
-            self:Notify("Config System", "Successfully saved: " .. fileName, 3)
-        else
-            self:Notify("Error", "Failed to encode config!", 3)
-        end
-    end
-
-    function Library:LoadConfig(fileName)
-        if not readfile or not isfile(self.ConfigFolder .. "/" .. fileName .. ".json") then 
-            self:Notify("Error", "Config file not found!", 3)
-            return 
-        end
-        
-        local json = readfile(self.ConfigFolder .. "/" .. fileName .. ".json")
-        local success, data = pcall(function() return HttpService:JSONDecode(json) end)
-        
-        if success and type(data) == "table" then
-            for flag, value in pairs(data) do
-                -- Декодируем специфические типы обратно
-                if type(value) == "table" then
-                    if value.isColor then
-                        value = Color3.new(value.R, value.G, value.B)
-                    elseif value.isKeybind then
-                        value = Enum.KeyCode[value.Key]
-                    end
-                end
-                
-                -- Обновляем данные в ядре
-                self.Flags[flag] = value
-                
-                -- Если компонент зарегистрировал функцию апдейта (SetState, SetValue) - вызываем её!
-                if self.ConfigUpdaters[flag] then
-                    pcall(self.ConfigUpdaters[flag], value)
-                end
-            end
-            self:Notify("Config System", "Successfully loaded: " .. fileName, 3)
-        else
-            self:Notify("Error", "Failed to read config!", 3)
-        end
-    end
--- ==========================================
--- 7. МЕНЕДЖЕР КОНФИГОВ (CONFIG SYSTEM)
--- ==========================================
-local HttpService = game:GetService("HttpService")
-Library.ConfigFolder = "DuskAndShineConfigs"
-Library.AutoLoadFile = "autoload"
-
-function Library:InitConfigSystem()
-    if not isfolder then return end
-    if not isfolder(self.ConfigFolder) then 
-        makefolder(self.ConfigFolder) 
-    end
-end
-
-function Library:SaveConfig(fileName, quiet)
-    if not writefile then return end
-    self:InitConfigSystem()
-
-    local saveTable = { _Theme = self.CurrentThemeName }
-
-    for flag, value in pairs(self.Flags) do
-        if typeof(value) == "Color3" then
-            saveTable[flag] = { R = value.R, G = value.G, B = value.B, isColor = true }
-        elseif typeof(value) == "EnumItem" then
-            saveTable[flag] = { Key = value.Name, isKeybind = true }
-        else
-            saveTable[flag] = value
-        end
-    end
-
-    local success, json = pcall(function() return HttpService:JSONEncode(saveTable) end)
-
-    if success then
-        if self.LastSavedJSON == json then return end 
-        self.LastSavedJSON = json 
-
-        writefile(self.ConfigFolder .. "/" .. fileName .. ".json", json)
-        if not quiet and self.Notify then self:Notify("Config System", "Successfully saved", 3) end
-    end
-end
-
-function Library:LoadConfig(fileName, quiet)
-    if not readfile or not isfile(self.ConfigFolder .. "/" .. fileName .. ".json") then return false end
-
-    local json = readfile(self.ConfigFolder .. "/" .. fileName .. ".json")
-    local success, data = pcall(function() return HttpService:JSONDecode(json) end)
-
-    if success and type(data) == "table" then
-        if data._Theme then self:SetTheme(data._Theme) end
-
-        for flag, value in pairs(data) do
-            if flag ~= "_Theme" then
-                if type(value) == "table" then
-                    if value.isColor then value = Color3.new(value.R, value.G, value.B)
-                    elseif value.isKeybind then value = Enum.KeyCode[value.Key] end
-                end
-
-                self.Flags[flag] = value
-                if self.ConfigUpdaters[flag] then pcall(self.ConfigUpdaters[flag], value) end
-            end
-        end
-        if not quiet and self.Notify then self:Notify("Config System", "Successfully loaded", 3) end
-        return true
-    end
-    return false
-end
 
 return Library
