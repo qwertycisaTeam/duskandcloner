@@ -208,7 +208,7 @@ function Module:Init(Library, Window, Tab)
                 -- Дом находится на высоте ~4000. Мейн остров - 50. Лужайка - 9500+.
                 -- Проверяем, что мы в нужном "коридоре" высоты И стены дома существуют.
                 if camY < 500 or camY > 8500 or not blueprint or #blueprint:GetChildren() == 0 then
-                    return Library:Notify("Ошибка", "Зайди внутрь дома! На улице парсить нельзя.", 4)
+                    return Library:Notify("Error", "Go inside the house! You can't scan outside.", 3, )
                 end
 
             local data = getgenv().DuskCore.M.ClientData.get_data()
@@ -216,7 +216,7 @@ function Module:Init(Library, Window, Tab)
             local targetData = data[TARGET_OWNER]
             
             if not targetData or not targetData.house_interior or type(targetData.house_interior.furniture) ~= "table" then
-                return Library:Notify("Ошибка", "Данные интерьера не найдены или пусты!", 3)
+                return Library:Notify("Error", "Interior data not found or empty!", 3, "rbxassetid://73186275216515", "rbxassetid://72958619361915")
             end
             
             local rawFurniture = targetData.house_interior.furniture
@@ -281,7 +281,7 @@ function Module:Init(Library, Window, Tab)
             self:SaveHouse(newFileName, saveData)
             
             self:RefreshList()
-            Library:Notify("Успех!", "Скопировано: " .. count .. " предметов и " .. textureCount .. " комнат.", 4)
+            Library:Notify("Success!", "copied: " .. count .. " objects and " .. textureCount .. " rooms.", 3, "rbxassetid://18926561608", "rbxassetid://72958619361915")
         end)
     end)
 
@@ -536,13 +536,13 @@ function Module:CreateFileCard(fileName)
         end
 
         AddAction("Rename", "rbxassetid://77580518418895", "SubText", "Accent", false, function() TitleLbl.Visible = false; RenameBox.Visible = true; RenameBox.Text = fileName; RenameBox:CaptureFocus() end)
-        AddAction("Duplicate", "rbxassetid://91403080584860", "SubText", "Accent", false, function() local data = self:LoadHouse(fileName); if data then self:SaveHouse(fileName .. "_copy", data); self:RefreshList(); Library:Notify("File Manager", "Duplicated: " .. fileName, 2) end end)
-        AddAction("Copy Code", "rbxassetid://76443890191204", "SubText", "Accent", false, function() local data = self:LoadHouse(fileName); if data and setclipboard then setclipboard(HttpService:JSONEncode(data)); Library:Notify("Copied", "JSON code copied to clipboard!", 2) end end)
+        AddAction("Duplicate", "rbxassetid://91403080584860", "SubText", "Accent", false, function() local data = self:LoadHouse(fileName); if data then self:SaveHouse(fileName .. "_copy", data); self:RefreshList(); Library:Notify("File Manager", "Duplicated: " .. fileName, 3, "rbxassetid://91727514118912", "rbxassetid://72958619361915" ) end end)
+        AddAction("Copy Code", "rbxassetid://76443890191204", "SubText", "Accent", false, function() local data = self:LoadHouse(fileName); if data and setclipboard then setclipboard(HttpService:JSONEncode(data)); Library:Notify("Copied", "JSON code copied to clipboard!", 3, "rbxassetid://91727514118912", "rbxassetid://72958619361915") end end)
         
         local div = Library.Utils.Make("Frame", { Size = UDim2.new(1, -12, 0, 1), Position = UDim2.new(0, 6, 0, 0), BackgroundTransparency = 0.8, ZIndex = 1002, Parent = Content }, { BackgroundColor3 = "Stroke" })
         Library.Utils.TBT(div, 0.15, {BackgroundTransparency = 0.8})
         
-        AddAction("Delete File", "rbxassetid://90865958932830", "Red", "Red", true, function() self:DeleteHouse(fileName); self:RefreshList(); Library:Notify("Deleted", fileName .. " has been removed.", 2) end)
+        AddAction("Delete File", "rbxassetid://90865958932830", "Red", "Red", true, function() self:DeleteHouse(fileName); self:RefreshList(); Library:Notify("Deleted", fileName .. " has been removed.", 3, "rbxassetid://91727514118912", "rbxassetid://72958619361915") end)
     end
 
     Library:Connect(OptionsBtn.MouseButton1Click, function()
@@ -562,7 +562,7 @@ function Module:CreateFileCard(fileName)
         if newName and newName ~= "" and newName ~= fileName then
             if self:RenameHouse(fileName, newName) then 
                 self:RefreshList() 
-                Library:Notify("File Manager", "Renamed to " .. newName, 2) 
+                Library:Notify("File Manager", "Renamed to " .. newName, 3, "rbxassetid://91727514118912", "rbxassetid://72958619361915") 
             end
         else 
             RenameBox.Text = fileName 
