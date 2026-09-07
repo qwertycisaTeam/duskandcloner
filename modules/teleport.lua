@@ -1,7 +1,8 @@
-local Players = game:GetService("Players")
+
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local LocalPlayer = Players.LocalPlayer
+local Players = game:GetService("Players")
+local LocalPlayer = getgenv().DuskCore.plr
 
 local Module = {}
 
