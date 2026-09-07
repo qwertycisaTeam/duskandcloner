@@ -211,11 +211,7 @@ function Module:Init(Library, Window, Tab)
                     return Library:Notify("Ошибка", "Зайди внутрь дома! На улице парсить нельзя.", 4)
                 end
 
-                local Fsys = game:GetService("ReplicatedStorage"):WaitForChild("Fsys")
-            local loadFsys = require(Fsys).load
-            local ClientData = loadFsys("ClientData")
-            
-            local data = ClientData.get_data()
+            local data = getgenv().DuskCore.M.ClientData.get_data()
             local TARGET_OWNER = Players.LocalPlayer.Name 
             local targetData = data[TARGET_OWNER]
             
