@@ -411,7 +411,7 @@ function Module:Init(Library, Window, Tab)
                     task.wait(0.5) 
                 end
             end
-            Library:Notify("Success", "House successfully built!", 3, "rbxassetid://91727514118912", "rbxassetid://72958619361915")
+            Library:Notify("Success", "House successfully built!", 3, "rbxassetid://18926561608", "rbxassetid://72958619361915")
         end)
     end)
 
