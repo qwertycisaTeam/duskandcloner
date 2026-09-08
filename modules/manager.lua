@@ -208,7 +208,7 @@ function Module:Init(Library, Window, Tab)
                 -- Дом находится на высоте ~4000. Мейн остров - 50. Лужайка - 9500+.
                 -- Проверяем, что мы в нужном "коридоре" высоты И стены дома существуют.
                 if camY < 500 or camY > 8500 or not blueprint or #blueprint:GetChildren() == 0 then
-                    return Library:Notify("Error", "Go inside the house! You can't scan outside.", 3, )
+                    return Library:Notify("Error", "Go inside the house! You can't scan outside.", 3, "rbxassetid://73186275216515", "rbxassetid://72958619361915")
                 end
 
             local data = getgenv().DuskCore.M.ClientData.get_data()
