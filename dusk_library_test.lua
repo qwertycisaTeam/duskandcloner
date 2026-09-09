@@ -927,7 +927,7 @@ function Library:CreateWindow(config)
             local title = config.Name or "Slider"
             local min = config.Min or 0
             local max = config.Max or 100
-            local default = config.Default or min
+            local default = Library.Flags[flag] or config.Default or min
             local flag = config.Flag or title:gsub("%s+", "")
             local callback = config.Callback or function() end
 
@@ -1031,7 +1031,7 @@ function Library:CreateWindow(config)
             config = config or {}
             local title = config.Name or "Dropdown"
             local options = config.Options or {}
-            local default = config.Default or options[1] or "Select..."
+            local default = Library.Flags[flag] or config.Default or options[1] or "Select..."
             local flag = config.Flag or title:gsub("%s+", "")
             local callback = config.Callback or function() end
 
@@ -1115,7 +1115,7 @@ function Library:CreateWindow(config)
         function Tab:CreateKeybind(config)
             config = config or {}
             local title = config.Name or "Keybind"
-            local default = config.Default or Enum.KeyCode.Unknown
+            local default = Library.Flags[flag] or config.Default or Enum.KeyCode.Unknown
             local flag = config.Flag or title:gsub("%s+", "")
             local callback = config.Callback or function() end
 
@@ -1341,7 +1341,7 @@ function Library:CreateWindow(config)
             config = config or {}
             local title = config.Name or "Input"
             local placeholder = config.Placeholder or "Type here..."
-            local default = config.Default or ""
+            local default = Library.Flags[flag] or config.Default or ""
             local flag = config.Flag or title:gsub("%s+", "")
             local clearOnFocus = config.ClearTextOnFocus or false
             local callback = config.Callback or function() end
@@ -1622,9 +1622,10 @@ function Library:CreateWindow(config)
             config = config or {}
             local title = config.Name or "Mode Toggle"
             local desc = config.Description or ""
-            local defaultState = config.DefaultState or false
-            local modes = config.Modes or {} -- Ожидаем массив таблиц: {{Name = "Legit", Image = "..."}, {Name = "Rage", Image = "..."}}
-            local defaultMode = config.DefaultMode or (modes[1] and modes[1].Name) or ""
+            local defaultState = Library.Flags[flag .. "_State"]
+            if defaultState == nil then defaultState = config.DefaultState or false end
+            local modes = config.Modes or {}
+            local defaultMode = Library.Flags[flag .. "_Mode"] or config.DefaultMode or (modes[1] and modes[1].Name) or ""
             local flag = config.Flag or title:gsub("%s+", "")
             
             local toggleCallback = config.ToggleCallback or function() end
@@ -1850,16 +1851,17 @@ function Library:CreateWindow(config)
     end)
 
     function Window:Build()
+        -- ЧИТАЕМ КОНФИГ ДО ТОГО, КАК МЕНЮ ПОЯВИТСЯ НА ЭКРАНЕ
+        if isfile and isfile(Library.ConfigFolder .. "/" .. Library.AutoLoadFile .. ".json") then
+            Library:LoadConfig(Library.AutoLoadFile, true)
+        end
+
         Library:RunLoader(ScreenGui, function()
             MainFrame.Visible = true
             Library.Utils.TBT(MainFrame, 0.5, {GroupTransparency = 0})
 
-            -- ГЛОБАЛЬНАЯ НЕВИДИМАЯ СИСТЕМА СОХРАНЕНИЯ
+            -- ЗАПУСКАЕМ ТОЛЬКО ФОНОВОЕ СОХРАНЕНИЕ
             task.spawn(function()
-                if isfile and isfile(Library.ConfigFolder .. "/" .. Library.AutoLoadFile .. ".json") then
-                    Library:LoadConfig(Library.AutoLoadFile, true)
-                end
-
                 while task.wait(3) do
                     if getgenv().DS_StopExecution then break end 
                     Library:SaveConfig(Library.AutoLoadFile, true) 
@@ -1984,6 +1986,94 @@ end
             if RightLogo then Library.Utils.TBT(RightLogo, 0.3, {ImageTransparency = 1}) end
             out.Completed:Connect(function() Container:Destroy() end)
         end)
+    end
+    -- ==========================================
+    -- 7. МЕНЕДЖЕР КОНФИГОВ (ТОЛЬКО UI, БЕЛЫЙ СПИСОК)
+    -- ==========================================
+    local HttpService = game:GetService("HttpService")
+    Library.ConfigFolder = "DuskAndShineConfigs"
+    Library.AutoLoadFile = "TrueSettings"
+
+    -- БЕЛЫЙ СПИСОК: сохраняем только визуал и настройки меню
+    local AllowedUIFlags = {
+        "ThemeAccent", "UIScaleSize", "ToggleUIKey", 
+        "FPSLimit", "PerformanceModeEnabled", "AnonymousMode",
+        "MenuParticlesEnabled", "ParticleType", "CloserType", "MenuBlurEnabled", "AutoUpdateKicker"
+    }
+
+    function Library:InitConfigSystem()
+        if not isfolder then return end
+        if not isfolder(self.ConfigFolder) then makefolder(self.ConfigFolder) end
+    end
+
+    function Library:SaveConfig(fileName, quiet)
+        if not writefile then return end
+        self:InitConfigSystem()
+
+        local saveTable = { _Theme = self.CurrentThemeName }
+
+        for _, flagName in ipairs(AllowedUIFlags) do
+            local value = self.Flags[flagName]
+            if value ~= nil then
+                if typeof(value) == "Color3" then
+                    saveTable[flagName] = { R = value.R, G = value.G, B = value.B, isColor = true }
+                elseif typeof(value) == "EnumItem" then
+                    saveTable[flagName] = { Key = value.Name, isKeybind = true }
+                else
+                    saveTable[flagName] = value
+                end
+            end
+        end
+
+        local success, json = pcall(function() return HttpService:JSONEncode(saveTable) end)
+        if success then
+            if self.LastSavedJSON == json then return end 
+            self.LastSavedJSON = json 
+            writefile(self.ConfigFolder .. "/" .. fileName .. ".json", json)
+            if not quiet and self.Notify then self:Notify("Config System", "UI Settings Saved", 3) end
+        end
+    end
+
+    function Library:LoadConfig(fileName, quiet)
+        if not readfile or not isfile(self.ConfigFolder .. "/" .. fileName .. ".json") then return false end
+
+        local json = readfile(self.ConfigFolder .. "/" .. fileName .. ".json")
+        local success, data = pcall(function() return HttpService:JSONDecode(json) end)
+
+        if success and type(data) == "table" then
+            if data._Theme then self:SetTheme(data._Theme) end
+
+            -- Жесткое применение цвета ДО того как создадутся элементы
+            if data.ThemeAccent and type(data.ThemeAccent) == "table" then
+                local col = Color3.new(data.ThemeAccent.R, data.ThemeAccent.G, data.ThemeAccent.B)
+                self.CurrentTheme.Accent = col
+                if self.Themes.Dark then self.Themes.Dark.Accent = col end
+                if self.Themes.Light then self.Themes.Light.Accent = col end
+            end
+
+            -- Жесткое применение скейла
+            if data.UIScaleSize then
+                local ScreenGui = PlayerGui:FindFirstChild("DuskShine_Mega")
+                if ScreenGui then
+                    local scaleObj = ScreenGui:FindFirstChildOfClass("UIScale")
+                    if scaleObj then scaleObj.Scale = data.UIScaleSize / 100 end
+                end
+            end
+
+            for flag, value in pairs(data) do
+                if flag ~= "_Theme" then
+                    if type(value) == "table" then
+                        if value.isColor then value = Color3.new(value.R, value.G, value.B)
+                        elseif value.isKeybind then value = Enum.KeyCode[value.Key] end
+                    end
+                    self.Flags[flag] = value
+                    if self.ConfigUpdaters[flag] then pcall(self.ConfigUpdaters[flag], value) end
+                end
+            end
+            if not quiet and self.Notify then self:Notify("Config System", "UI Settings Loaded", 3) end
+            return true
+        end
+        return false
     end
 
 return Library
