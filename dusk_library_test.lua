@@ -782,8 +782,6 @@ function Library:CreateWindow(config)
             if currentState == nil then currentState = default end
             Library.Flags[flag] = currentState
 
-            Library.ConfigUpdaters[flag] = function(val) SetState(val) end
-
             local F = Library.Utils.Make("Frame", { Size = UDim2.new(1, 0, 0, 70), Parent = Page }, { BackgroundColor3 = "Section" })
             Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 10), Parent = F})
             Library.Utils.Make("UIStroke", {Thickness = 1, Parent = F}, {Color = "Stroke"})
@@ -838,6 +836,9 @@ function Library:CreateWindow(config)
                 pcall(callback, newState)
             end
 
+            -- ВОТ ИСПРАВЛЕНИЕ: Привязка апдейтера ПОСЛЕ создания функции, чтобы она не была nil
+            Library.ConfigUpdaters[flag] = SetState
+
             Library:Connect(Sw.MouseButton1Click, function() SetState(not Library.Flags[flag]) end)
             
             return { 
@@ -846,28 +847,6 @@ function Library:CreateWindow(config)
                 GetValue = function() return Library.Flags[flag] end
             }
         end
-            local function SetState(newState)
-                if Library.Flags[flag] == newState then return end
-                Library.Flags[flag] = newState
-                
-                Library.ThemeObjects[Sw]["BackgroundColor3"] = newState and "Accent" or "ToggleOff"
-                local tCol = newState and Library.CurrentTheme.Accent or Library.CurrentTheme.ToggleOff
-                
-                Library.Utils.TBT(Sw, 0.25, {BackgroundColor3 = tCol})
-                Library.Utils.TBT(Kn, 0.25, {Position = newState and OnP or OffP})
-                
-                pcall(callback, newState)
-            end
-
-            Library:Connect(Sw.MouseButton1Click, function() SetState(not Library.Flags[flag]) end)
-            
-            return { 
-                Container = F, -- Возвращаем САМ ФРЕЙМ для полного хардкора (см. Уровень 2)
-                SetState = SetState,
-                GetValue = function() return Library.Flags[flag] end
-            }
-        end
-
         function Tab:CreateSubPage(config)
             config = config or {}
             local title = config.Name or "Sub Page"
