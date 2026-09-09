@@ -772,15 +772,15 @@ function Library:CreateWindow(config)
             config = config or {}
             local title = config.Name or "Toggle"
             local desc = config.Description or ""
-            local flag = config.Flag or title:gsub("%s+", "")
             local default = config.Default or false
+            local flag = config.Flag or title:gsub("%s+", "")
             local callback = config.Callback or function() end
+            
+            -- КАСТОМНЫЙ АРГУМЕНТ: Функция для шестеренки
             local settingsCallback = config.Settings 
 
-            -- УМНАЯ ПРОВЕРКА: Берем из памяти
-            local currentState = Library.Flags[flag]
-            if currentState == nil then currentState = default end
-            Library.Flags[flag] = currentState
+            Library.Flags[flag] = default
+            Library.ConfigUpdaters[flag] = function(val) SetState(val) end
 
             local F = Library.Utils.Make("Frame", { Size = UDim2.new(1, 0, 0, 70), Parent = Page }, { BackgroundColor3 = "Section" })
             Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 10), Parent = F})
@@ -789,13 +789,14 @@ function Library:CreateWindow(config)
             Library.Utils.Make("TextLabel", { Text = title, Size = UDim2.new(1, -70, 0, 20), Position = UDim2.new(0, 20, 0, 15), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 16, TextXAlignment = Enum.TextXAlignment.Left, Parent = F }, { TextColor3 = "Text" })
             Library.Utils.Make("TextLabel", { Text = desc, Size = UDim2.new(1, -90, 0, 15), Position = UDim2.new(0, 20, 0, 38), BackgroundTransparency = 1, FontFace = MainFont, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left, Parent = F }, { TextColor3 = "SubText" })
 
-            local Sw = Library.Utils.Make("TextButton", { Text = "", Size = UDim2.new(0, 48, 0, 26), AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -20, 0.5, 0), Parent = F }, { BackgroundColor3 = currentState and "Accent" or "ToggleOff" })
+            local Sw = Library.Utils.Make("TextButton", { Text = "", Size = UDim2.new(0, 48, 0, 26), AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -20, 0.5, 0), Parent = F }, { BackgroundColor3 = default and "Accent" or "ToggleOff" })
             Library.Utils.Make("UICorner", {CornerRadius = UDim.new(1,0), Parent = Sw})
 
             local OnP = UDim2.new(1, -23, 0.5, 0); local OffP = UDim2.new(0, 3, 0.5, 0)
-            local Kn = Library.Utils.Make("Frame", { Size = UDim2.new(0, 20, 0, 20), AnchorPoint = Vector2.new(0, 0.5), Position = currentState and OnP or OffP, Parent = Sw }, { BackgroundColor3 = "Knob" })
+            local Kn = Library.Utils.Make("Frame", { Size = UDim2.new(0, 20, 0, 20), AnchorPoint = Vector2.new(0, 0.5), Position = default and OnP or OffP, Parent = Sw }, { BackgroundColor3 = "Knob" })
             Library.Utils.Make("UICorner", {CornerRadius = UDim.new(1,0), Parent = Kn})
 
+            -- === ЛОГИКА ШЕСТЕРЕНКИ ===
             if settingsCallback then
                 local Gear = Library.Utils.Make("ImageButton", {
                     Size = UDim2.new(0, 20, 0, 20), AnchorPoint = Vector2.new(1, 0.5),
@@ -836,17 +837,15 @@ function Library:CreateWindow(config)
                 pcall(callback, newState)
             end
 
-            -- ВОТ ИСПРАВЛЕНИЕ: Привязка апдейтера ПОСЛЕ создания функции, чтобы она не была nil
-            Library.ConfigUpdaters[flag] = SetState
-
             Library:Connect(Sw.MouseButton1Click, function() SetState(not Library.Flags[flag]) end)
             
             return { 
-                Container = F,
+                Container = F, -- Возвращаем САМ ФРЕЙМ для полного хардкора (см. Уровень 2)
                 SetState = SetState,
                 GetValue = function() return Library.Flags[flag] end
             }
         end
+
         function Tab:CreateSubPage(config)
             config = config or {}
             local title = config.Name or "Sub Page"
@@ -1185,18 +1184,16 @@ function Library:CreateWindow(config)
             config = config or {}
             local min = config.Min or 25
             local max = config.Max or 175
-            
+            local defaultScale = config.DefaultScale or 50
             local scaleFlag = config.ScaleFlag or "UIScaleSize"
-            local colorFlag = config.ColorFlag or "ThemeAccent"
             local scaleCallback = config.ScaleCallback or function() end
+
+            local defaultColor = config.DefaultColor or Color3.new(1, 1, 1)
+            local colorFlag = config.ColorFlag or "ThemeAccent"
             local colorCallback = config.ColorCallback or function() end
 
-            -- УМНАЯ ПРОВЕРКА: Берем из памяти, если уже загружено
-            local currentScale = Library.Flags[scaleFlag] or config.DefaultScale or 50
-            local currentColor = Library.Flags[colorFlag] or config.DefaultColor or Color3.new(1, 1, 1)
-
-            Library.Flags[scaleFlag] = currentScale
-            Library.Flags[colorFlag] = currentColor
+            Library.Flags[scaleFlag] = defaultScale
+            Library.Flags[colorFlag] = defaultColor
 
             local F = Library.Utils.Make("Frame", { Size = UDim2.new(1, 0, 0, 95), Parent = Page }, { BackgroundColor3 = "Section" })
             Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 10), Parent = F})
@@ -1207,13 +1204,12 @@ function Library:CreateWindow(config)
             Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 6), Parent = InputBG})
             Library.Utils.Make("UIStroke", {Parent = InputBG}, {Color = "Stroke"})
 
-            -- Применяем текущий скейл
-            local ValInput = Library.Utils.Make("TextBox", { Text = tostring(currentScale), Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 12, ClearTextOnFocus = false, Parent = InputBG }, { TextColor3 = "Text" })
+            local ValInput = Library.Utils.Make("TextBox", { Text = tostring(defaultScale), Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 12, ClearTextOnFocus = false, Parent = InputBG }, { TextColor3 = "Text" })
 
             local SliderBG = Library.Utils.Make("Frame", { Size = UDim2.new(1, -150, 0, 6), Position = UDim2.new(0, 75, 0, 22), Parent = F }, { BackgroundColor3 = "Sidebar" })
             Library.Utils.Make("UICorner", {CornerRadius = UDim.new(1, 0), Parent = SliderBG})
 
-            local fillPct = math.clamp((currentScale - min) / (max - min), 0, 1)
+            local fillPct = math.clamp((defaultScale - min) / (max - min), 0, 1)
             local SliderFill = Library.Utils.Make("Frame", { Size = UDim2.new(fillPct, 0, 1, 0), Parent = SliderBG }, { BackgroundColor3 = "Accent" })
             Library.Utils.Make("UICorner", {CornerRadius = UDim.new(1, 0), Parent = SliderFill})
             
@@ -1224,8 +1220,7 @@ function Library:CreateWindow(config)
 
             Library.Utils.Make("TextLabel", { Text = "COLOR", Size = UDim2.new(0, 50, 0, 20), Position = UDim2.new(0, 15, 0, 57), BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left, Parent = F }, { TextColor3 = "SubText" })
 
-            -- Применяем текущий цвет
-            local ColorPreview = Library.Utils.Make("Frame", { Size = UDim2.new(0, 45, 0, 20), Position = UDim2.new(1, -60, 0, 57), BackgroundColor3 = currentColor, Parent = F })
+            local ColorPreview = Library.Utils.Make("Frame", { Size = UDim2.new(0, 45, 0, 20), Position = UDim2.new(1, -60, 0, 57), BackgroundColor3 = defaultColor, Parent = F })
             Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 6), Parent = ColorPreview})
             Library.Utils.Make("UIStroke", {Color = Color3.new(0,0,0), Thickness = 1, Parent = ColorPreview})
 
@@ -1241,106 +1236,10 @@ function Library:CreateWindow(config)
             }
             Grad.Parent = Bar
 
-            local h, s, v = currentColor:ToHSV()
+            local h, s, v = defaultColor:ToHSV()
             local Selector = Library.Utils.Make("Frame", { Size = UDim2.new(0, 4, 1, 6), Position = UDim2.new(h, 0, 0.5, 0), AnchorPoint = Vector2.new(0.5, 0.5), BackgroundColor3 = Color3.new(1,1,1), BorderColor3 = Color3.new(0,0,0), BorderSizePixel = 1, Parent = Bar })
 
             local draggingScale = false
-            
-            local function UpdateScaleVisuals(val)
-                val = math.clamp(val, min, max)
-                ValInput.Text = tostring(val)
-                local pct = (val - min) / (max - min)
-                Library.Utils.TBT(SliderFill, 0.1, {Size = UDim2.new(pct, 0, 1, 0)})
-                Library.Utils.TBT(Knob, 0.1, {Position = UDim2.new(pct, 0, 0.5, 0)})
-                
-                if Library.Flags[scaleFlag] ~= val then
-                    Library.Flags[scaleFlag] = val
-                    pcall(scaleCallback, val)
-                end
-            end
-
-            local function HandleScaleInput(input)
-                if SliderBG and SliderBG.AbsoluteSize.X > 0 then
-                    local pct = math.clamp((input.Position.X - SliderBG.AbsolutePosition.X) / SliderBG.AbsoluteSize.X, 0, 1)
-                    local val = math.floor(min + ((max - min) * pct))
-                    UpdateScaleVisuals(val)
-                end
-            end
-
-            Library:Connect(Trigger.InputBegan, function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                    draggingScale = true
-                    HandleScaleInput(input)
-                end
-            end)
-            
-            Library:Connect(UserInputService.InputEnded, function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                    draggingScale = false
-                end
-            end)
-            
-            Library:Connect(UserInputService.InputChanged, function(input)
-                if draggingScale and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-                    HandleScaleInput(input)
-                end
-            end)
-
-            ValInput.FocusLost:Connect(function()
-                local num = tonumber(ValInput.Text:match("%d+"))
-                if num then
-                    UpdateScaleVisuals(num)
-                else
-                    ValInput.Text = tostring(Library.Flags[scaleFlag])
-                end
-            end)
-
-            local draggingColor = false
-            
-            local function UpdateColorVisuals(input)
-                if Bar and Bar.AbsoluteSize.X > 0 then
-                    local r = math.clamp((input.Position.X - Bar.AbsolutePosition.X) / Bar.AbsoluteSize.X, 0, 1)
-                    Selector.Position = UDim2.new(r, 0, 0.5, 0)
-                    local col = Color3.fromHSV(r, 1, 1)
-                    ColorPreview.BackgroundColor3 = col
-                    
-                    if Library.Flags[colorFlag] ~= col then
-                        Library.Flags[colorFlag] = col
-                        pcall(colorCallback, col)
-                    end
-                end
-            end
-
-            Library:Connect(Bar.InputBegan, function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                    draggingColor = true
-                    UpdateColorVisuals(input)
-                end
-            end)
-            
-            Library:Connect(UserInputService.InputEnded, function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                    draggingColor = false
-                end
-            end)
-            
-            Library:Connect(UserInputService.InputChanged, function(input)
-                if draggingColor and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-                    UpdateColorVisuals(input)
-                end
-            end)
-
-            Library.ConfigUpdaters[scaleFlag] = UpdateScaleVisuals
-            Library.ConfigUpdaters[colorFlag] = function(color)
-                Library.Flags[colorFlag] = color
-                ColorPreview.BackgroundColor3 = color
-                local hC = color:ToHSV()
-                Selector.Position = UDim2.new(hC, 0, 0.5, 0)
-                pcall(colorCallback, color)
-            end
-            
-            return { Container = F }
-        end
             
             local function UpdateScaleVisuals(val)
                 val = math.clamp(val, min, max)
@@ -1949,24 +1848,22 @@ function Library:CreateWindow(config)
             end
         end
     end)
-function Window:Build()
-        -- 1. Моментально грузим настройки ДО показа интерфейса
-        if isfile and isfile(Library.ConfigFolder .. "/" .. Library.AutoLoadFile .. ".json") then
-            Library:LoadConfig(Library.AutoLoadFile, true)
-        end
 
-        task.spawn(function()
-            Library:RunLoader(ScreenGui, function()
-                MainFrame.Visible = true
-                Library.Utils.TBT(MainFrame, 0.5, {GroupTransparency = 0})
+    function Window:Build()
+        Library:RunLoader(ScreenGui, function()
+            MainFrame.Visible = true
+            Library.Utils.TBT(MainFrame, 0.5, {GroupTransparency = 0})
 
-                -- 2. Запускаем только тихий автосейв
-                task.spawn(function()
-                    while task.wait(3) do
-                        if getgenv().DS_StopExecution then break end 
-                        Library:SaveConfig(Library.AutoLoadFile, true) 
-                    end
-                end)
+            -- ГЛОБАЛЬНАЯ НЕВИДИМАЯ СИСТЕМА СОХРАНЕНИЯ
+            task.spawn(function()
+                if isfile and isfile(Library.ConfigFolder .. "/" .. Library.AutoLoadFile .. ".json") then
+                    Library:LoadConfig(Library.AutoLoadFile, true)
+                end
+
+                while task.wait(3) do
+                    if getgenv().DS_StopExecution then break end 
+                    Library:SaveConfig(Library.AutoLoadFile, true) 
+                end
             end)
         end)
     end
@@ -2087,117 +1984,6 @@ end
             if RightLogo then Library.Utils.TBT(RightLogo, 0.3, {ImageTransparency = 1}) end
             out.Completed:Connect(function() Container:Destroy() end)
         end)
-    end
-    -- ==========================================
-    -- 7. МЕНЕДЖЕР КОНФИГОВ (ТОЛЬКО ИНТЕРФЕЙС)
-    -- ==========================================
-    local HttpService = game:GetService("HttpService")
-    Library.ConfigFolder = "DuskAndShineConfigs"
-    Library.AutoLoadFile = "TrueSettings" -- Защита от бага экзекутора
-
-    function Library:InitConfigSystem()
-        if not isfolder then return end
-        if not isfolder(self.ConfigFolder) then 
-            makefolder(self.ConfigFolder) 
-        end
-    end
-
-    function Library:SaveConfig(fileName, quiet)
-        if not writefile then return end
-        self:InitConfigSystem()
-
-        -- Сохраняем название темы
-        local saveTable = { _Theme = self.CurrentThemeName }
-
-        -- БЕЛЫЙ СПИСОК: Сохраняем ТОЛЬКО кастомизацию интерфейса и базовые настройки
-        local AllowedUIFlags = {
-            "ThemeAccent", "UIScaleSize", "ToggleUIKey", 
-            "FPSLimit", "PerformanceModeEnabled", "AnonymousMode",
-            "MenuParticlesEnabled", "ParticleType", "CloserType", "MenuBlurEnabled", "AutoUpdateKicker"
-        }
-
-        -- Идем только по белому списку, игнорируя всё остальное
-        for _, flagName in ipairs(AllowedUIFlags) do
-            local value = self.Flags[flagName]
-            if value ~= nil then
-                if typeof(value) == "Color3" then
-                    saveTable[flagName] = { R = value.R, G = value.G, B = value.B, isColor = true }
-                elseif typeof(value) == "EnumItem" then
-                    saveTable[flagName] = { Key = value.Name, isKeybind = true }
-                else
-                    saveTable[flagName] = value
-                end
-            end
-        end
-
-        local success, json = pcall(function() return HttpService:JSONEncode(saveTable) end)
-
-        if success then
-            -- Оптимизация: диск не нагружается, если визуальные настройки не менялись
-            if self.LastSavedJSON == json then return end 
-            self.LastSavedJSON = json 
-
-            writefile(self.ConfigFolder .. "/" .. fileName .. ".json", json)
-            if not quiet and self.Notify then self:Notify("Config System", "UI Settings Saved", 3) end
-        end
-    end
-
-    function Library:LoadConfig(fileName, quiet)
-        if not readfile or not isfile(self.ConfigFolder .. "/" .. fileName .. ".json") then return false end
-
-        local json = readfile(self.ConfigFolder .. "/" .. fileName .. ".json")
-        local success, data = pcall(function() return HttpService:JSONDecode(json) end)
-
-        if success and type(data) == "table" then
-            -- Сначала грузим саму тему
-            if data._Theme then self:SetTheme(data._Theme) end
-
-            -- ФИКС: Жестко и нативно применяем акцентный цвет, не дожидаясь модулей
-            if data.ThemeAccent and type(data.ThemeAccent) == "table" then
-                local col = Color3.new(data.ThemeAccent.R, data.ThemeAccent.G, data.ThemeAccent.B)
-                self.CurrentTheme.Accent = col
-                if self.Themes.Dark then self.Themes.Dark.Accent = col end
-                if self.Themes.Light then self.Themes.Light.Accent = col end
-
-                -- Моментально красим всё, что уже успело создаться
-                for UIElement, Props in pairs(self.ThemeObjects) do
-                    for Property, ThemeKey in pairs(Props) do
-                        if ThemeKey == "Accent" then
-                            pcall(function() UIElement[Property] = col end)
-                            if not UIElement:IsA("ImageLabel") then
-                                self.Utils.ApplyGradient(UIElement, col)
-                            end
-                        end
-                    end
-                end
-            end
-
-            -- ФИКС: Нативно применяем размер интерфейса
-            if data.UIScaleSize then
-                local ScreenGui = PlayerGui:FindFirstChild("DuskShine_Mega")
-                if ScreenGui then
-                    local scaleObj = ScreenGui:FindFirstChildOfClass("UIScale")
-                    if scaleObj then scaleObj.Scale = data.UIScaleSize / 100 end
-                end
-            end
-
-            -- Грузим остальные флаги
-            for flag, value in pairs(data) do
-                if flag ~= "_Theme" then
-                    if type(value) == "table" then
-                        if value.isColor then value = Color3.new(value.R, value.G, value.B)
-                        elseif value.isKeybind then value = Enum.KeyCode[value.Key] end
-                    end
-
-                    self.Flags[flag] = value
-                    if self.ConfigUpdaters[flag] then pcall(self.ConfigUpdaters[flag], value) end
-                end
-            end
-            
-            if not quiet and self.Notify then self:Notify("Config System", "UI Settings Loaded", 3) end
-            return true
-        end
-        return false
     end
 
 return Library
