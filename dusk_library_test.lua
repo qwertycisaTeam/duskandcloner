@@ -2048,8 +2048,39 @@ end
         local success, data = pcall(function() return HttpService:JSONDecode(json) end)
 
         if success and type(data) == "table" then
+            -- Сначала грузим саму тему
             if data._Theme then self:SetTheme(data._Theme) end
 
+            -- ФИКС: Жестко и нативно применяем акцентный цвет, не дожидаясь модулей
+            if data.ThemeAccent and type(data.ThemeAccent) == "table" then
+                local col = Color3.new(data.ThemeAccent.R, data.ThemeAccent.G, data.ThemeAccent.B)
+                self.CurrentTheme.Accent = col
+                if self.Themes.Dark then self.Themes.Dark.Accent = col end
+                if self.Themes.Light then self.Themes.Light.Accent = col end
+
+                -- Моментально красим всё, что уже успело создаться
+                for UIElement, Props in pairs(self.ThemeObjects) do
+                    for Property, ThemeKey in pairs(Props) do
+                        if ThemeKey == "Accent" then
+                            pcall(function() UIElement[Property] = col end)
+                            if not UIElement:IsA("ImageLabel") then
+                                self.Utils.ApplyGradient(UIElement, col)
+                            end
+                        end
+                    end
+                end
+            end
+
+            -- ФИКС: Нативно применяем размер интерфейса
+            if data.UIScaleSize then
+                local ScreenGui = PlayerGui:FindFirstChild("DuskShine_Mega")
+                if ScreenGui then
+                    local scaleObj = ScreenGui:FindFirstChildOfClass("UIScale")
+                    if scaleObj then scaleObj.Scale = data.UIScaleSize / 100 end
+                end
+            end
+
+            -- Грузим остальные флаги
             for flag, value in pairs(data) do
                 if flag ~= "_Theme" then
                     if type(value) == "table" then
@@ -2061,6 +2092,7 @@ end
                     if self.ConfigUpdaters[flag] then pcall(self.ConfigUpdaters[flag], value) end
                 end
             end
+            
             if not quiet and self.Notify then self:Notify("Config System", "UI Settings Loaded", 3) end
             return true
         end
