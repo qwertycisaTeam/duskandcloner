@@ -1849,17 +1849,18 @@ function Library:CreateWindow(config)
         end
     end)
 function Window:Build()
+        -- 1. Моментально грузим настройки ДО показа интерфейса
+        if isfile and isfile(Library.ConfigFolder .. "/" .. Library.AutoLoadFile .. ".json") then
+            Library:LoadConfig(Library.AutoLoadFile, true)
+        end
+
         task.spawn(function()
             Library:RunLoader(ScreenGui, function()
                 MainFrame.Visible = true
                 Library.Utils.TBT(MainFrame, 0.5, {GroupTransparency = 0})
 
-                -- Встроенный автосейв либы
+                -- 2. Запускаем только тихий автосейв
                 task.spawn(function()
-                    if isfile and isfile(Library.ConfigFolder .. "/" .. Library.AutoLoadFile .. ".json") then
-                        Library:LoadConfig(Library.AutoLoadFile, true)
-                    end
-
                     while task.wait(3) do
                         if getgenv().DS_StopExecution then break end 
                         Library:SaveConfig(Library.AutoLoadFile, true) 
