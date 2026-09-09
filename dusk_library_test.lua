@@ -772,14 +772,16 @@ function Library:CreateWindow(config)
             config = config or {}
             local title = config.Name or "Toggle"
             local desc = config.Description or ""
-            local default = config.Default or false
             local flag = config.Flag or title:gsub("%s+", "")
+            local default = config.Default or false
             local callback = config.Callback or function() end
-            
-            -- КАСТОМНЫЙ АРГУМЕНТ: Функция для шестеренки
             local settingsCallback = config.Settings 
 
-            Library.Flags[flag] = default
+            -- УМНАЯ ПРОВЕРКА: Берем из памяти
+            local currentState = Library.Flags[flag]
+            if currentState == nil then currentState = default end
+            Library.Flags[flag] = currentState
+
             Library.ConfigUpdaters[flag] = function(val) SetState(val) end
 
             local F = Library.Utils.Make("Frame", { Size = UDim2.new(1, 0, 0, 70), Parent = Page }, { BackgroundColor3 = "Section" })
@@ -789,14 +791,13 @@ function Library:CreateWindow(config)
             Library.Utils.Make("TextLabel", { Text = title, Size = UDim2.new(1, -70, 0, 20), Position = UDim2.new(0, 20, 0, 15), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 16, TextXAlignment = Enum.TextXAlignment.Left, Parent = F }, { TextColor3 = "Text" })
             Library.Utils.Make("TextLabel", { Text = desc, Size = UDim2.new(1, -90, 0, 15), Position = UDim2.new(0, 20, 0, 38), BackgroundTransparency = 1, FontFace = MainFont, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left, Parent = F }, { TextColor3 = "SubText" })
 
-            local Sw = Library.Utils.Make("TextButton", { Text = "", Size = UDim2.new(0, 48, 0, 26), AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -20, 0.5, 0), Parent = F }, { BackgroundColor3 = default and "Accent" or "ToggleOff" })
+            local Sw = Library.Utils.Make("TextButton", { Text = "", Size = UDim2.new(0, 48, 0, 26), AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -20, 0.5, 0), Parent = F }, { BackgroundColor3 = currentState and "Accent" or "ToggleOff" })
             Library.Utils.Make("UICorner", {CornerRadius = UDim.new(1,0), Parent = Sw})
 
             local OnP = UDim2.new(1, -23, 0.5, 0); local OffP = UDim2.new(0, 3, 0.5, 0)
-            local Kn = Library.Utils.Make("Frame", { Size = UDim2.new(0, 20, 0, 20), AnchorPoint = Vector2.new(0, 0.5), Position = default and OnP or OffP, Parent = Sw }, { BackgroundColor3 = "Knob" })
+            local Kn = Library.Utils.Make("Frame", { Size = UDim2.new(0, 20, 0, 20), AnchorPoint = Vector2.new(0, 0.5), Position = currentState and OnP or OffP, Parent = Sw }, { BackgroundColor3 = "Knob" })
             Library.Utils.Make("UICorner", {CornerRadius = UDim.new(1,0), Parent = Kn})
 
-            -- === ЛОГИКА ШЕСТЕРЕНКИ ===
             if settingsCallback then
                 local Gear = Library.Utils.Make("ImageButton", {
                     Size = UDim2.new(0, 20, 0, 20), AnchorPoint = Vector2.new(1, 0.5),
@@ -824,6 +825,27 @@ function Library:CreateWindow(config)
                 end)
             end
 
+            local function SetState(newState)
+                if Library.Flags[flag] == newState then return end
+                Library.Flags[flag] = newState
+                
+                Library.ThemeObjects[Sw]["BackgroundColor3"] = newState and "Accent" or "ToggleOff"
+                local tCol = newState and Library.CurrentTheme.Accent or Library.CurrentTheme.ToggleOff
+                
+                Library.Utils.TBT(Sw, 0.25, {BackgroundColor3 = tCol})
+                Library.Utils.TBT(Kn, 0.25, {Position = newState and OnP or OffP})
+                
+                pcall(callback, newState)
+            end
+
+            Library:Connect(Sw.MouseButton1Click, function() SetState(not Library.Flags[flag]) end)
+            
+            return { 
+                Container = F,
+                SetState = SetState,
+                GetValue = function() return Library.Flags[flag] end
+            }
+        end
             local function SetState(newState)
                 if Library.Flags[flag] == newState then return end
                 Library.Flags[flag] = newState
@@ -1187,11 +1209,10 @@ function Library:CreateWindow(config)
             
             local scaleFlag = config.ScaleFlag or "UIScaleSize"
             local colorFlag = config.ColorFlag or "ThemeAccent"
-            
             local scaleCallback = config.ScaleCallback or function() end
             local colorCallback = config.ColorCallback or function() end
 
-            -- УМНАЯ ПРОВЕРКА: Берем значение из конфига (если оно уже загрузилось), иначе берем дефолт
+            -- УМНАЯ ПРОВЕРКА: Берем из памяти, если уже загружено
             local currentScale = Library.Flags[scaleFlag] or config.DefaultScale or 50
             local currentColor = Library.Flags[colorFlag] or config.DefaultColor or Color3.new(1, 1, 1)
 
@@ -1207,13 +1228,12 @@ function Library:CreateWindow(config)
             Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 6), Parent = InputBG})
             Library.Utils.Make("UIStroke", {Parent = InputBG}, {Color = "Stroke"})
 
-            -- Вписываем текущий скейл в инпут
+            -- Применяем текущий скейл
             local ValInput = Library.Utils.Make("TextBox", { Text = tostring(currentScale), Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 12, ClearTextOnFocus = false, Parent = InputBG }, { TextColor3 = "Text" })
 
             local SliderBG = Library.Utils.Make("Frame", { Size = UDim2.new(1, -150, 0, 6), Position = UDim2.new(0, 75, 0, 22), Parent = F }, { BackgroundColor3 = "Sidebar" })
             Library.Utils.Make("UICorner", {CornerRadius = UDim.new(1, 0), Parent = SliderBG})
 
-            -- Заполняем ползунок текущим скейлом
             local fillPct = math.clamp((currentScale - min) / (max - min), 0, 1)
             local SliderFill = Library.Utils.Make("Frame", { Size = UDim2.new(fillPct, 0, 1, 0), Parent = SliderBG }, { BackgroundColor3 = "Accent" })
             Library.Utils.Make("UICorner", {CornerRadius = UDim.new(1, 0), Parent = SliderFill})
@@ -1225,7 +1245,7 @@ function Library:CreateWindow(config)
 
             Library.Utils.Make("TextLabel", { Text = "COLOR", Size = UDim2.new(0, 50, 0, 20), Position = UDim2.new(0, 15, 0, 57), BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left, Parent = F }, { TextColor3 = "SubText" })
 
-            -- Красим превью в загруженный цвет
+            -- Применяем текущий цвет
             local ColorPreview = Library.Utils.Make("Frame", { Size = UDim2.new(0, 45, 0, 20), Position = UDim2.new(1, -60, 0, 57), BackgroundColor3 = currentColor, Parent = F })
             Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 6), Parent = ColorPreview})
             Library.Utils.Make("UIStroke", {Color = Color3.new(0,0,0), Thickness = 1, Parent = ColorPreview})
@@ -1242,10 +1262,106 @@ function Library:CreateWindow(config)
             }
             Grad.Parent = Bar
 
-            local h, s, v = defaultColor:ToHSV()
+            local h, s, v = currentColor:ToHSV()
             local Selector = Library.Utils.Make("Frame", { Size = UDim2.new(0, 4, 1, 6), Position = UDim2.new(h, 0, 0.5, 0), AnchorPoint = Vector2.new(0.5, 0.5), BackgroundColor3 = Color3.new(1,1,1), BorderColor3 = Color3.new(0,0,0), BorderSizePixel = 1, Parent = Bar })
 
             local draggingScale = false
+            
+            local function UpdateScaleVisuals(val)
+                val = math.clamp(val, min, max)
+                ValInput.Text = tostring(val)
+                local pct = (val - min) / (max - min)
+                Library.Utils.TBT(SliderFill, 0.1, {Size = UDim2.new(pct, 0, 1, 0)})
+                Library.Utils.TBT(Knob, 0.1, {Position = UDim2.new(pct, 0, 0.5, 0)})
+                
+                if Library.Flags[scaleFlag] ~= val then
+                    Library.Flags[scaleFlag] = val
+                    pcall(scaleCallback, val)
+                end
+            end
+
+            local function HandleScaleInput(input)
+                if SliderBG and SliderBG.AbsoluteSize.X > 0 then
+                    local pct = math.clamp((input.Position.X - SliderBG.AbsolutePosition.X) / SliderBG.AbsoluteSize.X, 0, 1)
+                    local val = math.floor(min + ((max - min) * pct))
+                    UpdateScaleVisuals(val)
+                end
+            end
+
+            Library:Connect(Trigger.InputBegan, function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                    draggingScale = true
+                    HandleScaleInput(input)
+                end
+            end)
+            
+            Library:Connect(UserInputService.InputEnded, function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                    draggingScale = false
+                end
+            end)
+            
+            Library:Connect(UserInputService.InputChanged, function(input)
+                if draggingScale and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+                    HandleScaleInput(input)
+                end
+            end)
+
+            ValInput.FocusLost:Connect(function()
+                local num = tonumber(ValInput.Text:match("%d+"))
+                if num then
+                    UpdateScaleVisuals(num)
+                else
+                    ValInput.Text = tostring(Library.Flags[scaleFlag])
+                end
+            end)
+
+            local draggingColor = false
+            
+            local function UpdateColorVisuals(input)
+                if Bar and Bar.AbsoluteSize.X > 0 then
+                    local r = math.clamp((input.Position.X - Bar.AbsolutePosition.X) / Bar.AbsoluteSize.X, 0, 1)
+                    Selector.Position = UDim2.new(r, 0, 0.5, 0)
+                    local col = Color3.fromHSV(r, 1, 1)
+                    ColorPreview.BackgroundColor3 = col
+                    
+                    if Library.Flags[colorFlag] ~= col then
+                        Library.Flags[colorFlag] = col
+                        pcall(colorCallback, col)
+                    end
+                end
+            end
+
+            Library:Connect(Bar.InputBegan, function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                    draggingColor = true
+                    UpdateColorVisuals(input)
+                end
+            end)
+            
+            Library:Connect(UserInputService.InputEnded, function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                    draggingColor = false
+                end
+            end)
+            
+            Library:Connect(UserInputService.InputChanged, function(input)
+                if draggingColor and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+                    UpdateColorVisuals(input)
+                end
+            end)
+
+            Library.ConfigUpdaters[scaleFlag] = UpdateScaleVisuals
+            Library.ConfigUpdaters[colorFlag] = function(color)
+                Library.Flags[colorFlag] = color
+                ColorPreview.BackgroundColor3 = color
+                local hC = color:ToHSV()
+                Selector.Position = UDim2.new(hC, 0, 0.5, 0)
+                pcall(colorCallback, color)
+            end
+            
+            return { Container = F }
+        end
             
             local function UpdateScaleVisuals(val)
                 val = math.clamp(val, min, max)
