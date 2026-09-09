@@ -220,7 +220,11 @@ function Library:SetTheme(themeName)
     self.CurrentThemeName = themeName
     self.CurrentTheme = self.Themes[themeName]
     
-    if DefaultAccents[themeName] then
+    -- Сначала ищем сохраненный кастомный цвет, и только если его нет — ставим дефолтный белый
+    local customColor = self.Flags["ThemeAccent"] or getgenv().ThemeAccentColor
+    if customColor then
+        self.CurrentTheme.Accent = customColor
+    elseif DefaultAccents[themeName] then
         self.CurrentTheme.Accent = DefaultAccents[themeName]
     end
 
