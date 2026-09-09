@@ -1987,7 +1987,7 @@ end
         end)
     end
     -- ==========================================
-    -- 7. МЕНЕДЖЕР КОНФИГОВ (CONFIG SYSTEM)
+    -- 7. МЕНЕДЖЕР КОНФИГОВ (ТОЛЬКО ИНТЕРФЕЙС)
     -- ==========================================
     local HttpService = game:GetService("HttpService")
     Library.ConfigFolder = "DuskAndShineConfigs"
@@ -2004,27 +2004,39 @@ end
         if not writefile then return end
         self:InitConfigSystem()
 
+        -- Сохраняем название темы
         local saveTable = { _Theme = self.CurrentThemeName }
 
-        for flag, value in pairs(self.Flags) do
-            if typeof(value) == "Color3" then
-                saveTable[flag] = { R = value.R, G = value.G, B = value.B, isColor = true }
-            elseif typeof(value) == "EnumItem" then
-                saveTable[flag] = { Key = value.Name, isKeybind = true }
-            else
-                saveTable[flag] = value
+        -- БЕЛЫЙ СПИСОК: Сохраняем ТОЛЬКО кастомизацию интерфейса и базовые настройки
+        local AllowedUIFlags = {
+            "ThemeAccent", "UIScaleSize", "ToggleUIKey", 
+            "FPSLimit", "PerformanceModeEnabled", "AnonymousMode",
+            "MenuParticlesEnabled", "ParticleType", "CloserType", "MenuBlurEnabled", "AutoUpdateKicker"
+        }
+
+        -- Идем только по белому списку, игнорируя всё остальное
+        for _, flagName in ipairs(AllowedUIFlags) do
+            local value = self.Flags[flagName]
+            if value ~= nil then
+                if typeof(value) == "Color3" then
+                    saveTable[flagName] = { R = value.R, G = value.G, B = value.B, isColor = true }
+                elseif typeof(value) == "EnumItem" then
+                    saveTable[flagName] = { Key = value.Name, isKeybind = true }
+                else
+                    saveTable[flagName] = value
+                end
             end
         end
 
         local success, json = pcall(function() return HttpService:JSONEncode(saveTable) end)
 
         if success then
-            -- Оптимизация: не спамим на диск, если данные не поменялись
+            -- Оптимизация: диск не нагружается, если визуальные настройки не менялись
             if self.LastSavedJSON == json then return end 
             self.LastSavedJSON = json 
 
             writefile(self.ConfigFolder .. "/" .. fileName .. ".json", json)
-            if not quiet and self.Notify then self:Notify("Config System", "Successfully saved", 3) end
+            if not quiet and self.Notify then self:Notify("Config System", "UI Settings Saved", 3) end
         end
     end
 
@@ -2048,7 +2060,7 @@ end
                     if self.ConfigUpdaters[flag] then pcall(self.ConfigUpdaters[flag], value) end
                 end
             end
-            if not quiet and self.Notify then self:Notify("Config System", "Successfully loaded", 3) end
+            if not quiet and self.Notify then self:Notify("Config System", "UI Settings Loaded", 3) end
             return true
         end
         return false
