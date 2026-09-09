@@ -1184,16 +1184,19 @@ function Library:CreateWindow(config)
             config = config or {}
             local min = config.Min or 25
             local max = config.Max or 175
-            local defaultScale = config.DefaultScale or 50
+            
             local scaleFlag = config.ScaleFlag or "UIScaleSize"
-            local scaleCallback = config.ScaleCallback or function() end
-
-            local defaultColor = config.DefaultColor or Color3.new(1, 1, 1)
             local colorFlag = config.ColorFlag or "ThemeAccent"
+            
+            local scaleCallback = config.ScaleCallback or function() end
             local colorCallback = config.ColorCallback or function() end
 
-            Library.Flags[scaleFlag] = defaultScale
-            Library.Flags[colorFlag] = defaultColor
+            -- УМНАЯ ПРОВЕРКА: Берем значение из конфига (если оно уже загрузилось), иначе берем дефолт
+            local currentScale = Library.Flags[scaleFlag] or config.DefaultScale or 50
+            local currentColor = Library.Flags[colorFlag] or config.DefaultColor or Color3.new(1, 1, 1)
+
+            Library.Flags[scaleFlag] = currentScale
+            Library.Flags[colorFlag] = currentColor
 
             local F = Library.Utils.Make("Frame", { Size = UDim2.new(1, 0, 0, 95), Parent = Page }, { BackgroundColor3 = "Section" })
             Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 10), Parent = F})
@@ -1204,12 +1207,14 @@ function Library:CreateWindow(config)
             Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 6), Parent = InputBG})
             Library.Utils.Make("UIStroke", {Parent = InputBG}, {Color = "Stroke"})
 
-            local ValInput = Library.Utils.Make("TextBox", { Text = tostring(defaultScale), Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 12, ClearTextOnFocus = false, Parent = InputBG }, { TextColor3 = "Text" })
+            -- Вписываем текущий скейл в инпут
+            local ValInput = Library.Utils.Make("TextBox", { Text = tostring(currentScale), Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 12, ClearTextOnFocus = false, Parent = InputBG }, { TextColor3 = "Text" })
 
             local SliderBG = Library.Utils.Make("Frame", { Size = UDim2.new(1, -150, 0, 6), Position = UDim2.new(0, 75, 0, 22), Parent = F }, { BackgroundColor3 = "Sidebar" })
             Library.Utils.Make("UICorner", {CornerRadius = UDim.new(1, 0), Parent = SliderBG})
 
-            local fillPct = math.clamp((defaultScale - min) / (max - min), 0, 1)
+            -- Заполняем ползунок текущим скейлом
+            local fillPct = math.clamp((currentScale - min) / (max - min), 0, 1)
             local SliderFill = Library.Utils.Make("Frame", { Size = UDim2.new(fillPct, 0, 1, 0), Parent = SliderBG }, { BackgroundColor3 = "Accent" })
             Library.Utils.Make("UICorner", {CornerRadius = UDim.new(1, 0), Parent = SliderFill})
             
@@ -1220,7 +1225,8 @@ function Library:CreateWindow(config)
 
             Library.Utils.Make("TextLabel", { Text = "COLOR", Size = UDim2.new(0, 50, 0, 20), Position = UDim2.new(0, 15, 0, 57), BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left, Parent = F }, { TextColor3 = "SubText" })
 
-            local ColorPreview = Library.Utils.Make("Frame", { Size = UDim2.new(0, 45, 0, 20), Position = UDim2.new(1, -60, 0, 57), BackgroundColor3 = defaultColor, Parent = F })
+            -- Красим превью в загруженный цвет
+            local ColorPreview = Library.Utils.Make("Frame", { Size = UDim2.new(0, 45, 0, 20), Position = UDim2.new(1, -60, 0, 57), BackgroundColor3 = currentColor, Parent = F })
             Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 6), Parent = ColorPreview})
             Library.Utils.Make("UIStroke", {Color = Color3.new(0,0,0), Thickness = 1, Parent = ColorPreview})
 
