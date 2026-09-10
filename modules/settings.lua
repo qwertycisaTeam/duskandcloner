@@ -173,25 +173,35 @@ function Module:Init(Library, Window, Tab)
         
         Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 8), Parent = Tile })
         
-        -- Устанавливаем начальное состояние рамки
+        -- Скейлер для сочного эффекта увеличения
+        local scale = Instance.new("UIScale")
+        scale.Scale = 1
+        scale.Parent = Tile
+        
         local isSelected = (getgenv().ParticleType == pType)
         local tStroke = Library.Utils.Make("UIStroke", { 
-            Thickness = isSelected and 2 or 1, 
-            Transparency = isSelected and 0 or 0.7, -- Неактивные рамки делаем тусклыми
+            Thickness = isSelected and 3 or 1, -- Жирная рамка для выбранного
+            Transparency = isSelected and 0 or 0.85, -- Гасим неактивные рамки в ноль
             Parent = Tile 
         }, { Color = isSelected and "Accent" or "Stroke" })
         
         cardStrokes[pType] = tStroke
 
-        -- 1. ЭФФЕКТ НАВЕДЕНИЯ (HOVER)
+        -- 1. ЖИВОЙ ХОВЕР: Увеличение + подсветка рамки
         Tile.MouseEnter:Connect(function()
-            -- Слегка осветляем фон карточки за счет прозрачности
-            TweenService:Create(Tile, TweenInfo.new(0.15), {BackgroundTransparency = 0.2}):Play()
+            if getgenv().ParticleType ~= pType then
+                -- Подсвечиваем рамку при наведении
+                TweenService:Create(tStroke, TweenInfo.new(0.2), {Transparency = 0.3, Thickness = 1.5}):Play()
+            end
+            -- Плитка "вырастает" навстречу курсору
+            TweenService:Create(scale, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1.06}):Play()
         end)
 
         Tile.MouseLeave:Connect(function()
-            -- Возвращаем исходный цвет
-            TweenService:Create(Tile, TweenInfo.new(0.15), {BackgroundTransparency = 0}):Play()
+            if getgenv().ParticleType ~= pType then
+                TweenService:Create(tStroke, TweenInfo.new(0.2), {Transparency = 0.85, Thickness = 1}):Play()
+            end
+            TweenService:Create(scale, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Scale = 1}):Play()
         end)
 
         -- Превью анимация внутри плитки
@@ -246,23 +256,23 @@ function Module:Init(Library, Window, Tab)
             end
         end)
 
-        -- 2. ЭФФЕКТ ВЫБОРА ПРИ КЛИКЕ
+        -- 2. КЛИК: Пружинистый импульс и жирный акцент
         Library:Connect(Tile.MouseButton1Click, function()
             getgenv().ParticleType = pType
             
-            -- Плавно обновляем рамки всех карточек
             for name, stroke in pairs(cardStrokes) do
                 local active = (name == pType)
-                
-                -- Жестко назначаем цвет из темы
                 stroke.Color = active and Library.CurrentTheme.Accent or Library.CurrentTheme.Stroke
                 
-                -- Анимируем толщину и прозрачность обводки
-                TweenService:Create(stroke, TweenInfo.new(0.2), {
-                    Thickness = active and 2 or 1,
-                    Transparency = active and 0 or 0.7
+                TweenService:Create(stroke, TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+                    Thickness = active and 3 or 1,
+                    Transparency = active and 0 or 0.85
                 }):Play()
             end
+            
+            -- Тактильный "клик" (сжимается и отскакивает обратно к увеличенному состоянию)
+            scale.Scale = 0.92
+            TweenService:Create(scale, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1.06}):Play()
         end)
     end
     Tab:CreateDropdown({
