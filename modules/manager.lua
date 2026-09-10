@@ -145,9 +145,12 @@ function Module:Init(Library, Window, Tab)
     -- 3. ПРЕМИУМ КНОПКА ПАРСЕРА (ФИКС СЪЕХАВШЕЙ РАМКИ)
     -- ==========================================
     local ParseContainer = Library.Utils.Make("Frame", {
-        Size = UDim2.new(1, 0, 0, 38),
+        Size = UDim2.new(1, -24, 0, 38), -- Убрали ширину на 24 пикселя, чтобы Scale не ломал края
+        Position = UDim2.new(0.5, 0, 0, 0),
+        AnchorPoint = Vector2.new(0.5, 0),
         BackgroundTransparency = 1,
         LayoutOrder = -1, 
+        ZIndex = 50, -- ВАЖНО: Выталкиваем весь контейнер с неоном поверх списка файлов
         Parent = self.ListContainer
     })
 
@@ -171,7 +174,7 @@ function Module:Init(Library, Window, Tab)
     Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 8), Parent = ParseBtn })
 
     local ParseText = Library.Utils.Make("TextLabel", {
-        Text = "💾  EXPORT CURRENT INTERIOR",
+        Text = "EXPORT CURRENT INTERIOR",
         Size = UDim2.new(1, 0, 1, 0),
         BackgroundTransparency = 1,
         Font = Enum.Font.GothamBold,
@@ -307,8 +310,17 @@ function Module:RefreshList()
 
     local houses = self:GetHouses()
 
-    if #houses == 0 then
-        Library.Utils.Make("TextLabel", { Text = "No saved houses found.", Size = UDim2.new(1, 0, 0, 40), Position = UDim2.new(0, 5, 0, 0), BackgroundTransparency = 1, Font = Enum.Font.GothamMedium, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left, Parent = self.ListContainer }, { TextColor3 = "SubText" })
+   if #houses == 0 then
+        Library.Utils.Make("TextLabel", { 
+            Text = "NO FILES FOUND", 
+            Size = UDim2.new(1, 0, 0, 100), -- Даем больше высоты, чтобы надпись была по центру пустого экрана
+            BackgroundTransparency = 1, 
+            Font = Enum.Font.GothamBold, 
+            TextSize = 18, 
+            TextXAlignment = Enum.TextXAlignment.Center, -- Центрируем текст
+            TextYAlignment = Enum.TextYAlignment.Center,
+            Parent = self.ListContainer 
+        }, { TextColor3 = "SubText" }) -- Цвет автоматически подтянется из активной темы
         return
     end
 
