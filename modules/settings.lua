@@ -275,16 +275,106 @@ function Module:Init(Library, Window, Tab)
             TweenService:Create(scale, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1.06}):Play()
         end)
     end
-    Tab:CreateDropdown({
-        Name = "Minimize Button Style",
-        Options = {"Top Bar", "Floating Logo"},
-        Default = Library.Settings.CloserType or "Top Bar",
-        Flag = "CloserType",
-        Callback = function(val)
-            Library.Settings.CloserType = val
-            getgenv().CloserType = val
-        end
+--=======
+    -- Кастомный переключатель для Minimize Button Style
+    local CloserStyleContainer = Library.Utils.Make("Frame", {
+        Size = UDim2.new(1, 0, 0, 75),
+        Parent = Tab.Page
+    }, { BackgroundColor3 = "Section" })
+    Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 10), Parent = CloserStyleContainer })
+    Library.Utils.Make("UIStroke", { Thickness = 1, Parent = CloserStyleContainer }, { Color = "Stroke" })
+    
+    Library.Utils.Make("TextLabel", {
+        Text = "MINIMIZE BUTTON STYLE",
+        Size = UDim2.new(1, -20, 0, 20),
+        Position = UDim2.new(0, 12, 0, 8),
+        BackgroundTransparency = 1,
+        Font = Enum.Font.GothamBold,
+        TextSize = 11,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Parent = CloserStyleContainer
+    }, { TextColor3 = "SubText" })
+
+    local CloserGrid = Library.Utils.Make("Frame", {
+        Size = UDim2.new(1, -24, 0, 36),
+        Position = UDim2.new(0, 12, 0, 30),
+        BackgroundTransparency = 1,
+        Parent = CloserStyleContainer
     })
+
+    Library.Utils.Make("UIListLayout", {
+        FillDirection = Enum.FillDirection.Horizontal,
+        HorizontalAlignment = Enum.HorizontalAlignment.Center,
+        VerticalAlignment = Enum.VerticalAlignment.Center,
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Padding = UDim.new(0, 10),
+        Parent = CloserGrid
+    })
+
+    local closerOptions = {"Top Bar", "Floating Logo"}
+    local closerStrokes = {}
+
+    for i, opt in ipairs(closerOptions) do
+        -- Делим ширину ровно на 2 кнопки
+        local Btn = Library.Utils.Make("TextButton", {
+            Size = UDim2.new(0.5, -5, 1, 0),
+            LayoutOrder = i,
+            Text = opt,
+            Font = Enum.Font.GothamSemibold,
+            TextSize = 13,
+            AutoButtonColor = false,
+            ClipsDescendants = false,
+            Parent = CloserGrid
+        }, { BackgroundColor3 = "Sidebar", TextColor3 = "Text" })
+        
+        Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 8), Parent = Btn })
+        
+        local scale = Instance.new("UIScale", Btn)
+        scale.Scale = 1
+        
+        local isSelected = (getgenv().CloserType == opt or (not getgenv().CloserType and opt == "Top Bar"))
+        local stroke = Library.Utils.Make("UIStroke", {
+            Thickness = isSelected and 2.5 or 1,
+            Transparency = isSelected and 0 or 0.7,
+            Parent = Btn
+        }, { Color = isSelected and "Accent" or "Stroke" })
+        
+        closerStrokes[opt] = stroke
+
+        -- Ховер эффект с увеличением
+        Btn.MouseEnter:Connect(function()
+            if getgenv().CloserType ~= opt then
+                TweenService:Create(stroke, TweenInfo.new(0.2), {Transparency = 0.3, Thickness = 1.5}):Play()
+            end
+            TweenService:Create(scale, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1.04}):Play()
+        end)
+
+        Btn.MouseLeave:Connect(function()
+            if getgenv().CloserType ~= opt then
+                TweenService:Create(stroke, TweenInfo.new(0.2), {Transparency = 0.7, Thickness = 1}):Play()
+            end
+            TweenService:Create(scale, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Scale = 1}):Play()
+        end)
+
+        -- Клик с обновлением переменных и физическим отскоком
+        Library:Connect(Btn.MouseButton1Click, function()
+            getgenv().CloserType = opt
+            Library.Settings.CloserType = opt
+            
+            for name, strk in pairs(closerStrokes) do
+                local active = (name == opt)
+                strk.Color = active and Library.CurrentTheme.Accent or Library.CurrentTheme.Stroke
+                
+                TweenService:Create(strk, TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+                    Thickness = active and 2.5 or 1,
+                    Transparency = active and 0 or 0.7
+                }):Play()
+            end
+            
+            scale.Scale = 0.94
+            TweenService:Create(scale, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1.04}):Play()
+        end)
+    end
 
     Tab:CreateUIXPanel({
         Min = 25, Max = 100,
