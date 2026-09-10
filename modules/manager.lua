@@ -285,6 +285,16 @@ function Module:Init(Library, Window, Tab)
             
             self:RefreshList()
             Library:Notify("Success!", "copied: " .. count .. " objects and " .. textureCount .. " rooms.", 3, "rbxassetid://18926561608", "rbxassetid://72958619361915")
+            local newFileName = "AdoptMeHouse_" .. os.date("%H%M%S")
+            self:SaveHouse(newFileName, saveData)
+            
+            -- ДОБАВИТЬ ЭТО: Автоматически закидываем и выбираем дом в main.lua
+            if getgenv().AutoSelectNewHouse then
+                getgenv().AutoSelectNewHouse(newFileName)
+            end
+            
+            self:RefreshList()
+            Library:Notify("Success!", "copied: " .. count .. " objects and " .. textureCount .. " rooms.", 3, "rbxassetid://18926561608", "rbxassetid://72958619361915")
         end)
     end)
 
