@@ -127,24 +127,22 @@ function Module:Init(Library, Window, Tab)
         end
     })
 
-    -- Чистый стандартный дропдаун из библиотеки для Particle Style
     Tab:CreateDropdown({
         Name = "Particle Style",
-        Options = {"Old Vanilla", "Modern", "Disabled"},
-        CurrentOption = "OldVanilla",
-        Flag = "ParticleStyleFlag",
-        Callback = function(Option)
+        Options = {"Old Vanilla", "Stars", "Snow", "Sakura Petals", "Bubbles"},
+        Default = getgenv().ParticleType or "Old Vanilla",
+        Flag = "ParticleType",
+        Callback = function(val)
             getgenv().ParticleType = val
         end
     })
 
-    -- Чистый стандартный дропдаун для Minimize Button Style
     Tab:CreateDropdown({
         Name = "Minimize Button Style",
-        Options = {"Top Bar", "Floating Icon"},
-        CurrentOption = "TopBar",
-        Flag = "MinimizeStyleFlag",
-        Callback = function(Option)
+        Options = {"Top Bar", "Floating Logo"},
+        Default = Library.Settings.CloserType or "Top Bar",
+        Flag = "CloserType",
+        Callback = function(val)
             Library.Settings.CloserType = val
             getgenv().CloserType = val
         end
