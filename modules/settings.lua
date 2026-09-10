@@ -173,65 +173,48 @@ function Module:Init(Library, Window, Tab)
         
         Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 8), Parent = Tile })
         
+        -- Устанавливаем начальное состояние рамки
         local isSelected = (getgenv().ParticleType == pType)
         local tStroke = Library.Utils.Make("UIStroke", { 
-            Thickness = isSelected and 2.5 or 1, 
+            Thickness = isSelected and 2 or 1, 
+            Transparency = isSelected and 0 or 0.7, -- Неактивные рамки делаем тусклыми
             Parent = Tile 
         }, { Color = isSelected and "Accent" or "Stroke" })
         
         cardStrokes[pType] = tStroke
 
-        -- Превью анимация внутри плитки
-        task.spawn(function()
-            while Tile and Tile.Parent do
-                if getgenv().MenuParticlesEnabled then
-                    local p = Instance.new("Frame")
-                    p.BorderSizePixel = 0
-                    p.Parent = Tile
+        -- 1. ЭФФЕКТ НАВЕДЕНИЯ (HOVER)
+        Tile.MouseEnter:Connect(function()
+            -- Слегка осветляем фон карточки за счет прозрачности
+            TweenService:Create(Tile, TweenInfo.new(0.15), {BackgroundTransparency = 0.2}):Play()
+        end)
 
-                    if pType == "Old Vanilla" then
-                        p.Size = UDim2.new(0, 3, 0, 3)
-                        p.BackgroundColor3 = Color3.new(1, 1, 1)
-                        p.Position = UDim2.new(math.random(), 0, 0, 0)
-                    elseif pType == "Stars" then
-                        p.Size = UDim2.new(0, 10, 0, 10)
-                        p.BackgroundTransparency = 1
-                        local img = Instance.new("ImageLabel", p)
-                        img.Size = UDim2.new(1, 0, 1, 0)
-                        img.BackgroundTransparency = 1
-                        img.Image = "rbxassetid://6031225815"
-                        img.ImageColor3 = Library.CurrentTheme.Accent
-                        p.Position = UDim2.new(math.random(), 0, 0, 0)
-                    elseif pType == "Snow" then
-                        p.Size = UDim2.new(0, 5, 0, 5)
-                        p.BackgroundColor3 = Color3.new(1, 1, 1)
-                        Library.Utils.Make("UICorner", {CornerRadius = UDim.new(1, 0), Parent = p})
-                        p.Position = UDim2.new(math.random(), 0, 0, 0)
-                    elseif pType == "Sakura Petals" then
-                        p.Size = UDim2.new(0, 7, 0, 4)
-                        p.BackgroundColor3 = Color3.fromRGB(255, 183, 197)
-                        Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0.5, 0), Parent = p})
-                        p.Position = UDim2.new(math.random(), 0, 0, 0)
-                    elseif pType == "Bubbles" then
-                        p.Size = UDim2.new(0, 8, 0, 8)
-                        p.BackgroundTransparency = 1
-                        Library.Utils.Make("UICorner", {CornerRadius = UDim.new(1, 0), Parent = p})
-                        local stroke = Instance.new("UIStroke", p)
-                        stroke.Color = Color3.new(1, 1, 1)
-                        stroke.Thickness = 1
-                        p.Position = UDim2.new(math.random(), 0, 0, 0)
-                    end
+        Tile.MouseLeave:Connect(function()
+            -- Возвращаем исходный цвет
+            TweenService:Create(Tile, TweenInfo.new(0.15), {BackgroundTransparency = 0}):Play()
+        end)
 
-                    TweenService:Create(p, TweenInfo.new(1.2, Enum.EasingStyle.Linear), {
-                        Position = UDim2.new(p.Position.X.Scale, math.random(-6, 6), 1, 4),
-                        BackgroundTransparency = 1
-                    }):Play()
+        -- [ ТУТ ДОЛЖЕН БЫТЬ ТВОЙ БЛОК task.spawn С АНИМАЦИЕЙ ЧАСТИЦ ]
 
-                    task.delay(1.2, function() if p then p:Destroy() end end)
-                end
-                task.wait(0.35)
+        -- 2. ЭФФЕКТ ВЫБОРА ПРИ КЛИКЕ
+        Library:Connect(Tile.MouseButton1Click, function()
+            getgenv().ParticleType = pType
+            
+            -- Плавно обновляем рамки всех карточек
+            for name, stroke in pairs(cardStrokes) do
+                local active = (name == pType)
+                
+                -- Жестко назначаем цвет из темы
+                stroke.Color = active and Library.CurrentTheme.Accent or Library.CurrentTheme.Stroke
+                
+                -- Анимируем толщину и прозрачность обводки
+                TweenService:Create(stroke, TweenInfo.new(0.2), {
+                    Thickness = active and 2 or 1,
+                    Transparency = active and 0 or 0.7
+                }):Play()
             end
         end)
+    end
 
         -- Клик с обновлением обводки
         Library:Connect(Tile.MouseButton1Click, function()
