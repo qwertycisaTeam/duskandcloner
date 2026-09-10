@@ -127,33 +127,30 @@ function Module:Init(Library, Window, Tab)
         end
     })
 --===================
-    -- Стандартный прямоугольный блок секции в стиле остальных элементов
+    -- Аккуратный блок под пропорции остальных элементов
     local ParticlePickerContainer = Library.Utils.Make("Frame", {
-        Size = UDim2.new(1, 0, 0, 80),
+        Size = UDim2.new(1, 0, 0, 70),
         Parent = Tab.Page
     }, { BackgroundColor3 = "Section" })
     Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 10), Parent = ParticlePickerContainer })
     Library.Utils.Make("UIStroke", { Thickness = 1, Parent = ParticlePickerContainer }, { Color = "Stroke" })
 
-    -- Контейнер под сетку из 5 прямоугольных плиток
+    -- Контейнер с ровными отступами по 10 пикселей со всех сторон
     local GridHolder = Library.Utils.Make("Frame", {
-        Size = UDim2.new(1, -20, 0, 56),
-        Position = UDim2.new(0, 10, 0, 12),
+        Size = UDim2.new(1, -20, 1, -20),
+        Position = UDim2.new(0, 10, 0, 10),
         BackgroundTransparency = 1,
         Parent = ParticlePickerContainer
     })
 
     local particleTypes = {"Old Vanilla", "Stars", "Snow", "Sakura Petals", "Bubbles"}
     local cardStrokes = {}
-    local cardTiles = {}
 
     for i, pType in ipairs(particleTypes) do
-        -- Высчитываем ширину каждого из 5 блоков на всю ширину с равными отступами
-        local tileWidth = (GridHolder.AbsoluteSize.X > 0 and (GridHolder.AbsoluteSize.X - 16) / 5) or 52
-        
+        -- Ровное процентное деление на 5 элементов с промежутками
         local Tile = Library.Utils.Make("TextButton", {
-            Size = UDim2.new(0.2, -4, 1, 0),
-            Position = UDim2.new((i - 1) * 0.2, (i - 1) * 4, 0, 0),
+            Size = UDim2.new(0.2, -5, 1, 0),
+            Position = UDim2.new((i - 1) * 0.2, (i - 1) * 6, 0, 0),
             Text = "",
             AutoButtonColor = false,
             ClipsDescendants = true,
@@ -169,7 +166,6 @@ function Module:Init(Library, Window, Tab)
         }, { Color = isSelected and "Accent" or "Stroke" })
         
         cardStrokes[pType] = tStroke
-        cardTiles[pType] = Tile
 
         -- Превью анимация внутри плитки
         task.spawn(function()
@@ -213,7 +209,7 @@ function Module:Init(Library, Window, Tab)
                     end
 
                     TweenService:Create(p, TweenInfo.new(1.2, Enum.EasingStyle.Linear), {
-                        Position = UDim2.new(p.Position.X.Scale, math.random(-8, 8), 1, 6),
+                        Position = UDim2.new(p.Position.X.Scale, math.random(-6, 6), 1, 6),
                         BackgroundTransparency = 1
                     }):Play()
 
@@ -223,13 +219,13 @@ function Module:Init(Library, Window, Tab)
             end
         end)
 
-        -- Клик с гарантированной сменой акцентной обводки
+        -- Клик с принудительной сменой цвета обводки в реальном времени
         Library:Connect(Tile.MouseButton1Click, function()
             getgenv().ParticleType = pType
             for name, stroke in pairs(cardStrokes) do
                 local active = (name == pType)
                 stroke.Thickness = active and 2.5 or 1
-                -- Жестко задаем цвет без привязки к тупящим таблицам тем
+                -- Присваиваем цвет напрямую из текущей темы библиотеки
                 stroke.Color = active and Library.CurrentTheme.Accent or Library.CurrentTheme.Stroke
             end
         end)
