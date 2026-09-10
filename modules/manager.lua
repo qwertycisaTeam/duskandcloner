@@ -294,8 +294,7 @@ function Module:Init(Library, Window, Tab)
         end)
     end)
     Tab:CreateDivider({
-        Text = "HOUSE SCHEMATICS",
-        Parent = self.ListContainer
+        Text = "HOUSE SCHEMATICS"
     })
     self:RefreshList()
 end
