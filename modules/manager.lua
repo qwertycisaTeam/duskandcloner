@@ -293,8 +293,11 @@ function Module:Init(Library, Window, Tab)
             Library:Notify("Success!", "House exported as " .. newFileName, 3, "rbxassetid://91727514118912", "rbxassetid://72958619361915")
         end)
     end)
+-- Создаем девайдер прямо внутри списка, сразу после кнопки парсера
     Tab:CreateDivider({
-        Text = "HOUSE SCHEMATICS"
+        Text = "HOUSE SCHEMATICS",
+        Parent = self.ListContainer,
+        LayoutOrder = 0 -- Встает между кнопкой (-1) и файлами (дефолтный порядок)
     })
     self:RefreshList()
 end
