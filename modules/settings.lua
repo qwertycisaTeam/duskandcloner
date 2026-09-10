@@ -128,52 +128,49 @@ function Module:Init(Library, Window, Tab)
     })
 --===================
     local ParticlePickerContainer = Library.Utils.Make("Frame", {
-        Size = UDim2.new(1, 0, 0, 75),
-        Parent = Tab.Page  -- Исправили с Page на Tab.Page
+        Size = UDim2.new(1, 0, 0, 85),
+        Parent = Tab.Page
     }, { BackgroundColor3 = "Section" })
     Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 10), Parent = ParticlePickerContainer })
     Library.Utils.Make("UIStroke", { Thickness = 1, Parent = ParticlePickerContainer }, { Color = "Stroke" })
 
     Library.Utils.Make("TextLabel", {
         Text = "PARTICLE STYLE PREVIEW",
-        Size = UDim2.new(1, -20, 0, 20),
-        Position = UDim2.new(0, 15, 0, 8),
+        Size = UDim2.new(1, 0, 0, 20),
+        Position = UDim2.new(0, 0, 0, 10),
         BackgroundTransparency = 1,
         Font = Enum.Font.GothamBold,
         TextSize = 11,
+        TextXAlignment = Enum.TextXAlignment.Center,
         Parent = ParticlePickerContainer
     }, { TextColor3 = "SubText" })
 
-    local GridFrame = Library.Utils.Make("Frame", {
-        Size = UDim2.new(1, -20, 0, 36),
-        Position = UDim2.new(0, 10, 0, 30),
+    -- Центрирующий фрейм для плиток
+    local GridHolder = Library.Utils.Make("Frame", {
+        Size = UDim2.new(0, 245, 0, 42),
+        Position = UDim2.new(0.5, -122.5, 0, 35),
         BackgroundTransparency = 1,
         Parent = ParticlePickerContainer
-    })
-    
-    Library.Utils.Make("UIListLayout", {
-        FillDirection = Enum.FillDirection.Horizontal,
-        HorizontalAlignment = Enum.HorizontalAlignment.Center,
-        Padding = UDim.new(0, 8),
-        Parent = GridFrame
     })
 
     local particleTypes = {"Old Vanilla", "Stars", "Snow", "Sakura Petals", "Bubbles"}
     local cardStrokes = {}
 
-    for _, pType in ipairs(particleTypes) do
+    for i, pType in ipairs(particleTypes) do
         local Tile = Library.Utils.Make("TextButton", {
-            Size = UDim2.new(0, 36, 0, 36),
+            Size = UDim2.new(0, 42, 0, 42),
+            Position = UDim2.new(0, (i - 1) * 50, 0, 0),
             Text = "",
             AutoButtonColor = false,
             ClipsDescendants = true,
-            Parent = GridFrame
+            Parent = GridHolder
         }, { BackgroundColor3 = "Sidebar" })
         
         Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 8), Parent = Tile })
         local tStroke = Library.Utils.Make("UIStroke", { Thickness = 1.5, Parent = Tile }, { Color = "Stroke" })
         cardStrokes[pType] = tStroke
 
+        -- Мини-превью анимация внутри квадрата
         task.spawn(function()
             while Tile and Tile.Parent do
                 if getgenv().MenuParticlesEnabled and (getgenv().ParticleType == pType) then
@@ -191,7 +188,7 @@ function Module:Init(Library, Window, Tab)
                     end
 
                     TweenService:Create(p, TweenInfo.new(1.2, Enum.EasingStyle.Linear), {
-                        Position = UDim2.new(p.Position.X.Scale, math.random(-10, 10), 1, 5),
+                        Position = UDim2.new(p.Position.X.Scale, math.random(-8, 8), 1, 5),
                         BackgroundTransparency = 1
                     }):Play()
 
