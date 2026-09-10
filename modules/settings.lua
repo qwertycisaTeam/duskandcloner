@@ -515,18 +515,17 @@ function Module:Init(Library, Window, Tab)
     -- PERFORMANCE
     -- ==========================================
     Tab:CreateDivider({ Text = "Performance" })
--- Кастомный Премиум-Слайдер для FPS Limit (Исправленные цвета)
-    -- Кастомный Премиум-Слайдер для FPS Limit
+-- Кастомный Премиум-Слайдер для FPS Limit
     local UserInputService = game:GetService("UserInputService")
     
     local SliderContainer = Library.Utils.Make("Frame", {
-        Size = UDim2.new(1, 0, 0, 75), -- Сделали блок чуть компактнее
+        Size = UDim2.new(1, 0, 0, 75),
         Parent = Tab.Page
     }, { BackgroundColor3 = "Section" })
     Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 8), Parent = SliderContainer })
     local containerStroke = Library.Utils.Make("UIStroke", { Thickness = 1, Parent = SliderContainer }, { Color = "Stroke" })
 
-    -- Заголовок (Шрифт и размер точь-в-точь как у остальных тогглов)
+    -- Заголовок
     Library.Utils.Make("TextLabel", {
         Text = "Frame Rate Limit",
         Size = UDim2.new(1, -100, 0, 20),
@@ -550,7 +549,7 @@ function Module:Init(Library, Window, Tab)
         Parent = SliderContainer
     }, { TextColor3 = "SubText" })
 
-    -- Таблетка со значением (Цвет фона как у кнопки RightControl)
+    -- Таблетка
     local PillFrame = Library.Utils.Make("Frame", {
         Size = UDim2.new(0, 80, 0, 26),
         AnchorPoint = Vector2.new(1, 0),
@@ -568,11 +567,10 @@ function Module:Init(Library, Window, Tab)
         Parent = PillFrame
     }, { TextColor3 = "Text" })
 
-    -- Добавляем скейлер для анимации самой таблетки
     local PillScale = Instance.new("UIScale", PillFrame)
     PillScale.Scale = 1
 
-    -- Полоска (Трек - тоньше и аккуратнее)
+    -- Трек
     local Track = Library.Utils.Make("TextButton", {
         Size = UDim2.new(1, -24, 0, 4),
         Position = UDim2.new(0, 12, 0, 56),
@@ -588,18 +586,19 @@ function Module:Init(Library, Window, Tab)
     }, { BackgroundColor3 = "Accent" })
     Library.Utils.Make("UICorner", { CornerRadius = UDim.new(1, 0), Parent = Fill })
 
-    local Knob = Instance.new("Frame")
-    Knob.Size = UDim2.new(0, 12, 0, 12)
-    Knob.AnchorPoint = Vector2.new(0.5, 0.5)
-    Knob.Position = UDim2.new(1, 0, 0.5, 0)
-    Knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    Knob.Parent = Fill
+    -- Кружок (теперь создается через Utils.Make для поддержки тем)
+    local Knob = Library.Utils.Make("Frame", {
+        Size = UDim2.new(0, 12, 0, 12),
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.new(1, 0, 0.5, 0),
+        Parent = Fill
+    }, { BackgroundColor3 = "Text" })
     Library.Utils.Make("UICorner", { CornerRadius = UDim.new(1, 0), Parent = Knob })
     
     local KnobScale = Instance.new("UIScale", Knob)
     KnobScale.Scale = 1
 
-    -- ЛОГИКА: Анкап теперь находится на максимуме (справа)
+    -- Логика с динамической подменой ключей темы
     local minFPS, maxFPS = 15, 360
     local rawSavedFPS = getgenv().FPSLimit or 0
     local currentVisualFPS = (rawSavedFPS == 0) and maxFPS or rawSavedFPS 
@@ -614,11 +613,14 @@ function Module:Init(Library, Window, Tab)
             ValueText.Text = "Uncapped"
             if not isUncapped then
                 isUncapped = true
-                -- Анимация при достижении правого края
+                
+                -- Жестко переписываем ключи в таблице тем
+                Library.ThemeObjects[ValueText] = { TextColor3 = "Accent" }
+                Library.ThemeObjects[pillStroke] = { Color = "Accent" }
+                
                 TweenService:Create(ValueText, TweenInfo.new(0.2), {TextColor3 = Library.CurrentTheme.Accent}):Play()
                 TweenService:Create(pillStroke, TweenInfo.new(0.2), {Color = Library.CurrentTheme.Accent}):Play()
                 
-                -- Пружинистый Pop-эффект
                 PillScale.Scale = 0.85
                 TweenService:Create(PillScale, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1}):Play()
             end
@@ -626,8 +628,12 @@ function Module:Init(Library, Window, Tab)
             ValueText.Text = tostring(val)
             if isUncapped then
                 isUncapped = false
-                -- Возврат в обычное состояние
-                TweenService:Create(ValueText, TweenInfo.new(0.2), {TextColor3 = Library.CurrentTheme.Text or Color3.fromRGB(200, 200, 200)}):Play()
+                
+                -- Возвращаем дефолтные ключи в таблицу тем
+                Library.ThemeObjects[ValueText] = { TextColor3 = "Text" }
+                Library.ThemeObjects[pillStroke] = { Color = "Stroke" }
+                
+                TweenService:Create(ValueText, TweenInfo.new(0.2), {TextColor3 = Library.CurrentTheme.Text}):Play()
                 TweenService:Create(pillStroke, TweenInfo.new(0.2), {Color = Library.CurrentTheme.Stroke}):Play()
             end
         end
@@ -646,9 +652,7 @@ function Module:Init(Library, Window, Tab)
             currentVisualFPS = snappedValue
             updateVisuals(currentVisualFPS)
             
-            -- Если дотянули до правого края, передаем в движок настоящий 0 (анкап)
             local actualFPS = (currentVisualFPS == maxFPS) and 0 or currentVisualFPS
-            
             getgenv().FPSLimit = actualFPS
             if not getgenv().EcoModeEnabled and setfpscap then
                 pcall(function() setfpscap(actualFPS) end)
