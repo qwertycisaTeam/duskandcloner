@@ -515,45 +515,45 @@ function Module:Init(Library, Window, Tab)
     -- PERFORMANCE
     -- ==========================================
     Tab:CreateDivider({ Text = "Performance" })
--- Кастомный Премиум-Слайдер для FPS Limit
+-- Кастомный Премиум-Слайдер для FPS Limit (СИНХРОНИЗИРОВАН С БИБЛИОТЕКОЙ)
     local UserInputService = game:GetService("UserInputService")
     
     local SliderContainer = Library.Utils.Make("Frame", {
-        Size = UDim2.new(1, 0, 0, 65), -- Вернули нормальную высоту для толстой полоски
+        Size = UDim2.new(1, 0, 0, 70), -- Родная высота тоггла
         Parent = Tab.Page
     }, { BackgroundColor3 = "Section" })
-    Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 8), Parent = SliderContainer })
+    Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 10), Parent = SliderContainer })
     local containerStroke = Library.Utils.Make("UIStroke", { Thickness = 1, Parent = SliderContainer }, { Color = "Stroke" })
 
-    -- Заголовок
+    -- Заголовок (Точные координаты и шрифт из CreateToggle)
     Library.Utils.Make("TextLabel", {
         Text = "Frame Rate Limit",
-        Size = UDim2.new(1, -100, 0, 16),
-        Position = UDim2.new(0, 12, 0, 10),
+        Size = UDim2.new(1, -100, 0, 20),
+        Position = UDim2.new(0, 20, 0, 15), 
         BackgroundTransparency = 1,
-        Font = Enum.Font.GothamMedium,
-        TextSize = 13,
+        Font = Enum.Font.GothamBold,
+        TextSize = 16,
         TextXAlignment = Enum.TextXAlignment.Left,
         Parent = SliderContainer
     }, { TextColor3 = "Text" })
 
-    -- Описание
+    -- Описание (Точные координаты и шрифт из CreateToggle)
     Library.Utils.Make("TextLabel", {
         Text = "Drag to the far right to completely uncap FPS.",
-        Size = UDim2.new(1, -100, 0, 14),
-        Position = UDim2.new(0, 12, 0, 26),
+        Size = UDim2.new(1, -100, 0, 15),
+        Position = UDim2.new(0, 20, 0, 38),
         BackgroundTransparency = 1,
         Font = Enum.Font.Gotham,
-        TextSize = 12,
+        TextSize = 13,
         TextXAlignment = Enum.TextXAlignment.Left,
         Parent = SliderContainer
     }, { TextColor3 = "SubText" })
 
-    -- Таблетка (Вернули прямоугольную форму со скруглением, как в оригинале)
+    -- Окошко значения (Пропорции InputBG из CreateSlider, отступ из CreateToggle)
     local PillFrame = Library.Utils.Make("Frame", {
         Size = UDim2.new(0, 76, 0, 24),
         AnchorPoint = Vector2.new(1, 0),
-        Position = UDim2.new(1, -12, 0, 14),
+        Position = UDim2.new(1, -20, 0, 13),
         Parent = SliderContainer
     }, { BackgroundColor3 = "Sidebar" }) 
     Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 6), Parent = PillFrame })
@@ -562,8 +562,8 @@ function Module:Init(Library, Window, Tab)
     local ValueText = Library.Utils.Make("TextLabel", {
         Size = UDim2.new(1, 0, 1, 0),
         BackgroundTransparency = 1,
-        Font = Enum.Font.GothamMedium,
-        TextSize = 12,
+        Font = Enum.Font.Gotham,
+        TextSize = 13,
         ZIndex = 2,
         Parent = PillFrame
     }, { TextColor3 = "Text" })
@@ -571,10 +571,11 @@ function Module:Init(Library, Window, Tab)
     local PillScale = Instance.new("UIScale", PillFrame)
     PillScale.Scale = 1
 
-    -- Трек (ВОЗВРАЩЕНА ТОЛСТАЯ КРАСИВАЯ ПОЛОСА)
+    -- Трек (Пропорции родного CreateSlider)
     local Track = Library.Utils.Make("TextButton", {
-        Size = UDim2.new(1, -24, 0, 8), -- Толщина 8 пикселей
-        Position = UDim2.new(0, 12, 1, -14),
+        Size = UDim2.new(1, -40, 0, 6), -- Отступы по 20 пикселей по бокам
+        Position = UDim2.new(0, 20, 1, -10),
+        AnchorPoint = Vector2.new(0, 1),
         Text = "",
         AutoButtonColor = false,
         Parent = SliderContainer
@@ -587,9 +588,8 @@ function Module:Init(Library, Window, Tab)
     }, { BackgroundColor3 = "Accent" })
     Library.Utils.Make("UICorner", { CornerRadius = UDim.new(1, 0), Parent = Fill })
 
-    -- Кружок (Увеличен, чтобы органично лежать на толстой полосе)
     local Knob = Library.Utils.Make("Frame", {
-        Size = UDim2.new(0, 14, 0, 14),
+        Size = UDim2.new(0, 12, 0, 12),
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.new(1, 0, 0.5, 0),
         Parent = Fill
@@ -599,7 +599,7 @@ function Module:Init(Library, Window, Tab)
     local KnobScale = Instance.new("UIScale", Knob)
     KnobScale.Scale = 1
 
-    -- Логика с динамической подменой ключей темы
+    -- Логика (Оставляем неизменной)
     local minFPS, maxFPS = 15, 360
     local rawSavedFPS = getgenv().FPSLimit or 0
     local currentVisualFPS = (rawSavedFPS == 0) and maxFPS or rawSavedFPS 
