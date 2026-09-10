@@ -290,6 +290,7 @@ function Module:Init(Library, Window, Tab)
             end
             
             self:RefreshList()
+            Library:Notify("Success!", "House exported as " .. newFileName, 3, "rbxassetid://91727514118912", "rbxassetid://72958619361915")
         end)
     end)
 
