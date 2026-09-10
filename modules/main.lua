@@ -162,11 +162,12 @@ function Module:Init(Library, Window, Tab)
     -- 3. ПРЕМИУМ КНОПКА BUILD (НЕОНОВАЯ)
     -- ==========================================
     local BuildContainer = Library.Utils.Make("Frame", {
-        Size = UDim2.new(1, 0, 0, 42),
+        Size = UDim2.new(1, -24, 0, 42), -- Запас места для Scale = 1.05
+        Position = UDim2.new(0.5, 0, 0, 0), -- Ставим ровно по центру
+        AnchorPoint = Vector2.new(0.5, 0), -- Центр масс
         BackgroundTransparency = 1,
         Parent = Tab.Page
     })
-
     local Glow = Library.Utils.Make("Frame", { 
         Size = UDim2.new(1, 0, 1, 0), 
         Position = UDim2.new(0.5, 0, 0.5, 0),
