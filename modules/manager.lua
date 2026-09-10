@@ -335,7 +335,7 @@ function Module:RefreshList()
         self:CreateFileCard(houseName)
     end
 end
-Tab:CreateDivider({ Text = "Files" })
+
 -- ==========================================
 -- КАРТОЧКА ФАЙЛА И ВЫПАДАЮЩЕЕ МЕНЮ
 -- ==========================================
