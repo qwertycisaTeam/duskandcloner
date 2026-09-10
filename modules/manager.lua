@@ -284,7 +284,6 @@ function Module:Init(Library, Window, Tab)
             self:SaveHouse(newFileName, saveData)
             
             self:RefreshList()
-            Library:Notify("Success!", "copied: " .. count .. " objects and " .. textureCount .. " rooms.", 3, "rbxassetid://18926561608", "rbxassetid://72958619361915")
             local newFileName = "AdoptMeHouse_" .. os.date("%H%M%S")
             self:SaveHouse(newFileName, saveData)
             
