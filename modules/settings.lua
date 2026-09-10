@@ -519,7 +519,7 @@ function Module:Init(Library, Window, Tab)
     local UserInputService = game:GetService("UserInputService")
     
     local SliderContainer = Library.Utils.Make("Frame", {
-        Size = UDim2.new(1, 0, 0, 75),
+        Size = UDim2.new(1, 0, 0, 65), -- Вернули нормальную высоту для толстой полоски
         Parent = Tab.Page
     }, { BackgroundColor3 = "Section" })
     Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 8), Parent = SliderContainer })
@@ -528,11 +528,11 @@ function Module:Init(Library, Window, Tab)
     -- Заголовок
     Library.Utils.Make("TextLabel", {
         Text = "Frame Rate Limit",
-        Size = UDim2.new(1, -100, 0, 20),
+        Size = UDim2.new(1, -100, 0, 16),
         Position = UDim2.new(0, 12, 0, 10),
         BackgroundTransparency = 1,
         Font = Enum.Font.GothamMedium,
-        TextSize = 14,
+        TextSize = 13,
         TextXAlignment = Enum.TextXAlignment.Left,
         Parent = SliderContainer
     }, { TextColor3 = "Text" })
@@ -540,8 +540,8 @@ function Module:Init(Library, Window, Tab)
     -- Описание
     Library.Utils.Make("TextLabel", {
         Text = "Drag to the far right to completely uncap FPS.",
-        Size = UDim2.new(1, -100, 0, 15),
-        Position = UDim2.new(0, 12, 0, 28),
+        Size = UDim2.new(1, -100, 0, 14),
+        Position = UDim2.new(0, 12, 0, 26),
         BackgroundTransparency = 1,
         Font = Enum.Font.Gotham,
         TextSize = 12,
@@ -549,9 +549,9 @@ function Module:Init(Library, Window, Tab)
         Parent = SliderContainer
     }, { TextColor3 = "SubText" })
 
-    -- Таблетка (ИСПРАВЛЕНО: BackgroundColor3 = "Sidebar")
+    -- Таблетка (Вернули прямоугольную форму со скруглением, как в оригинале)
     local PillFrame = Library.Utils.Make("Frame", {
-        Size = UDim2.new(0, 80, 0, 26),
+        Size = UDim2.new(0, 76, 0, 24),
         AnchorPoint = Vector2.new(1, 0),
         Position = UDim2.new(1, -12, 0, 14),
         Parent = SliderContainer
@@ -571,10 +571,10 @@ function Module:Init(Library, Window, Tab)
     local PillScale = Instance.new("UIScale", PillFrame)
     PillScale.Scale = 1
 
-    -- Трек (ИСПРАВЛЕНО: BackgroundColor3 = "Sidebar")
+    -- Трек (ВОЗВРАЩЕНА ТОЛСТАЯ КРАСИВАЯ ПОЛОСА)
     local Track = Library.Utils.Make("TextButton", {
-        Size = UDim2.new(1, -24, 0, 4),
-        Position = UDim2.new(0, 12, 0, 56),
+        Size = UDim2.new(1, -24, 0, 8), -- Толщина 8 пикселей
+        Position = UDim2.new(0, 12, 1, -14),
         Text = "",
         AutoButtonColor = false,
         Parent = SliderContainer
@@ -587,8 +587,9 @@ function Module:Init(Library, Window, Tab)
     }, { BackgroundColor3 = "Accent" })
     Library.Utils.Make("UICorner", { CornerRadius = UDim.new(1, 0), Parent = Fill })
 
+    -- Кружок (Увеличен, чтобы органично лежать на толстой полосе)
     local Knob = Library.Utils.Make("Frame", {
-        Size = UDim2.new(0, 12, 0, 12),
+        Size = UDim2.new(0, 14, 0, 14),
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.new(1, 0, 0.5, 0),
         Parent = Fill
@@ -613,13 +614,10 @@ function Module:Init(Library, Window, Tab)
             ValueText.Text = "Uncapped"
             if not isUncapped then
                 isUncapped = true
-                
                 if Library.ThemeObjects[ValueText] then Library.ThemeObjects[ValueText] = { TextColor3 = "Accent" } end
                 if Library.ThemeObjects[pillStroke] then Library.ThemeObjects[pillStroke] = { Color = "Accent" } end
-                
                 TweenService:Create(ValueText, TweenInfo.new(0.2), {TextColor3 = Library.CurrentTheme.Accent}):Play()
                 TweenService:Create(pillStroke, TweenInfo.new(0.2), {Color = Library.CurrentTheme.Accent}):Play()
-                
                 PillScale.Scale = 0.85
                 TweenService:Create(PillScale, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1}):Play()
             end
@@ -627,10 +625,8 @@ function Module:Init(Library, Window, Tab)
             ValueText.Text = tostring(val)
             if isUncapped then
                 isUncapped = false
-                
                 if Library.ThemeObjects[ValueText] then Library.ThemeObjects[ValueText] = { TextColor3 = "Text" } end
                 if Library.ThemeObjects[pillStroke] then Library.ThemeObjects[pillStroke] = { Color = "Stroke" } end
-                
                 TweenService:Create(ValueText, TweenInfo.new(0.2), {TextColor3 = Library.CurrentTheme.Text}):Play()
                 TweenService:Create(pillStroke, TweenInfo.new(0.2), {Color = Library.CurrentTheme.Stroke}):Play()
             end
