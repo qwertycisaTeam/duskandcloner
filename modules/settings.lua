@@ -127,28 +127,18 @@ function Module:Init(Library, Window, Tab)
         end
     })
 --===================
+    -- Компактная капсула по референсу
     local ParticlePickerContainer = Library.Utils.Make("Frame", {
-        Size = UDim2.new(1, 0, 0, 85),
+        Size = UDim2.new(1, 0, 0, 56),
         Parent = Tab.Page
     }, { BackgroundColor3 = "Section" })
-    Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 10), Parent = ParticlePickerContainer })
-    Library.Utils.Make("UIStroke", { Thickness = 1, Parent = ParticlePickerContainer }, { Color = "Stroke" })
+    Library.Utils.Make("UICorner", { CornerRadius = UDim.new(1, 0), Parent = ParticlePickerContainer })
+    Library.Utils.Make("UIStroke", { Thickness = 1.5, Parent = ParticlePickerContainer }, { Color = "Stroke" })
 
-    Library.Utils.Make("TextLabel", {
-        Text = "PARTICLE STYLE PREVIEW",
-        Size = UDim2.new(1, 0, 0, 20),
-        Position = UDim2.new(0, 0, 0, 10),
-        BackgroundTransparency = 1,
-        Font = Enum.Font.GothamBold,
-        TextSize = 11,
-        TextXAlignment = Enum.TextXAlignment.Center,
-        Parent = ParticlePickerContainer
-    }, { TextColor3 = "SubText" })
-
-    -- Центрирующий фрейм для плиток
+    -- Центрируем ряд из 5 квадратов прямо в капсуле
     local GridHolder = Library.Utils.Make("Frame", {
-        Size = UDim2.new(0, 245, 0, 42),
-        Position = UDim2.new(0.5, -122.5, 0, 35),
+        Size = UDim2.new(0, 230, 0, 38),
+        Position = UDim2.new(0.5, -115, 0.5, -19),
         BackgroundTransparency = 1,
         Parent = ParticlePickerContainer
     })
@@ -158,8 +148,8 @@ function Module:Init(Library, Window, Tab)
 
     for i, pType in ipairs(particleTypes) do
         local Tile = Library.Utils.Make("TextButton", {
-            Size = UDim2.new(0, 42, 0, 42),
-            Position = UDim2.new(0, (i - 1) * 50, 0, 0),
+            Size = UDim2.new(0, 38, 0, 38),
+            Position = UDim2.new(0, (i - 1) * 48, 0, 0),
             Text = "",
             AutoButtonColor = false,
             ClipsDescendants = true,
@@ -167,42 +157,74 @@ function Module:Init(Library, Window, Tab)
         }, { BackgroundColor3 = "Sidebar" })
         
         Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 8), Parent = Tile })
-        local tStroke = Library.Utils.Make("UIStroke", { Thickness = 1.5, Parent = Tile }, { Color = "Stroke" })
+        
+        local isSelected = (getgenv().ParticleType == pType)
+        local tStroke = Library.Utils.Make("UIStroke", { 
+            Thickness = isSelected and 2.5 or 1.5, 
+            Parent = Tile 
+        }, { Color = isSelected and "Accent" or "Stroke" })
         cardStrokes[pType] = tStroke
 
-        -- Мини-превью анимация внутри квадрата
+        -- УНИКАЛЬНЫЙ МИНИ-ПРЕВЬЮ СПАВНЕР ДЛЯ КАЖДОГО КВАДРАТА
         task.spawn(function()
             while Tile and Tile.Parent do
-                if getgenv().MenuParticlesEnabled and (getgenv().ParticleType == pType) then
+                if getgenv().MenuParticlesEnabled then
                     local p = Instance.new("Frame")
-                    p.Size = UDim2.new(0, 3, 0, 3)
-                    p.Position = UDim2.new(math.random(), 0, 0, 0)
-                    p.BackgroundColor3 = Color3.new(1, 1, 1)
                     p.BorderSizePixel = 0
                     p.Parent = Tile
-                    
-                    if pType == "Stars" then
-                        p.BackgroundColor3 = Library.CurrentTheme.Accent
+
+                    -- Рисуем превью в зависимости от типа плитки
+                    if pType == "Old Vanilla" then
+                        p.Size = UDim2.new(0, 3, 0, 3)
+                        p.BackgroundColor3 = Color3.new(1, 1, 1)
+                        p.Position = UDim2.new(math.random(), 0, 0, 0)
+                    elseif pType == "Stars" then
+                        p.Size = UDim2.new(0, 8, 0, 8)
+                        p.BackgroundTransparency = 1
+                        local img = Instance.new("ImageLabel", p)
+                        img.Size = UDim2.new(1, 0, 1, 0)
+                        img.BackgroundTransparency = 1
+                        img.Image = "rbxassetid://6031225815"
+                        img.ImageColor3 = Library.CurrentTheme.Accent
+                        p.Position = UDim2.new(math.random(), 0, 0, 0)
+                    elseif pType == "Snow" then
+                        p.Size = UDim2.new(0, 4, 0, 4)
+                        p.BackgroundColor3 = Color3.new(1, 1, 1)
+                        Library.Utils.Make("UICorner", {CornerRadius = UDim.new(1, 0), Parent = p})
+                        p.Position = UDim2.new(math.random(), 0, 0, 0)
                     elseif pType == "Sakura Petals" then
+                        p.Size = UDim2.new(0, 6, 0, 4)
                         p.BackgroundColor3 = Color3.fromRGB(255, 183, 197)
+                        Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0.5, 0), Parent = p})
+                        p.Position = UDim2.new(math.random(), 0, 0, 0)
+                    elseif pType == "Bubbles" then
+                        p.Size = UDim2.new(0, 7, 0, 7)
+                        p.BackgroundTransparency = 1
+                        Library.Utils.Make("UICorner", {CornerRadius = UDim.new(1, 0), Parent = p})
+                        local stroke = Instance.new("UIStroke", p)
+                        stroke.Color = Color3.new(1, 1, 1)
+                        stroke.Thickness = 1
+                        p.Position = UDim2.new(math.random(), 0, 0, 0)
                     end
 
                     TweenService:Create(p, TweenInfo.new(1.2, Enum.EasingStyle.Linear), {
-                        Position = UDim2.new(p.Position.X.Scale, math.random(-8, 8), 1, 5),
+                        Position = UDim2.new(p.Position.X.Scale, math.random(-6, 6), 1, 5),
                         BackgroundTransparency = 1
                     }):Play()
 
                     task.delay(1.2, function() if p then p:Destroy() end end)
                 end
-                task.wait(0.3)
+                task.wait(0.35)
             end
         end)
 
+        -- КЛИК: Меняем глобальный стиль и подсвечиваем нужный квадрат
         Library:Connect(Tile.MouseButton1Click, function()
             getgenv().ParticleType = pType
             for name, stroke in pairs(cardStrokes) do
-                stroke.Color = (name == pType) and Library.CurrentTheme.Accent or Library.CurrentTheme.Stroke
-                stroke.Thickness = (name == pType) and 2.5 or 1.5
+                local active = (name == pType)
+                stroke.Thickness = active and 2.5 or 1.5
+                stroke.Color = active and Library.CurrentTheme.Accent or Library.CurrentTheme.Stroke
             end
         end)
     end
