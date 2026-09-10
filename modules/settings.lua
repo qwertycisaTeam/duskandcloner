@@ -514,9 +514,7 @@ function Module:Init(Library, Window, Tab)
     -- ==========================================
     -- PERFORMANCE
     -- ==========================================
-    Tab:CreateDivider({ Text = "Performance" })
-
-    -- Кастомный Премиум-Слайдер для FPS Limit
+-- Кастомный Премиум-Слайдер для FPS Limit (Исправленные цвета)
     local UserInputService = game:GetService("UserInputService")
     
     local SliderContainer = Library.Utils.Make("Frame", {
@@ -539,7 +537,7 @@ function Module:Init(Library, Window, Tab)
     }, { TextColor3 = "Text" })
 
     -- Описание
-    Library.Utils.Make("TextLabel", {
+    local DescText = Library.Utils.Make("TextLabel", {
         Text = "Adjust maximum FPS. Set to 0 to completely uncap.",
         Size = UDim2.new(1, -100, 0, 15),
         Position = UDim2.new(0, 12, 0, 32),
@@ -548,15 +546,16 @@ function Module:Init(Library, Window, Tab)
         TextSize = 11,
         TextXAlignment = Enum.TextXAlignment.Left,
         Parent = SliderContainer
-    }, { TextColor3 = "SubText" })
+    }, { TextColor3 = "Text" })
+    DescText.TextTransparency = 0.4 -- Делаем приглушенным за счет прозрачности
 
-    -- Таблетка со значением (Pill)
+    -- Таблетка со значением (Pill) - Исправлен цвет на Sidebar
     local PillFrame = Library.Utils.Make("Frame", {
-        Size = UDim2.new(0, 76, 0, 26),
+        Size = UDim2.new(0, 80, 0, 26),
         AnchorPoint = Vector2.new(1, 0),
         Position = UDim2.new(1, -12, 0, 16),
         Parent = SliderContainer
-    }, { BackgroundColor3 = "Main" })
+    }, { BackgroundColor3 = "Sidebar" }) 
     Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 6), Parent = PillFrame })
     local pillStroke = Library.Utils.Make("UIStroke", { Thickness = 1, Parent = PillFrame }, { Color = "Stroke" })
     
@@ -566,16 +565,16 @@ function Module:Init(Library, Window, Tab)
         Font = Enum.Font.GothamBold,
         TextSize = 12,
         Parent = PillFrame
-    }, { TextColor3 = "SubText" })
+    }, { TextColor3 = "Text" })
 
-    -- Полоска (Трек)
+    -- Полоска (Трек) - Исправлен цвет на Sidebar
     local Track = Library.Utils.Make("TextButton", {
         Size = UDim2.new(1, -24, 0, 6),
         Position = UDim2.new(0, 12, 0, 64),
         Text = "",
         AutoButtonColor = false,
         Parent = SliderContainer
-    }, { BackgroundColor3 = "Main" })
+    }, { BackgroundColor3 = "Sidebar" })
     Library.Utils.Make("UICorner", { CornerRadius = UDim.new(1, 0), Parent = Track })
 
     -- Заливка ползунка (Fill)
@@ -612,7 +611,7 @@ function Module:Init(Library, Window, Tab)
             pillStroke.Color = Library.CurrentTheme.Accent
         else
             ValueText.Text = tostring(val) .. " FPS"
-            ValueText.TextColor3 = Library.CurrentTheme.SubText
+            ValueText.TextColor3 = Library.CurrentTheme.Text or Color3.fromRGB(200, 200, 200)
             pillStroke.Color = Library.CurrentTheme.Stroke
         end
     end
@@ -666,7 +665,6 @@ function Module:Init(Library, Window, Tab)
     SliderContainer.MouseLeave:Connect(function()
         TweenService:Create(containerStroke, TweenInfo.new(0.3), {Transparency = 0}):Play()
     end)
-
     Tab:CreateToggle({
         Name = "Extreme Performance (NoRender)",
         Description = "Kills 3D rendering, shadows, and textures for MAX FPS.",
