@@ -129,7 +129,7 @@ function Module:Init(Library, Window, Tab)
 --===================
     local ParticlePickerContainer = Library.Utils.Make("Frame", {
         Size = UDim2.new(1, 0, 0, 75),
-        Parent = Page
+        Parent = Tab.Page  -- Исправили с Page на Tab.Page
     }, { BackgroundColor3 = "Section" })
     Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 10), Parent = ParticlePickerContainer })
     Library.Utils.Make("UIStroke", { Thickness = 1, Parent = ParticlePickerContainer }, { Color = "Stroke" })
