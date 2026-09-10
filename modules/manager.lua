@@ -438,33 +438,17 @@ function Module:CreateFileCard(fileName)
             Parent = MainGUI or Card
         })
         Library:Connect(self.ClickCatcher.MouseButton1Click, CloseDropdown)
-       local Dropdown = Library.Utils.Make("Frame", { 
+
+        local Dropdown = Library.Utils.Make("Frame", { 
             Size = UDim2.new(0, 160, 0, 152),
             BackgroundTransparency = 1,
             ZIndex = 1000, 
-            -- Жестко привязываем меню к карточке файла (чуть левее кнопки ••• и ниже её)
             Position = UDim2.new(1, -172, 0, 30), 
             Parent = Card 
         }, { BackgroundColor3 = "Sidebar" })
-        Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 8), Parent = Dropdown })
-        local dropStroke = Library.Utils.Make("UIStroke", { Name = "DropStroke", Thickness = 1, Transparency = 1, Parent = Dropdown }, { Color = "Stroke" })
         
-        if MainGUI then
-            local pos = OptionsBtn.AbsolutePosition
-            local size = OptionsBtn.AbsoluteSize
-            Dropdown.Position = UDim2.new(0, pos.X, 0, pos.Y + size.Y + 6)
-        else
-            Dropdown.AnchorPoint = Vector2.new(0, 0)
-            Dropdown.Position = UDim2.new(1, -34, 1, 6)
-        end
-
-        local scrollConn
-        if MainGUI then
-            scrollConn = Card:GetPropertyChangedSignal("AbsolutePosition"):Connect(function()
-                CloseDropdown()
-                if scrollConn then scrollConn:Disconnect() end
-            end)
-        end
+        Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 8), Parent = Dropdown })
+        Library.Utils.Make("UIStroke", { Name = "DropStroke", Thickness = 1, Transparency = 1, Parent = Dropdown }, { Color = "Stroke" })
 
         local Shadow = Library.Utils.Make("ImageLabel", {
             Name = "DropShadow",
@@ -499,7 +483,7 @@ function Module:CreateFileCard(fileName)
         
         Library.Utils.TBT(dropScale, 0.25, {Scale = 1}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
         Library.Utils.TBT(Dropdown, 0.15, {BackgroundTransparency = 0})
-        Library.Utils.TBT(dropStroke, 0.15, {Transparency = 0.2})
+        Library.Utils.TBT(Dropdown:FindFirstChild("DropStroke"), 0.15, {Transparency = 0.2})
         Library.Utils.TBT(Shadow, 0.2, {ImageTransparency = 0.6})
         
         local function AddAction(title, iconId, baseColorKey, hoverColorKey, isDelete, callback)
