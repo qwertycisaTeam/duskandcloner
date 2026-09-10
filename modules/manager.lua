@@ -303,7 +303,8 @@ function Module:RefreshList()
     end
 
     for _, child in ipairs(self.ListContainer:GetChildren()) do
-        if child:IsA("TextButton") and child.LayoutOrder ~= -1 then 
+        -- Теперь скрипт сносит и старые файлы (TextButton), и надпись пустого списка (TextLabel)
+        if (child:IsA("TextButton") or child:IsA("TextLabel")) and child.LayoutOrder ~= -1 then 
             child:Destroy() 
         end
     end
