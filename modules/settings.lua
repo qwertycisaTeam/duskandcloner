@@ -514,79 +514,82 @@ function Module:Init(Library, Window, Tab)
     -- ==========================================
     -- PERFORMANCE
     -- ==========================================
+    Tab:CreateDivider({ Text = "Performance" })
 -- Кастомный Премиум-Слайдер для FPS Limit (Исправленные цвета)
+    -- Кастомный Премиум-Слайдер для FPS Limit
     local UserInputService = game:GetService("UserInputService")
     
     local SliderContainer = Library.Utils.Make("Frame", {
-        Size = UDim2.new(1, 0, 0, 85),
+        Size = UDim2.new(1, 0, 0, 75), -- Сделали блок чуть компактнее
         Parent = Tab.Page
     }, { BackgroundColor3 = "Section" })
-    Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 10), Parent = SliderContainer })
+    Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 8), Parent = SliderContainer })
     local containerStroke = Library.Utils.Make("UIStroke", { Thickness = 1, Parent = SliderContainer }, { Color = "Stroke" })
 
-    -- Заголовок
+    -- Заголовок (Шрифт и размер точь-в-точь как у остальных тогглов)
     Library.Utils.Make("TextLabel", {
         Text = "Frame Rate Limit",
         Size = UDim2.new(1, -100, 0, 20),
-        Position = UDim2.new(0, 12, 0, 12),
+        Position = UDim2.new(0, 12, 0, 10),
         BackgroundTransparency = 1,
-        Font = Enum.Font.GothamBold,
-        TextSize = 13,
+        Font = Enum.Font.GothamMedium,
+        TextSize = 14,
         TextXAlignment = Enum.TextXAlignment.Left,
         Parent = SliderContainer
     }, { TextColor3 = "Text" })
 
     -- Описание
-    local DescText = Library.Utils.Make("TextLabel", {
-        Text = "Adjust maximum FPS. Set to 0 to completely uncap.",
+    Library.Utils.Make("TextLabel", {
+        Text = "Drag to the far right to completely uncap FPS.",
         Size = UDim2.new(1, -100, 0, 15),
-        Position = UDim2.new(0, 12, 0, 32),
+        Position = UDim2.new(0, 12, 0, 28),
         BackgroundTransparency = 1,
         Font = Enum.Font.Gotham,
-        TextSize = 11,
+        TextSize = 12,
         TextXAlignment = Enum.TextXAlignment.Left,
         Parent = SliderContainer
-    }, { TextColor3 = "Text" })
-    DescText.TextTransparency = 0.4 -- Делаем приглушенным за счет прозрачности
+    }, { TextColor3 = "SubText" })
 
-    -- Таблетка со значением (Pill) - Исправлен цвет на Sidebar
+    -- Таблетка со значением (Цвет фона как у кнопки RightControl)
     local PillFrame = Library.Utils.Make("Frame", {
         Size = UDim2.new(0, 80, 0, 26),
         AnchorPoint = Vector2.new(1, 0),
-        Position = UDim2.new(1, -12, 0, 16),
+        Position = UDim2.new(1, -12, 0, 14),
         Parent = SliderContainer
-    }, { BackgroundColor3 = "Sidebar" }) 
+    }, { BackgroundColor3 = "Main" }) 
     Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 6), Parent = PillFrame })
     local pillStroke = Library.Utils.Make("UIStroke", { Thickness = 1, Parent = PillFrame }, { Color = "Stroke" })
     
     local ValueText = Library.Utils.Make("TextLabel", {
         Size = UDim2.new(1, 0, 1, 0),
         BackgroundTransparency = 1,
-        Font = Enum.Font.GothamBold,
+        Font = Enum.Font.GothamMedium,
         TextSize = 12,
         Parent = PillFrame
     }, { TextColor3 = "Text" })
 
-    -- Полоска (Трек) - Исправлен цвет на Sidebar
+    -- Добавляем скейлер для анимации самой таблетки
+    local PillScale = Instance.new("UIScale", PillFrame)
+    PillScale.Scale = 1
+
+    -- Полоска (Трек - тоньше и аккуратнее)
     local Track = Library.Utils.Make("TextButton", {
-        Size = UDim2.new(1, -24, 0, 6),
-        Position = UDim2.new(0, 12, 0, 64),
+        Size = UDim2.new(1, -24, 0, 4),
+        Position = UDim2.new(0, 12, 0, 56),
         Text = "",
         AutoButtonColor = false,
         Parent = SliderContainer
-    }, { BackgroundColor3 = "Sidebar" })
+    }, { BackgroundColor3 = "Main" })
     Library.Utils.Make("UICorner", { CornerRadius = UDim.new(1, 0), Parent = Track })
 
-    -- Заливка ползунка (Fill)
     local Fill = Library.Utils.Make("Frame", {
         Size = UDim2.new(0, 0, 1, 0),
         Parent = Track
     }, { BackgroundColor3 = "Accent" })
     Library.Utils.Make("UICorner", { CornerRadius = UDim.new(1, 0), Parent = Fill })
 
-    -- Кружок (Knob)
     local Knob = Instance.new("Frame")
-    Knob.Size = UDim2.new(0, 14, 0, 14)
+    Knob.Size = UDim2.new(0, 12, 0, 12)
     Knob.AnchorPoint = Vector2.new(0.5, 0.5)
     Knob.Position = UDim2.new(1, 0, 0.5, 0)
     Knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
@@ -596,23 +599,37 @@ function Module:Init(Library, Window, Tab)
     local KnobScale = Instance.new("UIScale", Knob)
     KnobScale.Scale = 1
 
-    -- Логика слайдера
-    local minFPS, maxFPS = 0, 360
-    local currentFPS = getgenv().FPSLimit or 0
+    -- ЛОГИКА: Анкап теперь находится на максимуме (справа)
+    local minFPS, maxFPS = 15, 360
+    local rawSavedFPS = getgenv().FPSLimit or 0
+    local currentVisualFPS = (rawSavedFPS == 0) and maxFPS or rawSavedFPS 
     local isDragging = false
+    local isUncapped = false
 
     local function updateVisuals(val)
         local pct = math.clamp((val - minFPS) / (maxFPS - minFPS), 0, 1)
         TweenService:Create(Fill, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(pct, 0, 1, 0)}):Play()
         
-        if val == 0 then
+        if val == maxFPS then
             ValueText.Text = "Uncapped"
-            ValueText.TextColor3 = Library.CurrentTheme.Accent
-            pillStroke.Color = Library.CurrentTheme.Accent
+            if not isUncapped then
+                isUncapped = true
+                -- Анимация при достижении правого края
+                TweenService:Create(ValueText, TweenInfo.new(0.2), {TextColor3 = Library.CurrentTheme.Accent}):Play()
+                TweenService:Create(pillStroke, TweenInfo.new(0.2), {Color = Library.CurrentTheme.Accent}):Play()
+                
+                -- Пружинистый Pop-эффект
+                PillScale.Scale = 0.85
+                TweenService:Create(PillScale, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1}):Play()
+            end
         else
-            ValueText.Text = tostring(val) .. " FPS"
-            ValueText.TextColor3 = Library.CurrentTheme.Text or Color3.fromRGB(200, 200, 200)
-            pillStroke.Color = Library.CurrentTheme.Stroke
+            ValueText.Text = tostring(val)
+            if isUncapped then
+                isUncapped = false
+                -- Возврат в обычное состояние
+                TweenService:Create(ValueText, TweenInfo.new(0.2), {TextColor3 = Library.CurrentTheme.Text or Color3.fromRGB(200, 200, 200)}):Play()
+                TweenService:Create(pillStroke, TweenInfo.new(0.2), {Color = Library.CurrentTheme.Stroke}):Play()
+            end
         end
     end
 
@@ -625,19 +642,22 @@ function Module:Init(Library, Window, Tab)
         local rawValue = minFPS + (maxFPS - minFPS) * pct
         local snappedValue = math.floor(rawValue)
         
-        if currentFPS ~= snappedValue then
-            currentFPS = snappedValue
-            updateVisuals(currentFPS)
-            getgenv().FPSLimit = currentFPS
+        if currentVisualFPS ~= snappedValue then
+            currentVisualFPS = snappedValue
+            updateVisuals(currentVisualFPS)
+            
+            -- Если дотянули до правого края, передаем в движок настоящий 0 (анкап)
+            local actualFPS = (currentVisualFPS == maxFPS) and 0 or currentVisualFPS
+            
+            getgenv().FPSLimit = actualFPS
             if not getgenv().EcoModeEnabled and setfpscap then
-                pcall(function() setfpscap(currentFPS) end)
+                pcall(function() setfpscap(actualFPS) end)
             end
         end
     end
 
-    updateVisuals(currentFPS)
+    updateVisuals(currentVisualFPS)
 
-    -- Взаимодействие и эффекты
     Track.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             isDragging = true
