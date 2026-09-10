@@ -438,11 +438,11 @@ function Module:CreateFileCard(fileName)
             Parent = MainGUI or Card
         })
         Library:Connect(self.ClickCatcher.MouseButton1Click, CloseDropdown)
-        local Dropdown = Library.Utils.Make("Frame", { 
+       local Dropdown = Library.Utils.Make("Frame", { 
             Size = UDim2.new(0, 160, 0, 152),
             BackgroundTransparency = 1,
             ZIndex = 1000, 
-            -- Ставим позицию прямо под кнопкой «•••» внутри карточки:
+            -- Жестко привязываем меню к карточке файла (чуть левее кнопки ••• и ниже её)
             Position = UDim2.new(1, -172, 0, 30), 
             Parent = Card 
         }, { BackgroundColor3 = "Sidebar" })
