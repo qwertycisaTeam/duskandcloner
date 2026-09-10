@@ -127,7 +127,7 @@ function Module:Init(Library, Window, Tab)
         end
     })
 --===================
-    -- Основной блок секции
+    -- Аккуратный блок под пропорции остальных элементов
     local ParticlePickerContainer = Library.Utils.Make("Frame", {
         Size = UDim2.new(1, 0, 0, 70),
         Parent = Tab.Page
@@ -135,14 +135,12 @@ function Module:Init(Library, Window, Tab)
     Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 10), Parent = ParticlePickerContainer })
     Library.Utils.Make("UIStroke", { Thickness = 1, Parent = ParticlePickerContainer }, { Color = "Stroke" })
 
-    -- Контейнер для сетки с автоматическим управлением через UIListLayout
     local GridHolder = Library.Utils.Make("Frame", {
         Size = UDim2.new(1, 0, 1, 0),
         BackgroundTransparency = 1,
         Parent = ParticlePickerContainer
     })
 
-    -- Внутренние отступы, чтобы сетка не прижималась к краям рамки
     Library.Utils.Make("UIPadding", {
         PaddingTop = UDim.new(0, 10),
         PaddingBottom = UDim.new(0, 10),
@@ -151,13 +149,12 @@ function Module:Init(Library, Window, Tab)
         Parent = GridHolder
     })
 
-    -- Автоматический распределитель элементов в ряд
     Library.Utils.Make("UIListLayout", {
         FillDirection = Enum.FillDirection.Horizontal,
         HorizontalAlignment = Enum.HorizontalAlignment.Center,
         VerticalAlignment = Enum.VerticalAlignment.Center,
         SortOrder = Enum.SortOrder.LayoutOrder,
-        Padding = UDim.new(0, 8), -- Четкий отступ между плитками
+        Padding = UDim.new(0, 8),
         Parent = GridHolder
     })
 
@@ -165,7 +162,6 @@ function Module:Init(Library, Window, Tab)
     local cardStrokes = {}
 
     for i, pType in ipairs(particleTypes) do
-        -- Используем Scale (0.2), чтобы плитки автоматически делили ширину на 5 частей
         local Tile = Library.Utils.Make("TextButton", {
             Size = UDim2.new(0.2, -7, 1, 0),
             LayoutOrder = i,
@@ -231,13 +227,13 @@ function Module:Init(Library, Window, Tab)
                         BackgroundTransparency = 1
                     }):Play()
 
-                    Task.delay(1.2, function() if p then p:Destroy() end end)
+                    task.delay(1.2, function() if p then p:Destroy() end end)
                 end
-                Task.wait(0.35)
+                task.wait(0.35)
             end
         end)
 
-        -- Клик с мгновенным обновлением обводки
+        -- Клик с обновлением обводки
         Library:Connect(Tile.MouseButton1Click, function()
             getgenv().ParticleType = pType
             for name, stroke in pairs(cardStrokes) do
