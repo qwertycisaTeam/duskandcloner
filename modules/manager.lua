@@ -335,7 +335,7 @@ function Module:RefreshList()
         self:CreateFileCard(houseName)
     end
 end
-
+Tab:CreateDivider({ Text = "Files" })
 -- ==========================================
 -- КАРТОЧКА ФАЙЛА И ВЫПАДАЮЩЕЕ МЕНЮ
 -- ==========================================
@@ -348,10 +348,10 @@ function Module:CreateFileCard(fileName)
 
     local FileIcon = Library.Utils.Make("ImageLabel", { Size = UDim2.new(0, 24, 0, 24), Position = UDim2.new(0, 14, 0.5, 0), AnchorPoint = Vector2.new(0, 0.5), BackgroundTransparency = 1, Image = "rbxassetid://105856032975609", Parent = Card }, { ImageColor3 = "Text" })
 
-    local TitleLbl = Library.Utils.Make("TextLabel", { Text = fileName, Size = UDim2.new(1, -110, 0, 20), Position = UDim2.new(0, 54, 0.5, -10), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 14, TextTruncate = Enum.TextTruncate.AtEnd, TextXAlignment = Enum.TextXAlignment.Left, Parent = Card }, { TextColor3 = "Text" })
+    local TitleLbl = Library.Utils.Make("TextLabel", { Text = fileName, Size = UDim2.new(1, -110, 0, 20), Position = UDim2.new(0, 54, 0.5, -14), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 14, TextTruncate = Enum.TextTruncate.AtEnd, TextXAlignment = Enum.TextXAlignment.Left, Parent = Card }, { TextColor3 = "Text" })
     
     local RenameBox = Library.Utils.Make("TextBox", {
-        Text = fileName, Size = UDim2.new(1, -110, 0, 20), Position = UDim2.new(0, 54, 0.5, -10),
+        Text = fileName, Size = UDim2.new(1, -110, 0, 20), Position = UDim2.new(0, 54, 0.5, -14),
         BackgroundTransparency = 0.5, BackgroundColor3 = Color3.fromRGB(0,0,0),
         Font = Enum.Font.GothamBold, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left,
         ClipsDescendants = true, ClearTextOnFocus = false, Visible = false, Parent = Card
@@ -375,8 +375,8 @@ function Module:CreateFileCard(fileName)
         timeStr = h .. ":" .. m .. ":" .. s
     end
 
-    Library.Utils.Make("TextLabel", { Text = "Last-saved " .. timeStr, Size = UDim2.new(1, -110, 0, 15), Position = UDim2.new(0, 54, 0.5, 8), BackgroundTransparency = 1, Font = Enum.Font.GothamMedium, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left, Parent = Card }, { TextColor3 = "SubText" })
-
+    Library.Utils.Make("TextLabel", { Text = "Last-saved " .. timeStr, Size = UDim2.new(1, -110, 0, 15), Position = UDim2.new(0, 54, 0.5, 4), BackgroundTransparency = 1, Font = Enum.Font.GothamMedium, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left, Parent = Card }, { TextColor3 = "SubText" })
+   
     local OptionsBtn = Library.Utils.Make("TextButton", { Text = "•••", Size = UDim2.new(0, 34, 0, 24), AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Font = Enum.Font.GothamBold, TextSize = 14, AutoButtonColor = false, Parent = Card }, { BackgroundColor3 = "Sidebar", TextColor3 = "SubText" })
     Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 6), Parent = OptionsBtn })
     local OptStroke = Library.Utils.Make("UIStroke", { Thickness = 1, Transparency = 0.5, Parent = OptionsBtn }, { Color = "Stroke" })
