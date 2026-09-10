@@ -293,7 +293,10 @@ function Module:Init(Library, Window, Tab)
             Library:Notify("Success!", "House exported as " .. newFileName, 3, "rbxassetid://91727514118912", "rbxassetid://72958619361915")
         end)
     end)
-
+    Tab:CreateDivider({
+        Text = "HOUSE SCHEMATICS",
+        Parent = self.ListContainer
+    })
     self:RefreshList()
 end
 
@@ -335,6 +338,7 @@ function Module:RefreshList()
         self:CreateFileCard(houseName)
     end
 end
+
 
 -- ==========================================
 -- КАРТОЧКА ФАЙЛА И ВЫПАДАЮЩЕЕ МЕНЮ
