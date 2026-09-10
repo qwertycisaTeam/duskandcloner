@@ -127,16 +127,6 @@ function Module:Init(Library, Window, Tab)
         end
     })
 
-    Tab:CreateDropdown({
-        Name = "Particle Style",
-        Options = {"Old Vanilla", "Stars", "Snow", "Sakura Petals", "Bubbles"},
-        Default = getgenv().ParticleType or "Old Vanilla",
-        Flag = "ParticleType",
-        Callback = function(val)
-            getgenv().ParticleType = val
-        end
-    })
-
     -- Создаем красивый контейнер для выбора превьюшек
     local ParticlePickerContainer = Library.Utils.Make("Frame", {
         Size = UDim2.new(1, 0, 0, 75),
@@ -223,7 +213,18 @@ function Module:Init(Library, Window, Tab)
             end
         end)
     end
-    
+
+    Tab:CreateDropdown({
+        Name = "Minimize Button Style",
+        Options = {"Top Bar", "Floating Logo"},
+        Default = Library.Settings.CloserType or "Top Bar",
+        Flag = "CloserType",
+        Callback = function(val)
+            Library.Settings.CloserType = val
+            getgenv().CloserType = val
+        end
+    })
+
     Tab:CreateUIXPanel({
         Min = 25, Max = 100,
         DefaultScale = getgenv().UIScaleSize or 50,
