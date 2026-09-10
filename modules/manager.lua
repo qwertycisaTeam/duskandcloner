@@ -145,7 +145,7 @@ function Module:Init(Library, Window, Tab)
     -- 3. ПРЕМИУМ КНОПКА ПАРСЕРА (ФИКС СЪЕХАВШЕЙ РАМКИ)
     -- ==========================================
     local ParseContainer = Library.Utils.Make("Frame", {
-        Size = UDim2.new(1, -24, 0, 38), -- Убрали ширину на 24 пикселя, чтобы Scale не ломал края
+        Size = UDim2.new(1, -8, 0, 38), -- Убрали ширину на 24 пикселя, чтобы Scale не ломал края
         Position = UDim2.new(0.5, 0, 0, 0),
         AnchorPoint = Vector2.new(0.5, 0),
         BackgroundTransparency = 1,
@@ -310,17 +310,17 @@ function Module:RefreshList()
 
     local houses = self:GetHouses()
 
-   if #houses == 0 then
-        Library.Utils.Make("TextLabel", { 
+    if #houses == 0 then
+        self.Library.Utils.Make("TextLabel", { 
             Text = "NO FILES FOUND", 
-            Size = UDim2.new(1, 0, 0, 100), -- Даем больше высоты, чтобы надпись была по центру пустого экрана
+            Size = UDim2.new(1, 0, 0, 100),
             BackgroundTransparency = 1, 
             Font = Enum.Font.GothamBold, 
             TextSize = 18, 
-            TextXAlignment = Enum.TextXAlignment.Center, -- Центрируем текст
+            TextXAlignment = Enum.TextXAlignment.Center, 
             TextYAlignment = Enum.TextYAlignment.Center,
             Parent = self.ListContainer 
-        }, { TextColor3 = "SubText" }) -- Цвет автоматически подтянется из активной темы
+        }, { TextColor3 = "SubText" }) 
         return
     end
 
