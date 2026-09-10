@@ -571,10 +571,10 @@ function Module:Init(Library, Window, Tab)
     local PillScale = Instance.new("UIScale", PillFrame)
     PillScale.Scale = 1
 
-    -- Трек (Пропорции родного CreateSlider)
+-- Трек (Сделали тоньше: 4 пикселя вместо 6)
     local Track = Library.Utils.Make("TextButton", {
-        Size = UDim2.new(1, -40, 0, 6), -- Отступы по 20 пикселей по бокам
-        Position = UDim2.new(0, 20, 1, -10),
+        Size = UDim2.new(1, -40, 0, 4), 
+        Position = UDim2.new(0, 20, 1, -12), -- Чуть приподняли для баланса отступов
         AnchorPoint = Vector2.new(0, 1),
         Text = "",
         AutoButtonColor = false,
