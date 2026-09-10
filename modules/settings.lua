@@ -137,17 +137,93 @@ function Module:Init(Library, Window, Tab)
         end
     })
 
-    Tab:CreateDropdown({
-        Name = "Minimize Button Style",
-        Options = {"Top Bar", "Floating Logo"},
-        Default = Library.Settings.CloserType or "Top Bar",
-        Flag = "CloserType",
-        Callback = function(val)
-            Library.Settings.CloserType = val
-            getgenv().CloserType = val
-        end
+    -- Создаем красивый контейнер для выбора превьюшек
+    local ParticlePickerContainer = Library.Utils.Make("Frame", {
+        Size = UDim2.new(1, 0, 0, 75),
+        Parent = Page
+    }, { BackgroundColor3 = "Section" })
+    Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 10), Parent = ParticlePickerContainer })
+    Library.Utils.Make("UIStroke", { Thickness = 1, Parent = ParticlePickerContainer }, { Color = "Stroke" })
+
+    Library.Utils.Make("TextLabel", {
+        Text = "PARTICLE STYLE PREVIEW",
+        Size = UDim2.new(1, -20, 0, 20),
+        Position = UDim2.new(0, 15, 0, 8),
+        BackgroundTransparency = 1,
+        Font = Enum.Font.GothamBold,
+        TextSize = 11,
+        Parent = ParticlePickerContainer
+    }, { TextColor3 = "SubText" })
+
+    -- Ряд из 5 квадратов
+    local GridFrame = Library.Utils.Make("Frame", {
+        Size = UDim2.new(1, -20, 0, 36),
+        Position = UDim2.new(0, 10, 0, 30),
+        BackgroundTransparency = 1,
+        Parent = ParticlePickerContainer
+    })
+    
+    Library.Utils.Make("UIListLayout", {
+        FillDirection = Enum.FillDirection.Horizontal,
+        HorizontalAlignment = Enum.HorizontalAlignment.Center,
+        Padding = UDim.new(0, 8),
+        Parent = GridFrame
     })
 
+    local particleTypes = {"Old Vanilla", "Stars", "Snow", "Sakura Petals", "Bubbles"}
+    local cardStrokes = {}
+
+    for _, pType in ipairs(particleTypes) do
+        local Tile = Library.Utils.Make("TextButton", {
+            Size = UDim2.new(0, 36, 0, 36),
+            Text = "",
+            AutoButtonColor = false,
+            ClipsDescendants = true,
+            Parent = GridFrame
+        }, { BackgroundColor3 = "Sidebar" })
+        
+        Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 8), Parent = Tile })
+        local tStroke = Library.Utils.Make("UIStroke", { Thickness = 1.5, Parent = Tile }, { Color = "Stroke" })
+        cardStrokes[pType] = tStroke
+
+        -- Мини-превью спавнер для каждого квадрата
+        task.spawn(function()
+            while Tile and Tile.Parent do
+                if getgenv().MenuParticlesEnabled and (getgenv().ParticleType == pType) then
+                    local p = Instance.new("Frame")
+                    p.Size = UDim2.new(0, 3, 0, 3)
+                    p.Position = UDim2.new(math.random(), 0, 0, 0)
+                    p.BackgroundColor3 = Color3.new(1, 1, 1)
+                    p.BorderSizePixel = 0
+                    p.Parent = Tile
+                    
+                    if pType == "Stars" then
+                        p.BackgroundColor3 = Library.CurrentTheme.Accent
+                    elseif pType == "Sakura Petals" then
+                        p.BackgroundColor3 = Color3.fromRGB(255, 183, 197)
+                    end
+
+                    TweenService:Create(p, TweenInfo.new(1.2, Enum.EasingStyle.Linear), {
+                        Position = UDim2.new(p.Position.X.Scale, math.random(-10, 10), 1, 5),
+                        BackgroundTransparency = 1
+                    }):Play()
+
+                    task.delay(1.2, function() if p then p:Destroy() end end)
+                end
+                task.wait(0.3)
+            end
+        end)
+
+        -- Клик по карточке выбора стиля
+        Library:Connect(Tile.MouseButton1Click, function()
+            getgenv().ParticleType = pType
+            for name, stroke in pairs(cardStrokes) do
+                stroke.Color = (name == pType) and Library.CurrentTheme.Accent or Library.CurrentTheme.Stroke
+                stroke.Thickness = (name == pType) and 2.5 or 1.5
+            end
+        end)
+    end
+    
     Tab:CreateUIXPanel({
         Min = 25, Max = 100,
         DefaultScale = getgenv().UIScaleSize or 50,
