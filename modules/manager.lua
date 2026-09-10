@@ -293,7 +293,12 @@ function Module:Init(Library, Window, Tab)
             Library:Notify("Success!", "House exported as " .. newFileName, 3, "rbxassetid://91727514118912", "rbxassetid://72958619361915")
         end)
     end)
-
+-- Создаем девайдер прямо внутри списка, сразу после кнопки парсера
+    Tab:CreateDivider({
+        Text = "HOUSE SCHEMATICS",
+        Parent = self.ListContainer,
+        LayoutOrder = 0 -- Встает между кнопкой (-1) и файлами (дефолтный порядок)
+    })
     self:RefreshList()
 end
 
@@ -433,12 +438,13 @@ function Module:CreateFileCard(fileName)
             Parent = MainGUI or Card
         })
         Library:Connect(self.ClickCatcher.MouseButton1Click, CloseDropdown)
-
         local Dropdown = Library.Utils.Make("Frame", { 
             Size = UDim2.new(0, 160, 0, 152),
             BackgroundTransparency = 1,
             ZIndex = 1000, 
-            Parent = MainGUI or Card 
+            -- Ставим позицию прямо под кнопкой «•••» внутри карточки:
+            Position = UDim2.new(1, -172, 0, 30), 
+            Parent = Card 
         }, { BackgroundColor3 = "Sidebar" })
         Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 8), Parent = Dropdown })
         local dropStroke = Library.Utils.Make("UIStroke", { Name = "DropStroke", Thickness = 1, Transparency = 1, Parent = Dropdown }, { Color = "Stroke" })
