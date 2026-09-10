@@ -194,7 +194,57 @@ function Module:Init(Library, Window, Tab)
             TweenService:Create(Tile, TweenInfo.new(0.15), {BackgroundTransparency = 0}):Play()
         end)
 
-        -- [ ТУТ ДОЛЖЕН БЫТЬ ТВОЙ БЛОК task.spawn С АНИМАЦИЕЙ ЧАСТИЦ ]
+        -- Превью анимация внутри плитки
+        task.spawn(function()
+            while Tile and Tile.Parent do
+                if getgenv().MenuParticlesEnabled then
+                    local p = Instance.new("Frame")
+                    p.BorderSizePixel = 0
+                    p.Parent = Tile
+
+                    if pType == "Old Vanilla" then
+                        p.Size = UDim2.new(0, 3, 0, 3)
+                        p.BackgroundColor3 = Color3.new(1, 1, 1)
+                        p.Position = UDim2.new(math.random(), 0, 0, 0)
+                    elseif pType == "Stars" then
+                        p.Size = UDim2.new(0, 10, 0, 10)
+                        p.BackgroundTransparency = 1
+                        local img = Instance.new("ImageLabel", p)
+                        img.Size = UDim2.new(1, 0, 1, 0)
+                        img.BackgroundTransparency = 1
+                        img.Image = "rbxassetid://6031225815"
+                        img.ImageColor3 = Library.CurrentTheme.Accent
+                        p.Position = UDim2.new(math.random(), 0, 0, 0)
+                    elseif pType == "Snow" then
+                        p.Size = UDim2.new(0, 5, 0, 5)
+                        p.BackgroundColor3 = Color3.new(1, 1, 1)
+                        Library.Utils.Make("UICorner", {CornerRadius = UDim.new(1, 0), Parent = p})
+                        p.Position = UDim2.new(math.random(), 0, 0, 0)
+                    elseif pType == "Sakura Petals" then
+                        p.Size = UDim2.new(0, 7, 0, 4)
+                        p.BackgroundColor3 = Color3.fromRGB(255, 183, 197)
+                        Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0.5, 0), Parent = p})
+                        p.Position = UDim2.new(math.random(), 0, 0, 0)
+                    elseif pType == "Bubbles" then
+                        p.Size = UDim2.new(0, 8, 0, 8)
+                        p.BackgroundTransparency = 1
+                        Library.Utils.Make("UICorner", {CornerRadius = UDim.new(1, 0), Parent = p})
+                        local stroke = Instance.new("UIStroke", p)
+                        stroke.Color = Color3.new(1, 1, 1)
+                        stroke.Thickness = 1
+                        p.Position = UDim2.new(math.random(), 0, 0, 0)
+                    end
+
+                    TweenService:Create(p, TweenInfo.new(1.2, Enum.EasingStyle.Linear), {
+                        Position = UDim2.new(p.Position.X.Scale, math.random(-6, 6), 1, 4),
+                        BackgroundTransparency = 1
+                    }):Play()
+
+                    task.delay(1.2, function() if p then p:Destroy() end end)
+                end
+                task.wait(0.35)
+            end
+        end)
 
         -- 2. ЭФФЕКТ ВЫБОРА ПРИ КЛИКЕ
         Library:Connect(Tile.MouseButton1Click, function()
@@ -212,17 +262,6 @@ function Module:Init(Library, Window, Tab)
                     Thickness = active and 2 or 1,
                     Transparency = active and 0 or 0.7
                 }):Play()
-            end
-        end)
-    end
-
-        -- Клик с обновлением обводки
-        Library:Connect(Tile.MouseButton1Click, function()
-            getgenv().ParticleType = pType
-            for name, stroke in pairs(cardStrokes) do
-                local active = (name == pType)
-                stroke.Thickness = active and 2.5 or 1
-                stroke.Color = active and Library.CurrentTheme.Accent or Library.CurrentTheme.Stroke
             end
         end)
     end
