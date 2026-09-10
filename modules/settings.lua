@@ -127,7 +127,7 @@ function Module:Init(Library, Window, Tab)
         end
     })
 --===================
-    -- Аккуратный блок под пропорции остальных элементов
+    -- Основной блок секции
     local ParticlePickerContainer = Library.Utils.Make("Frame", {
         Size = UDim2.new(1, 0, 0, 70),
         Parent = Tab.Page
@@ -135,22 +135,40 @@ function Module:Init(Library, Window, Tab)
     Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 10), Parent = ParticlePickerContainer })
     Library.Utils.Make("UIStroke", { Thickness = 1, Parent = ParticlePickerContainer }, { Color = "Stroke" })
 
-    -- Контейнер с ровными отступами по 10 пикселей со всех сторон
+    -- Контейнер для сетки с автоматическим управлением через UIListLayout
     local GridHolder = Library.Utils.Make("Frame", {
-        Size = UDim2.new(1, -20, 1, -20),
-        Position = UDim2.new(0, 10, 0, 10),
+        Size = UDim2.new(1, 0, 1, 0),
         BackgroundTransparency = 1,
         Parent = ParticlePickerContainer
+    })
+
+    -- Внутренние отступы, чтобы сетка не прижималась к краям рамки
+    Library.Utils.Make("UIPadding", {
+        PaddingTop = UDim.new(0, 10),
+        PaddingBottom = UDim.new(0, 10),
+        PaddingLeft = UDim.new(0, 10),
+        PaddingRight = UDim.new(0, 10),
+        Parent = GridHolder
+    })
+
+    -- Автоматический распределитель элементов в ряд
+    Library.Utils.Make("UIListLayout", {
+        FillDirection = Enum.FillDirection.Horizontal,
+        HorizontalAlignment = Enum.HorizontalAlignment.Center,
+        VerticalAlignment = Enum.VerticalAlignment.Center,
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Padding = UDim.new(0, 8), -- Четкий отступ между плитками
+        Parent = GridHolder
     })
 
     local particleTypes = {"Old Vanilla", "Stars", "Snow", "Sakura Petals", "Bubbles"}
     local cardStrokes = {}
 
     for i, pType in ipairs(particleTypes) do
-        -- Ровное процентное деление на 5 элементов с промежутками
+        -- Используем Scale (0.2), чтобы плитки автоматически делили ширину на 5 частей
         local Tile = Library.Utils.Make("TextButton", {
-            Size = UDim2.new(0.2, -5, 1, 0),
-            Position = UDim2.new((i - 1) * 0.2, (i - 1) * 6, 0, 0),
+            Size = UDim2.new(0.2, -7, 1, 0),
+            LayoutOrder = i,
             Text = "",
             AutoButtonColor = false,
             ClipsDescendants = true,
@@ -209,24 +227,23 @@ function Module:Init(Library, Window, Tab)
                     end
 
                     TweenService:Create(p, TweenInfo.new(1.2, Enum.EasingStyle.Linear), {
-                        Position = UDim2.new(p.Position.X.Scale, math.random(-6, 6), 1, 6),
+                        Position = UDim2.new(p.Position.X.Scale, math.random(-6, 6), 1, 4),
                         BackgroundTransparency = 1
                     }):Play()
 
-                    task.delay(1.2, function() if p then p:Destroy() end end)
+                    Task.delay(1.2, function() if p then p:Destroy() end end)
                 end
-                task.wait(0.35)
+                Task.wait(0.35)
             end
         end)
 
-        -- Клик с принудительной сменой цвета обводки в реальном времени
+        -- Клик с мгновенным обновлением обводки
         Library:Connect(Tile.MouseButton1Click, function()
-            getgenv().ParticleType = pType
-            for name, stroke in pairs(cardStrokes) do
-                local active = (name == pType)
-                stroke.Thickness = active and 2.5 or 1
-                -- Присваиваем цвет напрямую из текущей темы библиотеки
-                stroke.Color = active and Library.CurrentTheme.Accent or Library.CurrentTheme.Stroke
+            Getgenv().ParticleType = pType
+            For name, stroke in pairs(cardStrokes) do
+                Local active = (name == pType)
+                Stroke.Thickness = active and 2.5 or 1
+                Stroke.Color = active and Library.CurrentTheme.Accent or Library.CurrentTheme.Stroke
             end
         end)
     end
