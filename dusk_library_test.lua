@@ -1,6 +1,5 @@
---[[lib by rio] Latest Update: 09.08.26 / library version 2 [рефакторинг от 10.08] / 03.09 library ver 3 [loader, size of mac buttons, polzunok updated, CreateUIXPanel функция для settings.
-CreateSlider тоже обновлен, добавлен черный выделительный прямоугольник под count.
-v4 от 4 сент, fixed scrolling & scale sync [важный очень фикс), v4.1 в тот же день, апгрейд divider]]
+--[[lib by rio] Latest Update: 09.07.26 CreateSubPage изменен добавлен метод нажатия по вкладке для возврата в главную вкладки (текущ).
+]]
 
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -638,13 +637,20 @@ function Library:CreateWindow(config)
             Page = Page,
             Btn = Btn,
             Icon = TabIconObj,
-            Indicator = Ind
+            Indicator = Ind,
+            SubPages = {}
         }
         table.insert(self.Tabs, Tab)
 
         -- 2. И ТОЛЬКО ПОТОМ ВЕШАЕМ КЛИК (теперь он видит переменную Tab)
         Btn.MouseButton1Click:Connect(function()
-            Window:SelectTab(Tab)
+            if Window.CurrentTab == Tab.Btn then
+                for _, subpage in ipairs(Tab.SubPages) do
+                    if subpage.Close then subpage.Close() end
+                end
+            else
+                Window:SelectTab(Tab)
+            end
         end)
         
         table.insert(self.Tabs, Tab)
@@ -780,7 +786,7 @@ function Library:CreateWindow(config)
             local settingsCallback = config.Settings 
 
             Library.Flags[flag] = default
-            
+
             local F = Library.Utils.Make("Frame", { Size = UDim2.new(1, 0, 0, 70), Parent = Page }, { BackgroundColor3 = "Section" })
             Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 10), Parent = F})
             Library.Utils.Make("UIStroke", {Thickness = 1, Parent = F}, {Color = "Stroke"})
@@ -835,11 +841,10 @@ function Library:CreateWindow(config)
                 
                 pcall(callback, newState)
             end
-            
+
             Library.ConfigUpdaters[flag] = function(val) SetState(val) end
             Library:Connect(Sw.MouseButton1Click, function() SetState(not Library.Flags[flag]) end)
             
-
             return { 
                 Container = F, -- Возвращаем САМ ФРЕЙМ для полного хардкора (см. Уровень 2)
                 SetState = SetState,
@@ -920,7 +925,9 @@ function Library:CreateWindow(config)
                 SubPageUI.Visible = true
             end
 
-            return { Container = Scroll, Open = Open, Close = Close }
+            local subPageObj = { Container = Scroll, Open = Open, Close = Close }
+            table.insert(Tab.SubPages, subPageObj)
+            return subPageObj
         end
 
         function Tab:CreateSlider(config)
@@ -1713,7 +1720,7 @@ function Library:CreateWindow(config)
                 Library.Utils.TBT(Kn, 0.25, {Position = newState and OnP or OffP})
                 pcall(toggleCallback, newState)
             end
-
+            Library.ConfigUpdaters[flag .. "_State"] = function(val) SetState(val) end
             Library:Connect(Sw.MouseButton1Click, function() SetState(not Library.Flags[flag .. "_State"]) end)
             
             return {
@@ -1855,17 +1862,15 @@ function Library:CreateWindow(config)
             MainFrame.Visible = true
             Library.Utils.TBT(MainFrame, 0.5, {GroupTransparency = 0})
 
-            -- Оставляем ТОЛЬКО фоновое сохранение. 
-            -- Загрузку мы благополучно перенесли в конец Оркестратора!
             task.spawn(function()
                 while task.wait(3) do
                     if getgenv().DS_StopExecution then break end 
-                    Library:SaveConfig("TrueSettings", true) 
+                    Library:SaveConfig(Library.AutoLoadFile, true) 
                 end
             end)
         end)
     end
-    
+
     return Window
 end
 
@@ -1988,6 +1993,7 @@ end
     -- ==========================================
     local HttpService = game:GetService("HttpService")
     Library.ConfigFolder = "DuskAndShineConfigs"
+    Library.AutoLoadFile = "TrueSettings"
 
     local AllowedUIFlags = {
         "ThemeAccent", "UIScaleSize", "ToggleUIKey", 
