@@ -293,7 +293,6 @@ function Module:Init(Library, Window, Tab)
             end
             
             self:RefreshList()
-            Library:Notify("Success!", "copied: " .. count .. " objects and " .. textureCount .. " rooms.", 3, "rbxassetid://18926561608", "rbxassetid://72958619361915")
         end)
     end)
 
