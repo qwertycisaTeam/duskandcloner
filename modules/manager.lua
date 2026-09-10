@@ -284,9 +284,6 @@ function Module:Init(Library, Window, Tab)
             self:SaveHouse(newFileName, saveData)
             
             self:RefreshList()
-            local newFileName = "AdoptMeHouse_" .. os.date("%H%M%S")
-            self:SaveHouse(newFileName, saveData)
-            
             -- ДОБАВИТЬ ЭТО: Автоматически закидываем и выбираем дом в main.lua
             if getgenv().AutoSelectNewHouse then
                 getgenv().AutoSelectNewHouse(newFileName)
