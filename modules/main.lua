@@ -94,7 +94,17 @@ function Module:Init(Library, Window, Tab)
         end
         Library:Notify("Builder", "House list successfully refreshed!", 3, "rbxassetid://91727514118912", "rbxassetid://72958619361915")
     end)
-
+    -- Глобальная функция для связи с File Manager (Manager -> Main)
+    getgenv().AutoSelectNewHouse = function(newFileName)
+        if HouseDropdown and type(HouseDropdown.Refresh) == "function" then
+            HouseDropdown.Refresh(GetSavedHouses()) -- Обновляем список файлов
+            
+            if newFileName and type(HouseDropdown.SetValue) == "function" then
+                HouseDropdown.SetValue(newFileName) -- Меняем текст на кнопке
+                SelectedHouse = newFileName -- Записываем в переменную для билда
+            end
+        end
+    end
     local TopDivider = Library.Utils.Make("Frame", {
         Size = UDim2.new(1, 0, 0, 1),
         BorderSizePixel = 0,
