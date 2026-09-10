@@ -239,11 +239,11 @@ function Module:Init(Library, Window, Tab)
 
         -- Клик с мгновенным обновлением обводки
         Library:Connect(Tile.MouseButton1Click, function()
-            Getgenv().ParticleType = pType
-            For name, stroke in pairs(cardStrokes) do
-                Local active = (name == pType)
-                Stroke.Thickness = active and 2.5 or 1
-                Stroke.Color = active and Library.CurrentTheme.Accent or Library.CurrentTheme.Stroke
+            getgenv().ParticleType = pType
+            for name, stroke in pairs(cardStrokes) do
+                local active = (name == pType)
+                stroke.Thickness = active and 2.5 or 1
+                stroke.Color = active and Library.CurrentTheme.Accent or Library.CurrentTheme.Stroke
             end
         end)
     end
