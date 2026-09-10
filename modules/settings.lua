@@ -549,13 +549,13 @@ function Module:Init(Library, Window, Tab)
         Parent = SliderContainer
     }, { TextColor3 = "SubText" })
 
-    -- Таблетка
+    -- Таблетка (ИСПРАВЛЕНО: BackgroundColor3 = "Sidebar")
     local PillFrame = Library.Utils.Make("Frame", {
         Size = UDim2.new(0, 80, 0, 26),
         AnchorPoint = Vector2.new(1, 0),
         Position = UDim2.new(1, -12, 0, 14),
         Parent = SliderContainer
-    }, { BackgroundColor3 = "Main" }) 
+    }, { BackgroundColor3 = "Sidebar" }) 
     Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 6), Parent = PillFrame })
     local pillStroke = Library.Utils.Make("UIStroke", { Thickness = 1, Parent = PillFrame }, { Color = "Stroke" })
     
@@ -564,20 +564,21 @@ function Module:Init(Library, Window, Tab)
         BackgroundTransparency = 1,
         Font = Enum.Font.GothamMedium,
         TextSize = 12,
+        ZIndex = 2,
         Parent = PillFrame
     }, { TextColor3 = "Text" })
 
     local PillScale = Instance.new("UIScale", PillFrame)
     PillScale.Scale = 1
 
-    -- Трек
+    -- Трек (ИСПРАВЛЕНО: BackgroundColor3 = "Sidebar")
     local Track = Library.Utils.Make("TextButton", {
         Size = UDim2.new(1, -24, 0, 4),
         Position = UDim2.new(0, 12, 0, 56),
         Text = "",
         AutoButtonColor = false,
         Parent = SliderContainer
-    }, { BackgroundColor3 = "Main" })
+    }, { BackgroundColor3 = "Sidebar" })
     Library.Utils.Make("UICorner", { CornerRadius = UDim.new(1, 0), Parent = Track })
 
     local Fill = Library.Utils.Make("Frame", {
@@ -586,7 +587,6 @@ function Module:Init(Library, Window, Tab)
     }, { BackgroundColor3 = "Accent" })
     Library.Utils.Make("UICorner", { CornerRadius = UDim.new(1, 0), Parent = Fill })
 
-    -- Кружок (теперь создается через Utils.Make для поддержки тем)
     local Knob = Library.Utils.Make("Frame", {
         Size = UDim2.new(0, 12, 0, 12),
         AnchorPoint = Vector2.new(0.5, 0.5),
@@ -614,9 +614,8 @@ function Module:Init(Library, Window, Tab)
             if not isUncapped then
                 isUncapped = true
                 
-                -- Жестко переписываем ключи в таблице тем
-                Library.ThemeObjects[ValueText] = { TextColor3 = "Accent" }
-                Library.ThemeObjects[pillStroke] = { Color = "Accent" }
+                if Library.ThemeObjects[ValueText] then Library.ThemeObjects[ValueText] = { TextColor3 = "Accent" } end
+                if Library.ThemeObjects[pillStroke] then Library.ThemeObjects[pillStroke] = { Color = "Accent" } end
                 
                 TweenService:Create(ValueText, TweenInfo.new(0.2), {TextColor3 = Library.CurrentTheme.Accent}):Play()
                 TweenService:Create(pillStroke, TweenInfo.new(0.2), {Color = Library.CurrentTheme.Accent}):Play()
@@ -629,9 +628,8 @@ function Module:Init(Library, Window, Tab)
             if isUncapped then
                 isUncapped = false
                 
-                -- Возвращаем дефолтные ключи в таблицу тем
-                Library.ThemeObjects[ValueText] = { TextColor3 = "Text" }
-                Library.ThemeObjects[pillStroke] = { Color = "Stroke" }
+                if Library.ThemeObjects[ValueText] then Library.ThemeObjects[ValueText] = { TextColor3 = "Text" } end
+                if Library.ThemeObjects[pillStroke] then Library.ThemeObjects[pillStroke] = { Color = "Stroke" } end
                 
                 TweenService:Create(ValueText, TweenInfo.new(0.2), {TextColor3 = Library.CurrentTheme.Text}):Play()
                 TweenService:Create(pillStroke, TweenInfo.new(0.2), {Color = Library.CurrentTheme.Stroke}):Play()
