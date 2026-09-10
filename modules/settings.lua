@@ -126,8 +126,7 @@ function Module:Init(Library, Window, Tab)
             getgenv().MenuParticlesEnabled = state
         end
     })
-
-    -- Создаем красивый контейнер для выбора превьюшек
+--===================
     local ParticlePickerContainer = Library.Utils.Make("Frame", {
         Size = UDim2.new(1, 0, 0, 75),
         Parent = Page
@@ -145,7 +144,6 @@ function Module:Init(Library, Window, Tab)
         Parent = ParticlePickerContainer
     }, { TextColor3 = "SubText" })
 
-    -- Ряд из 5 квадратов
     local GridFrame = Library.Utils.Make("Frame", {
         Size = UDim2.new(1, -20, 0, 36),
         Position = UDim2.new(0, 10, 0, 30),
@@ -176,7 +174,6 @@ function Module:Init(Library, Window, Tab)
         local tStroke = Library.Utils.Make("UIStroke", { Thickness = 1.5, Parent = Tile }, { Color = "Stroke" })
         cardStrokes[pType] = tStroke
 
-        -- Мини-превью спавнер для каждого квадрата
         task.spawn(function()
             while Tile and Tile.Parent do
                 if getgenv().MenuParticlesEnabled and (getgenv().ParticleType == pType) then
@@ -204,7 +201,6 @@ function Module:Init(Library, Window, Tab)
             end
         end)
 
-        -- Клик по карточке выбора стиля
         Library:Connect(Tile.MouseButton1Click, function()
             getgenv().ParticleType = pType
             for name, stroke in pairs(cardStrokes) do
@@ -213,7 +209,6 @@ function Module:Init(Library, Window, Tab)
             end
         end)
     end
-
     Tab:CreateDropdown({
         Name = "Minimize Button Style",
         Options = {"Top Bar", "Floating Logo"},
