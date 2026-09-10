@@ -516,18 +516,156 @@ function Module:Init(Library, Window, Tab)
     -- ==========================================
     Tab:CreateDivider({ Text = "Performance" })
 
-    Tab:CreateSlider({
-        Name = "FPS Limit (0 = Uncapped)",
-        Min = 0, Max = 120,
-        Default = getgenv().FPSLimit or 0,
-        Flag = "FPSLimit",
-        Callback = function(val)
-            getgenv().FPSLimit = val
+    -- Кастомный Премиум-Слайдер для FPS Limit
+    local UserInputService = game:GetService("UserInputService")
+    
+    local SliderContainer = Library.Utils.Make("Frame", {
+        Size = UDim2.new(1, 0, 0, 85),
+        Parent = Tab.Page
+    }, { BackgroundColor3 = "Section" })
+    Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 10), Parent = SliderContainer })
+    local containerStroke = Library.Utils.Make("UIStroke", { Thickness = 1, Parent = SliderContainer }, { Color = "Stroke" })
+
+    -- Заголовок
+    Library.Utils.Make("TextLabel", {
+        Text = "Frame Rate Limit",
+        Size = UDim2.new(1, -100, 0, 20),
+        Position = UDim2.new(0, 12, 0, 12),
+        BackgroundTransparency = 1,
+        Font = Enum.Font.GothamBold,
+        TextSize = 13,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Parent = SliderContainer
+    }, { TextColor3 = "Text" })
+
+    -- Описание
+    Library.Utils.Make("TextLabel", {
+        Text = "Adjust maximum FPS. Set to 0 to completely uncap.",
+        Size = UDim2.new(1, -100, 0, 15),
+        Position = UDim2.new(0, 12, 0, 32),
+        BackgroundTransparency = 1,
+        Font = Enum.Font.Gotham,
+        TextSize = 11,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Parent = SliderContainer
+    }, { TextColor3 = "SubText" })
+
+    -- Таблетка со значением (Pill)
+    local PillFrame = Library.Utils.Make("Frame", {
+        Size = UDim2.new(0, 76, 0, 26),
+        AnchorPoint = Vector2.new(1, 0),
+        Position = UDim2.new(1, -12, 0, 16),
+        Parent = SliderContainer
+    }, { BackgroundColor3 = "Main" })
+    Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 6), Parent = PillFrame })
+    local pillStroke = Library.Utils.Make("UIStroke", { Thickness = 1, Parent = PillFrame }, { Color = "Stroke" })
+    
+    local ValueText = Library.Utils.Make("TextLabel", {
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundTransparency = 1,
+        Font = Enum.Font.GothamBold,
+        TextSize = 12,
+        Parent = PillFrame
+    }, { TextColor3 = "SubText" })
+
+    -- Полоска (Трек)
+    local Track = Library.Utils.Make("TextButton", {
+        Size = UDim2.new(1, -24, 0, 6),
+        Position = UDim2.new(0, 12, 0, 64),
+        Text = "",
+        AutoButtonColor = false,
+        Parent = SliderContainer
+    }, { BackgroundColor3 = "Main" })
+    Library.Utils.Make("UICorner", { CornerRadius = UDim.new(1, 0), Parent = Track })
+
+    -- Заливка ползунка (Fill)
+    local Fill = Library.Utils.Make("Frame", {
+        Size = UDim2.new(0, 0, 1, 0),
+        Parent = Track
+    }, { BackgroundColor3 = "Accent" })
+    Library.Utils.Make("UICorner", { CornerRadius = UDim.new(1, 0), Parent = Fill })
+
+    -- Кружок (Knob)
+    local Knob = Instance.new("Frame")
+    Knob.Size = UDim2.new(0, 14, 0, 14)
+    Knob.AnchorPoint = Vector2.new(0.5, 0.5)
+    Knob.Position = UDim2.new(1, 0, 0.5, 0)
+    Knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    Knob.Parent = Fill
+    Library.Utils.Make("UICorner", { CornerRadius = UDim.new(1, 0), Parent = Knob })
+    
+    local KnobScale = Instance.new("UIScale", Knob)
+    KnobScale.Scale = 1
+
+    -- Логика слайдера
+    local minFPS, maxFPS = 0, 360
+    local currentFPS = getgenv().FPSLimit or 0
+    local isDragging = false
+
+    local function updateVisuals(val)
+        local pct = math.clamp((val - minFPS) / (maxFPS - minFPS), 0, 1)
+        TweenService:Create(Fill, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(pct, 0, 1, 0)}):Play()
+        
+        if val == 0 then
+            ValueText.Text = "Uncapped"
+            ValueText.TextColor3 = Library.CurrentTheme.Accent
+            pillStroke.Color = Library.CurrentTheme.Accent
+        else
+            ValueText.Text = tostring(val) .. " FPS"
+            ValueText.TextColor3 = Library.CurrentTheme.SubText
+            pillStroke.Color = Library.CurrentTheme.Stroke
+        end
+    end
+
+    local function updateDrag(input)
+        local absolutePos = Track.AbsolutePosition.X
+        local absoluteSize = Track.AbsoluteSize.X
+        local mousePos = input.Position.X
+        
+        local pct = math.clamp((mousePos - absolutePos) / absoluteSize, 0, 1)
+        local rawValue = minFPS + (maxFPS - minFPS) * pct
+        local snappedValue = math.floor(rawValue)
+        
+        if currentFPS ~= snappedValue then
+            currentFPS = snappedValue
+            updateVisuals(currentFPS)
+            getgenv().FPSLimit = currentFPS
             if not getgenv().EcoModeEnabled and setfpscap then
-                pcall(function() setfpscap(val) end)
+                pcall(function() setfpscap(currentFPS) end)
             end
         end
-    })
+    end
+
+    updateVisuals(currentFPS)
+
+    -- Взаимодействие и эффекты
+    Track.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            isDragging = true
+            TweenService:Create(KnobScale, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1.35}):Play()
+            updateDrag(input)
+        end
+    end)
+
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            isDragging = false
+            TweenService:Create(KnobScale, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Scale = 1}):Play()
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if isDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            updateDrag(input)
+        end
+    end)
+
+    SliderContainer.MouseEnter:Connect(function()
+        TweenService:Create(containerStroke, TweenInfo.new(0.3), {Transparency = 0.5}):Play()
+    end)
+    SliderContainer.MouseLeave:Connect(function()
+        TweenService:Create(containerStroke, TweenInfo.new(0.3), {Transparency = 0}):Play()
+    end)
 
     Tab:CreateToggle({
         Name = "Extreme Performance (NoRender)",
