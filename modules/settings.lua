@@ -525,11 +525,11 @@ function Module:Init(Library, Window, Tab)
     Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 10), Parent = SliderContainer })
     local containerStroke = Library.Utils.Make("UIStroke", { Thickness = 1, Parent = SliderContainer }, { Color = "Stroke" })
 
-    -- Заголовок (Точные координаты и шрифт из CreateToggle)
+-- Заголовок (Сдвинут выше для "воздуха")
     Library.Utils.Make("TextLabel", {
         Text = "Frame Rate Limit",
         Size = UDim2.new(1, -100, 0, 20),
-        Position = UDim2.new(0, 20, 0, 15), 
+        Position = UDim2.new(0, 20, 0, 10), 
         BackgroundTransparency = 1,
         Font = Enum.Font.GothamBold,
         TextSize = 16,
@@ -537,11 +537,11 @@ function Module:Init(Library, Window, Tab)
         Parent = SliderContainer
     }, { TextColor3 = "Text" })
 
-    -- Описание (Точные координаты и шрифт из CreateToggle)
+    -- Описание (Сдвинуто выше)
     Library.Utils.Make("TextLabel", {
         Text = "Drag to the far right to completely uncap FPS.",
         Size = UDim2.new(1, -100, 0, 15),
-        Position = UDim2.new(0, 20, 0, 38),
+        Position = UDim2.new(0, 20, 0, 30),
         BackgroundTransparency = 1,
         Font = Enum.Font.Gotham,
         TextSize = 13,
@@ -549,11 +549,11 @@ function Module:Init(Library, Window, Tab)
         Parent = SliderContainer
     }, { TextColor3 = "SubText" })
 
-    -- Окошко значения (Пропорции InputBG из CreateSlider, отступ из CreateToggle)
+    -- Окошко значения (Синхронизировано по высоте с новым заголовком)
     local PillFrame = Library.Utils.Make("Frame", {
         Size = UDim2.new(0, 76, 0, 24),
         AnchorPoint = Vector2.new(1, 0),
-        Position = UDim2.new(1, -20, 0, 13),
+        Position = UDim2.new(1, -20, 0, 9),
         Parent = SliderContainer
     }, { BackgroundColor3 = "Sidebar" }) 
     Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 6), Parent = PillFrame })
