@@ -1089,6 +1089,14 @@ function Library:CreateWindow(config)
             end
 
             Library:Connect(Btn.MouseButton1Click, function()
+                -- БЛОКИРОВКА: Если файлов нет, выдаем ошибку и прерываем клик
+                if not options or #options == 0 then
+                    if type(Library.Notify) == "function" then
+                        Library:Notify("Error", "No house schematics found!", 3, "rbxassetid://73186275216515", "rbxassetid://72958619361915")
+                    end
+                    return
+                end
+
                 isOpen = not isOpen
                 if isOpen then
                     Refresh()
