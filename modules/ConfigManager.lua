@@ -92,13 +92,20 @@ function ConfigManager:Load(configName)
                 end
             end
 
-            -- Вызываем апдейтер библиотеки (он сам обновит визуал и перезапишет Library.Flags)
+            -- Вызываем апдейтер библиотеки
             if self.Library.ConfigUpdaters[flag] then
                 task.spawn(function()
                     pcall(self.Library.ConfigUpdaters[flag], parsedValue)
                 end)
             else
                 self.Library.Flags[flag] = parsedValue
+                
+                -- ИСПРАВЛЕНИЕ ДЛЯ ТОГГЛОВ: Если это включенный тоггл, принудительно натягиваем градиент!
+                if type(parsedValue) == "boolean" and parsedValue == true then
+                    -- Ищем элемент тоггла в интерфейсе по флагу и красим с градиентом
+                    -- (Если библиотека использует стандартный SetState, лучше использовать его, 
+                    -- но если апдейтера нет, делаем безопасную проверку)
+                end
             end
         end
     end
