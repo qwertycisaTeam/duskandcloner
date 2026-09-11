@@ -841,14 +841,25 @@ function Library:CreateWindow(config)
                 Library.Flags[flag] = newState
                 
                 Library.ThemeObjects[Sw]["BackgroundColor3"] = newState and "Accent" or "ToggleOff"
-                local tCol = newState and Library.CurrentTheme.Accent or Library.CurrentTheme.ToggleOff
                 
-                Library.Utils.TBT(Sw, 0.25, {BackgroundColor3 = tCol})
+                if newState then
+                    -- Плавно переводим в акцент, затем ставим белую базу и натягиваем градиент
+                    Library.Utils.TBT(Sw, 0.15, {BackgroundColor3 = Library.CurrentTheme.Accent}).Completed:Connect(function()
+                        if Library.Flags[flag] then 
+                            Sw.BackgroundColor3 = Color3.new(1, 1, 1)
+                            Library.Utils.ApplyGradient(Sw, Library.CurrentTheme.Accent)
+                        end
+                    end)
+                else
+                    -- Убиваем градиент и сбрасываем цвет без белых вспышек
+                    local oldGrad = Sw:FindFirstChild("DuskShine_Gradient")
+                    if oldGrad then oldGrad:Destroy() end
+                    Sw.BackgroundColor3 = Library.CurrentTheme.Accent
+                    Library.Utils.TBT(Sw, 0.25, {BackgroundColor3 = Library.CurrentTheme.ToggleOff})
+                end
                 Library.Utils.TBT(Kn, 0.25, {Position = newState and OnP or OffP})
-                
-                pcall(callback, newState)
+                pcall(callback, newState) -- (в режиме Mode тоггла здесь toggleCallback)
             end
-
             Library.ConfigUpdaters[flag] = function(val) SetState(val) end
             Library:Connect(Sw.MouseButton1Click, function() SetState(not Library.Flags[flag]) end)
             
