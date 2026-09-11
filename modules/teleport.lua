@@ -323,6 +323,16 @@ function Module:Init(Library, Window, Tab)
     end
 
     local function queueRefresh()
+        -- ЕСЛИ МЫ ВНУТРИ ДОМА (Y меньше 500 или больше 8500), БЛОКИРУЕМ ОБНОВЛЕНИЕ МЕНЮХИ
+        local char = LocalPlayer.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            local posY = hrp.Position.Y
+            if posY < 500 or posY > 8500 then
+                return 
+            end
+        end
+
         if refreshThread then task.cancel(refreshThread) end
         refreshThread = task.spawn(function()
             task.wait(1.5) 
