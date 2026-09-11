@@ -322,7 +322,7 @@ function Module:Init(Library, Window, Tab)
         if not success then warn("[Dusk&Shine Teleport] Render error: ", err) end
     end
 
-    llocal function queueRefresh()
+    local function queueRefresh()
         if refreshThread then task.cancel(refreshThread) end
         refreshThread = task.spawn(function()
             task.wait(1.5) 
