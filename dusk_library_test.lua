@@ -1738,6 +1738,15 @@ function Library:CreateWindow(config)
                 Library.ThemeObjects[Sw]["BackgroundColor3"] = newState and "Accent" or "ToggleOff"
                 Library.Utils.TBT(Sw, 0.25, {BackgroundColor3 = newState and Library.CurrentTheme.Accent or Library.CurrentTheme.ToggleOff})
                 Library.Utils.TBT(Kn, 0.25, {Position = newState and OnP or OffP})
+                
+                -- ФИКС: Применяем градиент при включении и удаляем при выключении
+                if newState then
+                    Library.Utils.ApplyGradient(Sw, Library.CurrentTheme.Accent)
+                else
+                    local oldGrad = Sw:FindFirstChild("DuskShine_Gradient")
+                    if oldGrad then oldGrad:Destroy() end
+                end
+
                 pcall(toggleCallback, newState)
             end
             Library.ConfigUpdaters[flag .. "_State"] = function(val) SetState(val) end
