@@ -456,35 +456,128 @@ function Module:Init(Library, Window, Tab)
         end
     })
 
-    Tab:CreateSlider({
-        Name = "Build Speed",
-        Min = 0,
-        Max = 200,
-        Default = 0,
-        Flag = "Replicator_BuildSpeed",
-        Callback = function(value)
-            if value == 0 then
-                -- 1. Инстант (Значение: 0)
-                CurrentBatchSize = 15 -- По 15 штук за раз
-                CurrentBuildDelay = 0
-                
-            elseif value <= 100 then
-                -- 2. Быстрая (Значения: 1 - 100)
-                -- Уменьшаем количество предметов, отправляемых за один кадр.
-                -- value=1 -> 14 предметов/кадр. value=100 -> 1 предмет/кадр.
-                local progress = value / 100
-                CurrentBatchSize = math.clamp(math.floor(15 - (progress * 14)), 1, 14)
-                CurrentBuildDelay = 0 
-                
-            else
-                -- 3. Медленная (Значения: 101 - 200)
-                -- Строго по 1 предмету, увеличиваем задержку от 0 до 0.5 секунд
-                CurrentBatchSize = 1
-                local slowProgress = (value - 100) / 100 -- Получаем процент от 0.01 до 1.0
-                CurrentBuildDelay = slowProgress * 0.5
-            end
-        end
-    })
+    local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+
+local SliderContainer = Library.Utils.Make("Frame", { Size = UDim2.new(1, 0, 0, 70), Parent = Tab.Page }, { BackgroundColor3 = "Section" })
+Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 10), Parent = SliderContainer })
+local containerStroke = Library.Utils.Make("UIStroke", { Thickness = 1, Parent = SliderContainer }, { Color = "Stroke" })
+
+Library.Utils.Make("TextLabel", { Text = "Build Speed", Size = UDim2.new(1, -100, 0, 20), Position = UDim2.new(0, 20, 0, 10), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 16, TextXAlignment = Enum.TextXAlignment.Left, Parent = SliderContainer }, { TextColor3 = "Text" })
+Library.Utils.Make("TextLabel", { Text = "Drag left for Instant, right for Slow build.", Size = UDim2.new(1, -100, 0, 15), Position = UDim2.new(0, 20, 0, 30), BackgroundTransparency = 1, Font = Enum.Font.Gotham, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left, Parent = SliderContainer }, { TextColor3 = "SubText" })
+
+local PillFrame = Library.Utils.Make("Frame", { Size = UDim2.new(0, 76, 0, 24), AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -20, 0, 9), Parent = SliderContainer }, { BackgroundColor3 = "Sidebar" }) 
+Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 6), Parent = PillFrame })
+local pillStroke = Library.Utils.Make("UIStroke", { Thickness = 1, Parent = PillFrame }, { Color = "Stroke" })
+
+-- Заменили TextBox на TextLabel, чтобы нельзя было вписывать цифры
+local ValueText = Library.Utils.Make("TextLabel", { Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Font = Enum.Font.GothamMedium, TextSize = 13, ZIndex = 2, Parent = PillFrame }, { TextColor3 = "Text" })
+local PillScale = Instance.new("UIScale", PillFrame)
+
+local Track = Library.Utils.Make("TextButton", { Size = UDim2.new(1, -40, 0, 4), Position = UDim2.new(0, 20, 1, -12), AnchorPoint = Vector2.new(0, 1), Text = "", AutoButtonColor = false, Parent = SliderContainer }, { BackgroundColor3 = "Sidebar" })
+Library.Utils.Make("UICorner", { CornerRadius = UDim.new(1, 0), Parent = Track })
+
+local Fill = Library.Utils.Make("Frame", { Size = UDim2.new(0, 0, 1, 0), Parent = Track }, { BackgroundColor3 = "Accent" })
+Library.Utils.Make("UICorner", { CornerRadius = UDim.new(1, 0), Parent = Fill })
+
+local Knob = Library.Utils.Make("Frame", { Size = UDim2.new(0, 12, 0, 12), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(1, 0, 0.5, 0), Parent = Fill }, { BackgroundColor3 = "Text" })
+Library.Utils.Make("UICorner", { CornerRadius = UDim.new(1, 0), Parent = Knob })
+local KnobScale = Instance.new("UIScale", Knob)
+
+local minSpeed, maxSpeed = 0, 200
+local currentVisualSpeed = 0 
+local isDragging = false
+local currentMode = "Instant"
+
+-- Привязка к переменным билдера
+getgenv().CurrentBatchSize = 15
+getgenv().CurrentBuildDelay = 0
+
+local function updateBuildSettings(val)
+    if val == 0 then
+        getgenv().CurrentBatchSize = 15
+        getgenv().CurrentBuildDelay = 0
+    elseif val <= 80 then
+        local progress = val / 80
+        getgenv().CurrentBatchSize = math.clamp(math.floor(15 - (progress * 14)), 1, 14)
+        getgenv().CurrentBuildDelay = 0
+    elseif val <= 120 then
+        getgenv().CurrentBatchSize = 1
+        getgenv().CurrentBuildDelay = 0.02 -- Минимальная плавная задержка
+    else
+        getgenv().CurrentBatchSize = 1
+        local slowProgress = (val - 120) / 80
+        getgenv().CurrentBuildDelay = 0.05 + (slowProgress * 0.45)
+    end
+end
+
+local function updateVisuals(val)
+    local pct = math.clamp((val - minSpeed) / (maxSpeed - minSpeed), 0, 1)
+    TweenService:Create(Fill, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(pct, 0, 1, 0)}):Play()
+    
+    local newMode = ""
+    if val == 0 then newMode = "Instant"
+    elseif val <= 80 then newMode = "Fast"
+    elseif val <= 120 then newMode = "Normal"
+    else newMode = "Slow" end
+
+    ValueText.Text = newMode
+
+    -- Анимация при смене режима (Цвет текста и обводки)
+    if newMode ~= currentMode then
+        currentMode = newMode
+        local targetColor = (newMode == "Instant") and Library.CurrentTheme.Accent or Library.CurrentTheme.Text
+        local targetStroke = (newMode == "Instant") and Library.CurrentTheme.Accent or Library.CurrentTheme.Stroke
+        
+        if Library.ThemeObjects[ValueText] then Library.ThemeObjects[ValueText] = { TextColor3 = (newMode == "Instant") and "Accent" or "Text" } end
+        if Library.ThemeObjects[pillStroke] then Library.ThemeObjects[pillStroke] = { Color = (newMode == "Instant") and "Accent" or "Stroke" } end
+        
+        TweenService:Create(ValueText, TweenInfo.new(0.2), {TextColor3 = targetColor}):Play()
+        TweenService:Create(pillStroke, TweenInfo.new(0.2), {Color = targetStroke}):Play()
+        
+        PillScale.Scale = 0.85
+        TweenService:Create(PillScale, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1}):Play()
+    end
+end
+
+local function updateDrag(input)
+    local absolutePos = Track.AbsolutePosition.X
+    local absoluteSize = Track.AbsoluteSize.X
+    local pct = math.clamp((input.Position.X - absolutePos) / absoluteSize, 0, 1)
+    local snappedValue = math.floor(minSpeed + (maxSpeed - minSpeed) * pct)
+    
+    if currentVisualSpeed ~= snappedValue then
+        currentVisualSpeed = snappedValue
+        updateVisuals(currentVisualSpeed)
+        updateBuildSettings(currentVisualSpeed)
+    end
+end
+
+-- Инициализация первого кадра
+updateVisuals(currentVisualSpeed)
+updateBuildSettings(currentVisualSpeed)
+
+Library:Connect(Track.InputBegan, function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        isDragging = true
+        TweenService:Create(KnobScale, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1.35}):Play()
+        updateDrag(input)
+    end
+end)
+
+Library:Connect(UserInputService.InputEnded, function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        isDragging = false
+        TweenService:Create(KnobScale, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Scale = 1}):Play()
+    end
+end)
+
+Library:Connect(UserInputService.InputChanged, function(input)
+    if isDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then updateDrag(input) end
+end)
+
+Library:Connect(SliderContainer.MouseEnter, function() TweenService:Create(containerStroke, TweenInfo.new(0.3), {Transparency = 0.5}):Play() end)
+Library:Connect(SliderContainer.MouseLeave, function() TweenService:Create(containerStroke, TweenInfo.new(0.3), {Transparency = 0}):Play() end)
 -- ==========================================
     -- 5. AUTO-DOOR BYPASS (OPTIMIZED & FIXED)
     -- ==========================================
