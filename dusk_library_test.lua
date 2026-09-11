@@ -841,33 +841,22 @@ function Library:CreateWindow(config)
                 Library.Flags[flag] = newState
                 
                 Library.ThemeObjects[Sw]["BackgroundColor3"] = newState and "Accent" or "ToggleOff"
+                local tCol = newState and Library.CurrentTheme.Accent or Library.CurrentTheme.ToggleOff
                 
-                if newState then
-                    -- Делаем базу белой, чтобы UIGradient не искажал цвета темы
-                    Sw.BackgroundColor3 = Color3.new(1, 1, 1)
-                    
-                    -- Создаем градиент напрямую, без вызова внешних утилит
-                    local grad = Sw:FindFirstChild("DuskShine_Gradient")
-                    if not grad then
-                        grad = Instance.new("UIGradient")
-                        grad.Name = "DuskShine_Gradient"
-                        grad.Parent = Sw
-                    end
-                    -- Настраиваем цвета градиента на основе текущей темы
-                    grad.Color = ColorSequence.new({
-                        ColorSequenceKeypoint.new(0, Library.CurrentTheme.Accent),
-                        ColorSequenceKeypoint.new(1, Library.CurrentTheme.Accent)
-                    })
-                else
-                    -- Удаляем градиент и возвращаем обычный цвет выключенного состояния
-                    local oldGrad = Sw:FindFirstChild("DuskShine_Gradient")
-                    if oldGrad then oldGrad:Destroy() end
-                    Sw.BackgroundColor3 = Library.CurrentTheme.ToggleOff
-                end
-                
+                Library.Utils.TBT(Sw, 0.25, {BackgroundColor3 = tCol})
                 Library.Utils.TBT(Kn, 0.25, {Position = newState and OnP or OffP})
-                pcall(callback, newState) -- (в Mode тогглах здесь используется toggleCallback)
+                
+                pcall(callback, newState)
             end
+
+            Library.ConfigUpdaters[flag] = function(val) SetState(val) end
+            Library:Connect(Sw.MouseButton1Click, function() SetState(not Library.Flags[flag]) end)
+            
+            return { 
+                Container = F, -- Возвращаем САМ ФРЕЙМ для полного хардкора (см. Уровень 2)
+                SetState = SetState,
+                GetValue = function() return Library.Flags[flag] end
+            }
         end
 
         function Tab:CreateSubPage(config)
