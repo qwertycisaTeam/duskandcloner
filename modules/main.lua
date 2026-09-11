@@ -363,6 +363,12 @@ function Module:Init(Library, Window, Tab)
             warn("=== БИЛДЕР ЗАПУЩЕН | ВСЕГО ПРЕДМЕТОВ: " .. tostring(#rawFurniture) .. " ===")
             local totalBought, totalFailed = 0, 0
 
+            local RunService = game:GetService("RunService")
+            -- Если инста-режим (0), берем пачками по 15 предметов за один пакет. Иначе по 1 для плавной постройки.
+            local batchSize = CurrentBuildDelay <= 0 and 15 or 1 
+            local currentBatch = {}
+            local batchOriginalItems = {}
+
             for i, item in ipairs(rawFurniture) do
                 local baseCFrame = CFrame.new(unpack(item.cframe))
                 local localCFrame = baseCFrame + Vector3.new(0, MICRO_SHIFT_Y, 0)
@@ -374,45 +380,57 @@ function Module:Init(Library, Window, Tab)
                     buyProps.colors = c3table
                 end
                 
-                local currentBatch = {{ kind = item.id, properties = buyProps }}
+                -- Собираем предметы в пачку
+                table.insert(currentBatch, { kind = item.id, properties = buyProps })
+                table.insert(batchOriginalItems, { item = item, localCFrame = localCFrame, buyProps = buyProps })
                 
-                local successPurchase = false
-                local attempts = 0
-                local maxAttempts = 3 
+                -- Отправляем запрос, если набрали нужное количество в пачку или это последний предмет в JSON
+                if #currentBatch >= batchSize or i == #rawFurniture then
+                    local successPurchase = false
+                    local attempts = 0
+                    local maxAttempts = 3 
 
-                repeat
-                    attempts = attempts + 1
-                    local buildSuccess, response = pcall(function() return buyFurnituresRemote:InvokeServer(currentBatch) end)
-                    
-                    if buildSuccess and type(response) == "table" and response.success then
-                        successPurchase = true
-                        totalBought = totalBought + 1
-                        if response.results and response.results[1] and response.results[1].unique then
-                            local changeArgs = { unique = response.results[1].unique, cframe = localCFrame }
-                            if item.scale and item.scale ~= 1 then changeArgs.scale = item.scale end
-                            if buyProps.colors then changeArgs.colors = buyProps.colors end
-                            table.insert(pendingChanges, changeArgs)
+                    repeat
+                        attempts = attempts + 1
+                        local buildSuccess, response = pcall(function() return buyFurnituresRemote:InvokeServer(currentBatch) end)
+                        
+                        if buildSuccess and type(response) == "table" and response.success then
+                            successPurchase = true
+                            if response.results then
+                                for resultIndex, result in ipairs(response.results) do
+                                    if result.unique then
+                                        totalBought = totalBought + 1
+                                        local orig = batchOriginalItems[resultIndex]
+                                        local changeArgs = { unique = result.unique, cframe = orig.localCFrame }
+                                        if orig.item.scale and orig.item.scale ~= 1 then changeArgs.scale = orig.item.scale end
+                                        if orig.buyProps.colors then changeArgs.colors = orig.buyProps.colors end
+                                        table.insert(pendingChanges, changeArgs)
+                                    end
+                                end
+                            end
+                        else
+                            warn(string.format("[WARNING] Сбой покупки пачки (предметы %d-%d). Попытка %d из %d", i - #currentBatch + 1, i, attempts, maxAttempts))
+                            task.wait(1.5)
                         end
-                    else
-                        warn(string.format("[WARNING] Сбой покупки предмета %d. Попытка %d из %d", i, attempts, maxAttempts))
-                        if type(response) == "table" then
-                            warn("Причина от сервера:", HttpService:JSONEncode(response))
-                        end
-                        task.wait(1.5) -- Ожидание перед повторной попыткой
+                    until successPurchase or attempts >= maxAttempts
+
+                    if not successPurchase then 
+                        totalFailed = totalFailed + #currentBatch 
                     end
-                until successPurchase or attempts >= maxAttempts
-
-                if not successPurchase then totalFailed = totalFailed + 1 end
-                
-                if CurrentBuildDelay > 0 then task.wait(CurrentBuildDelay) end
+                    
+                    -- Очищаем массивы для следующей пачки
+                    currentBatch = {}
+                    batchOriginalItems = {}
+                    
+                    -- Логика задержки слайдера
+                    if CurrentBuildDelay > 0 then 
+                        task.wait(CurrentBuildDelay) 
+                    else
+                        -- При инста-копировании даем клиенту 1 кадр передышки, чтобы Roblox не завис (Not Responding)
+                        RunService.Heartbeat:Wait()
+                    end
+                end
             end
-
-            warn(string.format("=== ИТОГ: Успешно: %d | Пропущено: %d ===", totalBought, totalFailed))
-            
-            print("=== ИТОГИ ПОСТРОЙКИ ===")
-            print(string.format("Успешно: %d | Провалено: %d", totalBought, totalFailed))
-            Library:Notify("Builder", "Applying sizes and colors...", 3, "rbxassetid://91727514118912", "rbxassetid://72958619361915")
-            
             local chunk = {}
             for i, change in ipairs(pendingChanges) do
                 table.insert(chunk, change)
