@@ -488,7 +488,7 @@ local minSpeed, maxSpeed = 0, 200
 local currentVisualSpeed = 0 
 local isDragging = false
 local currentMode = ""
-local speedFlag = "Main_BuildSpeed"
+
 -- Привязка к переменным билдера
 getgenv().CurrentBatchSize = 15
 getgenv().CurrentBuildDelay = 0
@@ -582,7 +582,7 @@ Library:Connect(SliderContainer.MouseEnter, function() TweenService:Create(conta
 Library:Connect(SliderContainer.MouseLeave, function() TweenService:Create(containerStroke, TweenInfo.new(0.3), {Transparency = 0}):Play() end)
 
 -- === РЕГИСТРАЦИЯ КАСТОМНОГО СЛАЙДЕРА ДЛЯ АВТОСОХРАНЕНИЯ ===
-Library.Flags[speedFlag] = 0
+
 Library.ConfigUpdaters[speedFlag] = function(val)
     currentVisualSpeed = math.clamp(tonumber(val) or 0, minSpeed, maxSpeed)
     updateVisuals(currentVisualSpeed)
@@ -637,8 +637,7 @@ end
             end))
         end
     end
--- Объявляем флаг для системы автосохранения
-Library.Flags["Exploit_AutoDoors"] = false
+
 Tab:CreateToggle({
         Name = "Auto Bypass Doors",
         Description = "Instant activation. Unlocks doors and does not drop FPS.",
