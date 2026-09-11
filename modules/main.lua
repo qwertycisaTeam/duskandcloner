@@ -359,13 +359,11 @@ function Module:Init(Library, Window, Tab)
             end
             task.wait(0.5)
 
-            -- 2. ДЕБАГ И АВТО-ПОВТОР
+-- 2. ДЕБАГ И АВТО-ПОВТОР
             warn("=== БИЛДЕР ЗАПУЩЕН | ВСЕГО ПРЕДМЕТОВ: " .. tostring(#rawFurniture) .. " ===")
             local totalBought, totalFailed = 0, 0
 
             local RunService = game:GetService("RunService")
-            -- Если инста-режим (0), берем пачками по 15 предметов за один пакет. Иначе по 1 для плавной постройки.
-            local batchSize = CurrentBuildDelay <= 0 and 15 or 1 
             local currentBatch = {}
             local batchOriginalItems = {}
 
@@ -380,12 +378,11 @@ function Module:Init(Library, Window, Tab)
                     buyProps.colors = c3table
                 end
                 
-                -- Собираем предметы в пачку
                 table.insert(currentBatch, { kind = item.id, properties = buyProps })
                 table.insert(batchOriginalItems, { item = item, localCFrame = localCFrame, buyProps = buyProps })
                 
-                -- Отправляем запрос, если набрали нужное количество в пачку или это последний предмет в JSON
-                if #currentBatch >= batchSize or i == #rawFurniture then
+                -- Тут теперь используется CurrentBatchSize, управляемый слайдером
+                if #currentBatch >= CurrentBatchSize or i == #rawFurniture then
                     local successPurchase = false
                     local attempts = 0
                     local maxAttempts = 3 
@@ -409,25 +406,24 @@ function Module:Init(Library, Window, Tab)
                                 end
                             end
                         else
-                            warn(string.format("[WARNING] Сбой покупки пачки (предметы %d-%d). Попытка %d из %d", i - #currentBatch + 1, i, attempts, maxAttempts))
+                            warn(string.format("[WARNING] Сбой покупки пачки. Попытка %d из %d", attempts, maxAttempts))
                             task.wait(1.5)
                         end
                     until successPurchase or attempts >= maxAttempts
 
-                    if not successPurchase then 
-                        totalFailed = totalFailed + #currentBatch 
-                    end
+                    if not successPurchase then totalFailed = totalFailed + #currentBatch end
                     
-                    -- Очищаем массивы для следующей пачки
                     currentBatch = {}
                     batchOriginalItems = {}
                     
-                    -- Логика задержки слайдера
+                    -- Логика задержки от слайдера
                     if CurrentBuildDelay > 0 then 
+                        -- Работает, если слайдер от 101 до 200
                         task.wait(CurrentBuildDelay) 
                     else
-                        -- При инста-копировании даем клиенту 1 кадр передышки, чтобы Roblox не завис (Not Responding)
-                        RunService.Heartbeat:Wait()
+                        -- Работает на Инстанте (0) и Быстрой (1-100)
+                        -- Ждет 1 кадр, чтобы игра не зависла намертво от цикла
+                        RunService.Heartbeat:Wait() 
                     end
                 end
             end
