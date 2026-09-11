@@ -361,7 +361,7 @@ function Module:Init(Library, Window, Tab)
             task.wait(0.5)
 
 -- 2. ДЕБАГ И АВТО-ПОВТОР
-            warn("=== БИЛДЕР ЗАПУЩЕН | ВСЕГО ПРЕДМЕТОВ: " .. tostring(#rawFurniture) .. " ===")
+           
             local totalBought, totalFailed = 0, 0
 
             local RunService = game:GetService("RunService")
@@ -407,7 +407,7 @@ function Module:Init(Library, Window, Tab)
                                 end
                             end
                         else
-                            warn(string.format("[WARNING] Сбой покупки пачки. Попытка %d из %d", attempts, maxAttempts))
+                            
                             task.wait(1.5)
                         end
                     until successPurchase or attempts >= maxAttempts
