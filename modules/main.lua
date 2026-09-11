@@ -487,7 +487,7 @@ local KnobScale = Instance.new("UIScale", Knob)
 local minSpeed, maxSpeed = 0, 200
 local currentVisualSpeed = 0 
 local isDragging = false
-local currentMode = "Instant"
+local currentMode = ""
 
 -- Привязка к переменным билдера
 getgenv().CurrentBatchSize = 15
