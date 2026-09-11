@@ -22,7 +22,8 @@ end
 function Module:Init(Library, Window, Tab)
     local LocalPlayer = Players.LocalPlayer
     local SelectedHouse = nil
-    local CurrentBuildDelay = 0.05
+    local CurrentBuildDelay = 0
+    local CurrentBatchSize = 15
     local CopyTextures = true
     local HouseDropdown 
 
@@ -456,13 +457,32 @@ function Module:Init(Library, Window, Tab)
     })
 
     Tab:CreateSlider({
-        Name = "Build Delay (ms)",
+        Name = "Build Speed",
         Min = 0,
         Max = 200,
-        Default = 10,
-        Flag = "Replicator_BuildDelay",
+        Default = 0,
+        Flag = "Replicator_BuildSpeed",
         Callback = function(value)
-            CurrentBuildDelay = value / 1000 
+            if value == 0 then
+                -- 1. Инстант (Значение: 0)
+                CurrentBatchSize = 15 -- По 15 штук за раз
+                CurrentBuildDelay = 0
+                
+            elseif value <= 100 then
+                -- 2. Быстрая (Значения: 1 - 100)
+                -- Уменьшаем количество предметов, отправляемых за один кадр.
+                -- value=1 -> 14 предметов/кадр. value=100 -> 1 предмет/кадр.
+                local progress = value / 100
+                CurrentBatchSize = math.clamp(math.floor(15 - (progress * 14)), 1, 14)
+                CurrentBuildDelay = 0 
+                
+            else
+                -- 3. Медленная (Значения: 101 - 200)
+                -- Строго по 1 предмету, увеличиваем задержку от 0 до 0.5 секунд
+                CurrentBatchSize = 1
+                local slowProgress = (value - 100) / 100 -- Получаем процент от 0.01 до 1.0
+                CurrentBuildDelay = slowProgress * 0.5
+            end
         end
     })
 -- ==========================================
