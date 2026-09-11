@@ -1,4 +1,4 @@
---[[lib by rio] Latest Update: 09.07.26 CreateSubPage изменен добавлен метод нажатия по вкладке для возврата в главную вкладки (текущ).
+--[[lib by rio] Latest Update: 09.11.26 state deleted, global env
 ]]
 
 local TweenService = game:GetService("TweenService")
@@ -22,16 +22,12 @@ end
 local Library = {
     Flags = {},
     ConfigUpdaters = {},
-    Settings = {
-        AnonymousMode = false,
-        MenuParticles = true,
-        CloserType = "Top Bar"
-    },
     Connections = {},
     ThemeObjects = {},
     AnonItems = { Avatars = {}, Names = {}, UIDs = {} },
     Utils = {}
 }
+
 getgenv().DuskShine_Core = Library
 
 function Library:Destroy()
@@ -359,10 +355,10 @@ function Library:CreateWindow(config)
 
     local SideAnonA = Library.Utils.Make("TextLabel", {
         Size = UDim2.new(1,0,1,0), BackgroundTransparency = 1, Text = "?", Font = Enum.Font.GothamBold, TextSize = 20,
-        Visible = Library.Settings.AnonymousMode, Parent = Avatar
+        Visible = getgenv().AnonymousMode or false, Parent = Avatar
     }, { TextColor3 = "Accent" })
     
-    if Library.Settings.AnonymousMode then 
+    if getgenv().AnonymousMode then
         Avatar.ImageTransparency = 1; Avatar.BackgroundTransparency = 0; Avatar.BackgroundColor3 = Color3.new(0,0,0) 
     end
     table.insert(Library.AnonItems.Avatars, {ImageObj = Avatar, Letter = SideAnonA})
@@ -453,7 +449,7 @@ function Library:CreateWindow(config)
             Library.Utils.TBT(MainFrame, 0.3, {GroupTransparency = 1, Size = UDim2.new(0, 700, 0, 400)}, Enum.EasingStyle.Back, Enum.EasingDirection.In).Completed:Wait()
             MainFrame.Visible = false
             
-            if Library.Settings.CloserType == "Floating Logo" then
+            if getgenv().CloserType == "Floating Logo" then
                 FloatingWidget.Visible = true
                 FloatingWidget.Size = UDim2.new(0, 0, 0, 0)
                 Library.Utils.TBT(FloatingWidget, 0.4, {Size = UDim2.new(0, 50, 0, 50), GroupTransparency = 0}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
@@ -463,7 +459,7 @@ function Library:CreateWindow(config)
                 Library.Utils.TBT(OpenBtn, 0.4, {Position = UDim2.new(0.5, 0, 0, 10), BackgroundTransparency = 0}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
             end
         else
-            if Library.Settings.CloserType == "Floating Logo" then
+            if getgenv().CloserType == "Floating Logo" then
                 Library.Utils.TBT(FloatingWidget, 0.3, {Size = UDim2.new(0, 0, 0, 0), GroupTransparency = 1}, Enum.EasingStyle.Back, Enum.EasingDirection.In).Completed:Wait()
                 FloatingWidget.Visible = false
             else
@@ -787,9 +783,20 @@ function Library:CreateWindow(config)
 
             Library.Flags[flag] = default
 
-            local F = Library.Utils.Make("Frame", { Size = UDim2.new(1, 0, 0, 70), Parent = Page }, { BackgroundColor3 = "Section" })
+            local isTransparent = getgenv().TransparentUI or false
+
+            local F = Library.Utils.Make("Frame", { 
+                Size = UDim2.new(1, 0, 0, 70), 
+                BackgroundTransparency = isTransparent and 0.3 or 0, 
+                Parent = Page 
+            }, { BackgroundColor3 = "Section" })
             Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 10), Parent = F})
-            Library.Utils.Make("UIStroke", {Thickness = 1, Parent = F}, {Color = "Stroke"})
+            
+            if isTransparent then
+                local FStroke = Library.Utils.Make("UIStroke", {Thickness = 1, Parent = F}, {Color = "Stroke"})
+                Library:Connect(F.MouseEnter, function() Library.Utils.TBT(FStroke, 0.25, {Color = Library.CurrentTheme.Accent}) end)
+                Library:Connect(F.MouseLeave, function() Library.Utils.TBT(FStroke, 0.25, {Color = Library.CurrentTheme.Stroke}) end)
+            end
 
             Library.Utils.Make("TextLabel", { Text = title, Size = UDim2.new(1, -70, 0, 20), Position = UDim2.new(0, 20, 0, 15), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 16, TextXAlignment = Enum.TextXAlignment.Left, Parent = F }, { TextColor3 = "Text" })
             Library.Utils.Make("TextLabel", { Text = desc, Size = UDim2.new(1, -90, 0, 15), Position = UDim2.new(0, 20, 0, 38), BackgroundTransparency = 1, FontFace = MainFont, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left, Parent = F }, { TextColor3 = "SubText" })
@@ -1089,14 +1096,6 @@ function Library:CreateWindow(config)
             end
 
             Library:Connect(Btn.MouseButton1Click, function()
-                -- БЛОКИРОВКА: Если файлов нет, выдаем ошибку и прерываем клик
-                if not options or #options == 0 then
-                    if type(Library.Notify) == "function" then
-                        Library:Notify("Error", "No house schematics found!", 3, "rbxassetid://73186275216515", "rbxassetid://72958619361915")
-                    end
-                    return
-                end
-
                 isOpen = not isOpen
                 if isOpen then
                     Refresh()
@@ -1211,8 +1210,21 @@ function Library:CreateWindow(config)
             Library.Flags[scaleFlag] = defaultScale
             Library.Flags[colorFlag] = defaultColor
 
-            local F = Library.Utils.Make("Frame", { Size = UDim2.new(1, 0, 0, 95), Parent = Page }, { BackgroundColor3 = "Section" })
+            local isTransparent = getgenv().TransparentUI or false -- Читаем стиль
+
+            local F = Library.Utils.Make("Frame", { 
+                Size = UDim2.new(1, 0, 0, 95), 
+                BackgroundTransparency = isTransparent and 0.3 or 0,
+                Parent = Page 
+            }, { BackgroundColor3 = "Section" })
             Library.Utils.Make("UICorner", {CornerRadius = UDim.new(0, 10), Parent = F})
+            
+            -- Спавним обводку и анимацию ТОЛЬКО если включен прозрачный стиль
+            if isTransparent then
+                local FStroke = Library.Utils.Make("UIStroke", {Thickness = 1, Parent = F}, {Color = "Stroke"})
+                Library:Connect(F.MouseEnter, function() Library.Utils.TBT(FStroke, 0.25, {Color = Library.CurrentTheme.Accent}) end)
+                Library:Connect(F.MouseLeave, function() Library.Utils.TBT(FStroke, 0.25, {Color = Library.CurrentTheme.Stroke}) end)
+            end
 
             Library.Utils.Make("TextLabel", { Text = "SCALE", Size = UDim2.new(0, 50, 0, 20), Position = UDim2.new(0, 15, 0, 15), BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left, Parent = F }, { TextColor3 = "SubText" })
 
@@ -1485,9 +1497,9 @@ function Library:CreateWindow(config)
                     Library.Utils.Make("UICorner", {CornerRadius = UDim.new(1, 0), Parent = Icon})
                     Library.Utils.Make("UIStroke", {Parent = Icon}, {Color = "Stroke"})
                     
-                    local A_Letter = Library.Utils.Make("TextLabel", { Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Text = "A", Font = Enum.Font.GothamBold, TextSize = 14, Visible = Library.Settings.AnonymousMode, Parent = Icon }, { TextColor3 = "Accent" })
+                    local A_Letter = Library.Utils.Make("TextLabel", { Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Text = "A", Font = Enum.Font.GothamBold, TextSize = 14, Visible = getgenv().AnonymousMode or false, Parent = Icon }, { TextColor3 = "Accent" })
                     
-                    if Library.Settings.AnonymousMode then 
+                    if getgenv().AnonymousMode then
                         Icon.ImageTransparency = 1; Icon.BackgroundColor3 = Color3.new(0,0,0); Icon.BackgroundTransparency = 0 
                     end
                     table.insert(Library.AnonItems.Avatars, {ImageObj = Icon, Letter = A_Letter})
@@ -1503,7 +1515,7 @@ function Library:CreateWindow(config)
             if iconStr == "avatar" then
                 local formatStr = text:gsub(LocalPlayer.DisplayName, "%%s")
                 table.insert(Library.AnonItems.Names, {Obj = T, Format = formatStr})
-                T.Text = string.format(formatStr, Library.Settings.AnonymousMode and "Hidden User" or LocalPlayer.DisplayName)
+                T.Text = string.format(formatStr, getgenv().AnonymousMode and "Hidden User" or LocalPlayer.DisplayName)
             else
                 T.Text = text
             end
@@ -1866,15 +1878,10 @@ function Library:CreateWindow(config)
     end)
 
     function Window:Build()
-        Library:RunLoader(ScreenGui, function()
-            MainFrame.Visible = true
-            Library.Utils.TBT(MainFrame, 0.5, {GroupTransparency = 0})
-
-            task.spawn(function()
-                while task.wait(3) do
-                    if getgenv().DS_StopExecution then break end 
-                    Library:SaveConfig(Library.AutoLoadFile, true) 
-                end
+        task.spawn(function()
+            Library:RunLoader(ScreenGui, function()
+                MainFrame.Visible = true
+                Library.Utils.TBT(MainFrame, 0.5, {GroupTransparency = 0})
             end)
         end)
     end
@@ -1996,74 +2003,5 @@ end
             out.Completed:Connect(function() Container:Destroy() end)
         end)
     end
--- ==========================================
-    -- 7. МЕНЕДЖЕР КОНФИГОВ (ТОЛЬКО UI, БЕЛЫЙ СПИСОК)
-    -- ==========================================
-    local HttpService = game:GetService("HttpService")
-    Library.ConfigFolder = "DuskAndShineConfigs"
-    Library.AutoLoadFile = "TrueSettings"
 
-    local AllowedUIFlags = {
-        "ThemeAccent", "UIScaleSize", "ToggleUIKey", 
-        "FPSLimit", "PerformanceModeEnabled", "AnonymousMode",
-        "MenuParticlesEnabled", "ParticleType", "CloserType", "MenuBlurEnabled", "AutoUpdateKicker"
-    }
-
-    function Library:InitConfigSystem()
-        if not isfolder then return end
-        if not isfolder(self.ConfigFolder) then makefolder(self.ConfigFolder) end
-    end
-
-    function Library:SaveConfig(fileName, quiet)
-        if not writefile then return end
-        self:InitConfigSystem()
-
-        local saveTable = { _Theme = self.CurrentThemeName }
-
-        for _, flagName in ipairs(AllowedUIFlags) do
-            local value = self.Flags[flagName]
-            if value ~= nil then
-                if typeof(value) == "Color3" then
-                    saveTable[flagName] = { R = value.R, G = value.G, B = value.B, isColor = true }
-                elseif typeof(value) == "EnumItem" then
-                    saveTable[flagName] = { Key = value.Name, isKeybind = true }
-                else
-                    saveTable[flagName] = value
-                end
-            end
-        end
-
-        local success, json = pcall(function() return HttpService:JSONEncode(saveTable) end)
-        if success then
-            if self.LastSavedJSON == json then return end 
-            self.LastSavedJSON = json 
-            writefile(self.ConfigFolder .. "/" .. fileName .. ".json", json)
-            if not quiet and self.Notify then self:Notify("Config System", "UI Settings Saved", 3) end
-        end
-    end
-
-    function Library:LoadConfig(fileName, quiet)
-        if not readfile or not isfile(self.ConfigFolder .. "/" .. fileName .. ".json") then return false end
-
-        local json = readfile(self.ConfigFolder .. "/" .. fileName .. ".json")
-        local success, data = pcall(function() return HttpService:JSONDecode(json) end)
-
-        if success and type(data) == "table" then
-            if data._Theme then self:SetTheme(data._Theme) end
-
-            for flag, value in pairs(data) do
-                if flag ~= "_Theme" then
-                    if type(value) == "table" then
-                        if value.isColor then value = Color3.new(value.R, value.G, value.B)
-                        elseif value.isKeybind then value = Enum.KeyCode[value.Key] end
-                    end
-                    self.Flags[flag] = value
-                    if self.ConfigUpdaters[flag] then pcall(self.ConfigUpdaters[flag], value) end
-                end
-            end
-            if not quiet and self.Notify then self:Notify("Config System", "UI Settings Loaded", 3) end
-            return true
-        end
-        return false
-    end
 return Library
