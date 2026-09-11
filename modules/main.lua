@@ -488,7 +488,7 @@ local minSpeed, maxSpeed = 0, 200
 local currentVisualSpeed = 0 
 local isDragging = false
 local currentMode = ""
-
+local speedFlag = "Main_BuildSpeed"
 -- Привязка к переменным билдера
 getgenv().CurrentBatchSize = 15
 getgenv().CurrentBuildDelay = 0
