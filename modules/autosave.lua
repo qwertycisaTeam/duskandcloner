@@ -9,7 +9,6 @@ function Module:Init(Library)
         pcall(function() makefolder(Folder) end) 
     end
 
-    -- Функция сохранения
     local function Save()
         local data = { Theme = Library.CurrentThemeName, Flags = {} }
         for flag, value in pairs(Library.Flags) do
@@ -27,7 +26,6 @@ function Module:Init(Library)
         end)
     end
 
-    -- Функция загрузки
     local function Load()
         if not isfile(FilePath) then return end
         local success, decoded = pcall(function() return HttpService:JSONDecode(readfile(FilePath)) end)
@@ -54,15 +52,12 @@ function Module:Init(Library)
         end
     end
 
-    -- Ждем прогрузки всех модулей и интерфейса, затем грузим конфиг
-    task.spawn(function()
-        task.wait(1.5) -- Даем время скачаться остальным модулям
-        Load()
-    end)
+    -- Сразу грузим конфиг при инициализации модуля
+    Load()
 
-    -- Фоновый цикл автосохранения каждые 0.5 секунды (работает тихо в фоне)
+    -- Запускаем фоновый цикл сохранения каждые 3 секунды
     task.spawn(function()
-        while task.wait(0.5) do
+        while task.wait(3) do
             if getgenv().DS_StopExecution then break end
             Save()
         end
