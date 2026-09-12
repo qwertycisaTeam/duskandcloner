@@ -837,17 +837,25 @@ function Library:CreateWindow(config)
             end
 
             local function SetState(newState)
-                if Library.Flags[flag] == newState then return end
                 Library.Flags[flag] = newState
                 
-                Library.ThemeObjects[Sw]["BackgroundColor3"] = newState and "Accent" or "ToggleOff"
-                local tCol = newState and Library.CurrentTheme.Accent or Library.CurrentTheme.ToggleOff
+                -- Корректно обновляем привязку темы для Sw без порчи структуры ядра
+                if Library.ThemeObjects[Sw] then
+                    Library.ThemeObjects[Sw]["BackgroundColor3"] = newState and "Accent" or "ToggleOff"
+                end
                 
+                local tCol = newState and Library.CurrentTheme.Accent or Library.CurrentTheme.ToggleOff
                 Library.Utils.TBT(Sw, 0.25, {BackgroundColor3 = tCol})
                 Library.Utils.TBT(Kn, 0.25, {Position = newState and OnP or OffP})
                 
+                -- Гарантируем, что фон контейнера F сохраняет свой стиль (прозрачный или нет)
+                if F then
+                    Library.Utils.TBT(F, 0.25, {BackgroundTransparency = getgenv().TransparentUI and 0.3 or 0})
+                end
+                
                 pcall(callback, newState)
             end
+
 
             Library.ConfigUpdaters[flag] = function(val) SetState(val) end
             Library:Connect(Sw.MouseButton1Click, function() SetState(not Library.Flags[flag]) end)
@@ -1732,14 +1740,24 @@ function Library:CreateWindow(config)
 
             -- Логика самого Тоггла
             local function SetState(newState)
-                if Library.Flags[flag .. "_State"] == newState then return end
                 Library.Flags[flag .. "_State"] = newState
                 
-                Library.ThemeObjects[Sw]["BackgroundColor3"] = newState and "Accent" or "ToggleOff"
-                Library.Utils.TBT(Sw, 0.25, {BackgroundColor3 = newState and Library.CurrentTheme.Accent or Library.CurrentTheme.ToggleOff})
+                if Library.ThemeObjects[Sw] then
+                    Library.ThemeObjects[Sw]["BackgroundColor3"] = newState and "Accent" or "ToggleOff"
+                end
+                
+                local tCol = newState and Library.CurrentTheme.Accent or Library.CurrentTheme.ToggleOff
+                Library.Utils.TBT(Sw, 0.25, {BackgroundColor3 = tCol})
                 Library.Utils.TBT(Kn, 0.25, {Position = newState and OnP or OffP})
+                
+                -- Гарантируем стабильную прозрачность для контейнера модального тоггла
+                if F then
+                    Library.Utils.TBT(F, 0.25, {BackgroundTransparency = getgenv().TransparentUI and 0.2 or 0})
+                end
+                
                 pcall(toggleCallback, newState)
             end
+
             Library.ConfigUpdaters[flag .. "_State"] = function(val) SetState(val) end
             Library:Connect(Sw.MouseButton1Click, function() SetState(not Library.Flags[flag .. "_State"]) end)
             
