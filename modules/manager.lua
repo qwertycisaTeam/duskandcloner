@@ -228,7 +228,7 @@ function Module:Init(Library, Window, Tab)
             local skippedTotal = 0
             local count = 0
             
-            -- ПОДКЛЮЧАЕМ БАЗУ НАПРЯМУЮ (БЕЗ ВНЕШНИХ ФАЙЛОВ)
+            -- БЕЗ ФАЙЛОВ! Вытаскиваем базу напрямую из игры через Fsys
             local FurnitureDB = {}
             pcall(function()
                 local Fsys = require(game:GetService("ReplicatedStorage"):WaitForChild("Fsys"))
@@ -239,14 +239,13 @@ function Module:Init(Library, Window, Tab)
                 local isBuyable = true
                 local itemName = itemData.id
                 
-                -- Сверяем с живой базой игры
                 if type(FurnitureDB) == "table" and FurnitureDB[itemData.id] then
                     local dbInfo = FurnitureDB[itemData.id]
                     itemName = dbInfo.name or itemData.id
                     
-                    -- ОТСЕВ: Лимитки, ивенты, запрещенные к покупке, или если цены НЕТ ВООБЩЕ (nil). 
-                    -- Заметь: 0 теперь разрешен (базовые фигуры и кирпичи парсятся)
-                    if dbInfo.is_limited == true or dbInfo.is_event == true or dbInfo.price == nil or dbInfo.is_buyable == false then
+                    -- ИДЕАЛЬНЫЙ ФИЛЬТР: Баним ТОЛЬКО лимитки, ивенты и нелегальное.
+                    -- Проверку на цену убрали, чтобы бесплатные фигуры (кирпичи, сферы) пропускались.
+                    if dbInfo.is_limited == true or dbInfo.is_event == true or dbInfo.is_buyable == false then
                         isBuyable = false
                     end
                 end
