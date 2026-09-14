@@ -776,6 +776,9 @@ function Library:CreateWindow(config)
             local desc = config.Description or ""
             local default = config.Default or false
             local flag = config.Flag or title:gsub("%s+", "")
+            
+            -- ФИКС: Считываем из кэша, если конфиг уже загрузился
+            if Library.Flags[flag] ~= nil then default = Library.Flags[flag] else Library.Flags[flag] = default end
             local callback = config.Callback or function() end
             
             -- КАСТОМНЫЙ АРГУМЕНТ: Функция для шестеренки
@@ -947,11 +950,11 @@ function Library:CreateWindow(config)
 
         function Tab:CreateSlider(config)
             config = config or {}
-            local title = config.Name or "Slider"
             local min = config.Min or 0
             local max = config.Max or 100
             local default = config.Default or min
             local flag = config.Flag or title:gsub("%s+", "")
+            if Library.Flags[flag] ~= nil then default = Library.Flags[flag] else Library.Flags[flag] = default end
             local callback = config.Callback or function() end
 
             Library.Flags[flag] = default
@@ -1056,6 +1059,7 @@ function Library:CreateWindow(config)
             local options = config.Options or {}
             local default = config.Default or options[1] or "Select..."
             local flag = config.Flag or title:gsub("%s+", "")
+            if Library.Flags[flag] ~= nil then default = Library.Flags[flag] else Library.Flags[flag] = default end
             local callback = config.Callback or function() end
 
             Library.Flags[flag] = default
@@ -1140,6 +1144,7 @@ function Library:CreateWindow(config)
             local title = config.Name or "Keybind"
             local default = config.Default or Enum.KeyCode.Unknown
             local flag = config.Flag or title:gsub("%s+", "")
+            if Library.Flags[flag] ~= nil then default = Library.Flags[flag] else Library.Flags[flag] = default end
             local callback = config.Callback or function() end
 
             Library.Flags[flag] = default
@@ -1209,10 +1214,12 @@ function Library:CreateWindow(config)
             local max = config.Max or 175
             local defaultScale = config.DefaultScale or 50
             local scaleFlag = config.ScaleFlag or "UIScaleSize"
-            local scaleCallback = config.ScaleCallback or function() end
+            local defaultScale = config.DefaultScale or 50
+            if Library.Flags[scaleFlag] ~= nil then defaultScale = Library.Flags[scaleFlag] else Library.Flags[scaleFlag] = defaultScale end
 
-            local defaultColor = config.DefaultColor or Color3.new(1, 1, 1)
             local colorFlag = config.ColorFlag or "ThemeAccent"
+            local defaultColor = config.DefaultColor or Color3.new(1, 1, 1)
+            if Library.Flags[colorFlag] ~= nil then defaultColor = Library.Flags[colorFlag] else Library.Flags[colorFlag] = defaultColor end
             local colorCallback = config.ColorCallback or function() end
 
             Library.Flags[scaleFlag] = defaultScale
@@ -1379,6 +1386,7 @@ function Library:CreateWindow(config)
             local placeholder = config.Placeholder or "Type here..."
             local default = config.Default or ""
             local flag = config.Flag or title:gsub("%s+", "")
+            if Library.Flags[flag] ~= nil then default = Library.Flags[flag] else Library.Flags[flag] = default end
             local clearOnFocus = config.ClearTextOnFocus or false
             local callback = config.Callback or function() end
 
