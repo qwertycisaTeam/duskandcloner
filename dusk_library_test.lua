@@ -842,7 +842,6 @@ function Library:CreateWindow(config)
             local function SetState(newState)
                 Library.Flags[flag] = newState
                 
-                -- Корректно обновляем привязку темы для Sw без порчи структуры ядра
                 if Library.ThemeObjects[Sw] then
                     Library.ThemeObjects[Sw]["BackgroundColor3"] = newState and "Accent" or "ToggleOff"
                 end
@@ -851,7 +850,21 @@ function Library:CreateWindow(config)
                 Library.Utils.TBT(Sw, 0.25, {BackgroundColor3 = tCol})
                 Library.Utils.TBT(Kn, 0.25, {Position = newState and OnP or OffP})
                 
-                -- Гарантируем, что фон контейнера F сохраняет свой стиль (прозрачный или нет)
+                -- Динамическое управление градиентом при переключении
+                local grad = Sw:FindFirstChild("DuskShine_Gradient")
+                if newState then
+                    if not grad then
+                        Library.Utils.ApplyGradient(Sw, Library.CurrentTheme.Accent)
+                    else
+                        grad.Enabled = true
+                        Library.Utils.ApplyGradient(Sw, Library.CurrentTheme.Accent)
+                    end
+                else
+                    if grad then
+                        grad.Enabled = false
+                    end
+                end
+                
                 if F then
                     Library.Utils.TBT(F, 0.25, {BackgroundTransparency = getgenv().TransparentUI and 0.3 or 0})
                 end
