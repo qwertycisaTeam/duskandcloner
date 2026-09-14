@@ -276,17 +276,24 @@ function Module:Init(Library, Window, Tab)
                     return Color3.new(rgbArray[1], rgbArray[2], rgbArray[3])
                 end
                 
-                local lData = ambianceData.Lighting or {}
-                local ccData = ambianceData.ColorCorrectionEffect or {}
-                local srData = ambianceData.SunRaysEffect or {}
-                local atmData = ambianceData.Atmosphere or {}
+                -- Читаем параметры из правильной вложенной таблицы custom_props
+                local cProps = ambianceData.custom_props or {}
+                local lData = cProps.Lighting or {}
+                local ccData = cProps.ColorCorrectionEffect or {}
+                local srData = cProps.SunRaysEffect or {}
+                local atmData = cProps.Atmosphere or {}
             
+                -- Забираем оригинальный тип атмосферы, если он есть
+                local bKind = ambianceData.base_kind or "day"
+                local kKind = ambianceData.kind or "day"
+
                 local args = {{
-                    base_kind = "sunset", kind = "sunset", priority = 3,
+                    base_kind = bKind, kind = kKind, priority = 3,
                     custom_props = {
                         Lighting = {
                             ClockTime = lData.ClockTime or 14,
-                            ExposureCompensation = lData.ExposureCompensation or 0,
+                            -- Проверяем именно на nil, так как 0 или отрицательные числа это валидные значения
+                            ExposureCompensation = lData.ExposureCompensation ~= nil and lData.ExposureCompensation or 0,
                             Ambient = toColor3(lData.Ambient),
                             OutdoorAmbient = toColor3(lData.OutdoorAmbient),
                             ColorShift_Top = toColor3(lData.ColorShift_Top)
