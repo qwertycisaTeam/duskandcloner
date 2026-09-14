@@ -2,7 +2,13 @@ local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Module = {}
-
+local CachedFurnitureDB = nil
+task.spawn(function()
+    pcall(function()
+        local Fsys = require(game:GetService("ReplicatedStorage"):WaitForChild("Fsys"))
+        CachedFurnitureDB = Fsys.load("FurnitureDB")
+    end)
+end)
 Module.FolderName = "DuskAndShine_Houses"
 
 -- ==========================================
@@ -226,27 +232,22 @@ function Module:Init(Library, Window, Tab)
             local parsedFurniture = {}
             local skippedItems = {}
             local skippedTotal = 0
-            local count = 0
             
-            -- БЕЗ ФАЙЛОВ! Вытаскиваем базу напрямую из игры через Fsys
-            local FurnitureDB = {}
-            pcall(function()
-                local Fsys = require(game:GetService("ReplicatedStorage"):WaitForChild("Fsys"))
-                FurnitureDB = Fsys.load("FurnitureDB")
-            end)
+            -- Проверяем кэш один раз ДО цикла
+            local dbIsValid = type(CachedFurnitureDB) == "table"
             
             for uniqueId, itemData in pairs(rawFurniture) do
                 local isBuyable = true
                 local itemName = itemData.id
                 
-                if type(FurnitureDB) == "table" and FurnitureDB[itemData.id] then
-                    local dbInfo = FurnitureDB[itemData.id]
-                    itemName = dbInfo.name or itemData.id
-                    
-                    -- ИДЕАЛЬНЫЙ ФИЛЬТР: Баним ТОЛЬКО лимитки, ивенты и нелегальное.
-                    -- Проверку на цену убрали, чтобы бесплатные фигуры (кирпичи, сферы) пропускались.
-                    if dbInfo.is_limited == true or dbInfo.is_event == true or dbInfo.is_buyable == false then
-                        isBuyable = false
+                -- Быстрое обращение к кэшу
+                if dbIsValid then
+                    local dbInfo = CachedFurnitureDB[itemData.id]
+                    if dbInfo then
+                        itemName = dbInfo.name or itemData.id
+                        if dbInfo.is_limited or dbInfo.is_event or dbInfo.is_buyable == false then
+                            isBuyable = false
+                        end
                     end
                 end
                 
@@ -254,29 +255,26 @@ function Module:Init(Library, Window, Tab)
                     skippedItems[itemName] = (skippedItems[itemName] or 0) + 1
                     skippedTotal = skippedTotal + 1
                 else
-                    count = count + 1
-                    local formattedCFrame = {}
-                    if typeof(itemData.cframe) == "CFrame" then
-                        formattedCFrame = {itemData.cframe:GetComponents()}
-                    elseif type(itemData.cframe) == "table" then
-                        formattedCFrame = itemData.cframe
-                    end
+                    -- Быстрый парсинг CFrame
+                    local formattedCFrame = typeof(itemData.cframe) == "CFrame" and {itemData.cframe:GetComponents()} or itemData.cframe
                 
+                    -- Быстрая сборка массива цветов
                     local formattedColors = {}
                     if type(itemData.colors) == "table" then
-                        for _, color in ipairs(itemData.colors) do
+                        for i, color in ipairs(itemData.colors) do
                             if typeof(color) == "Color3" then
-                                table.insert(formattedColors, {color.R, color.G, color.B})
+                                formattedColors[i] = {color.R, color.G, color.B}
                             end
                         end
                     end
                 
-                    table.insert(parsedFurniture, {
+                    -- Оптимизированная вставка в таблицу
+                    parsedFurniture[#parsedFurniture + 1] = {
                         id = itemData.id,
                         cframe = formattedCFrame,
                         scale = itemData.scale or 1,
                         colors = formattedColors
-                    })
+                    }
                 end
             end
             local parsedTextures = {}
