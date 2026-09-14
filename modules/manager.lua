@@ -229,6 +229,18 @@ function Module:Init(Library, Window, Tab)
             end
             
             local rawFurniture = targetData.house_interior.furniture
+                    -- 🛑 ВРЕМЕННЫЙ КОД ДЛЯ ТЕСТА (УДАЛИ ПОСЛЕ ПРОВЕРКИ) 🛑
+            -- Создаем копию таблицы, чтобы не сломать реальный дом в игре
+            local testFurniture = {}
+            for k, v in pairs(rawFurniture) do testFurniture[k] = v end
+            
+            -- Подбрасываем 3 фейковые лимитки (1 надгробие и 2 круга)
+            testFurniture["Fake_Event_1"] = { id = "tombstone", cframe = {0,0,0, 1,0,0, 0,1,0, 0,0,1} }
+            testFurniture["Fake_Event_2"] = { id = "pool_2023_purple_inner_tube", cframe = {0,0,0, 1,0,0, 0,1,0, 0,0,1} }
+            testFurniture["Fake_Event_3"] = { id = "pool_2023_purple_inner_tube", cframe = {0,0,0, 1,0,0, 0,1,0, 0,0,1} }
+            
+            rawFurniture = testFurniture -- Подменяем оригинальную таблицу на тестовую
+            -- 🛑 КОНЕЦ ВРЕМЕННОГО КОДА 🛑
             local parsedFurniture = {}
             local skippedItems = {}
             local skippedTotal = 0
