@@ -241,13 +241,6 @@ function Module:Init(Library, Window, Tab)
                 itemsTable = FurnitureDB.entries or FurnitureDB.items or FurnitureDB
             end)
             
-            -- 🛑 ВРЕМЕННЫЙ КОД ДЛЯ ТЕСТА (Подбрасываем фейки) 🛑
-            local testFurniture = {}
-            for k, v in pairs(rawFurniture) do testFurniture[k] = v end
-            testFurniture["Fake_Event_1"] = { id = "tombstone", cframe = {0,0,0, 1,0,0, 0,1,0, 0,0,1} }
-            testFurniture["Fake_Event_2"] = { id = "pool_2023_purple_inner_tube", cframe = {0,0,0, 1,0,0, 0,1,0, 0,0,1} }
-            rawFurniture = testFurniture
-            -- 🛑 ============================================ 🛑
 
             for uniqueId, itemData in pairs(rawFurniture) do
                 local isBuyable = true
