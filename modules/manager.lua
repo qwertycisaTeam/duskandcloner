@@ -224,32 +224,49 @@ function Module:Init(Library, Window, Tab)
             
             local rawFurniture = targetData.house_interior.furniture
             local parsedFurniture = {}
+            local skippedItems = {}
+            local skippedTotal = 0
             local count = 0
             
-            for uniqueId, itemData in pairs(rawFurniture) do
-                count = count + 1
-                local formattedCFrame = {}
-                if typeof(itemData.cframe) == "CFrame" then
-                    formattedCFrame = {itemData.cframe:GetComponents()}
-                elseif type(itemData.cframe) == "table" then
-                    formattedCFrame = itemData.cframe
+            local unbuyableDB = {}
+            pcall(function()
+                if isfile("AdoptMe_UnbuyableFurniture.json") then
+                    unbuyableDB = HttpService:JSONDecode(readfile("AdoptMe_UnbuyableFurniture.json"))
                 end
+            end)
             
-                local formattedColors = {}
-                if type(itemData.colors) == "table" then
-                    for _, color in ipairs(itemData.colors) do
-                        if typeof(color) == "Color3" then
-                            table.insert(formattedColors, {color.R, color.G, color.B})
+            for uniqueId, itemData in pairs(rawFurniture) do
+                local dbInfo = unbuyableDB[itemData.id]
+                
+                if dbInfo then
+                    local itemName = dbInfo.name or itemData.id
+                    skippedItems[itemName] = (skippedItems[itemName] or 0) + 1
+                    skippedTotal = skippedTotal + 1
+                else
+                    count = count + 1
+                    local formattedCFrame = {}
+                    if typeof(itemData.cframe) == "CFrame" then
+                        formattedCFrame = {itemData.cframe:GetComponents()}
+                    elseif type(itemData.cframe) == "table" then
+                        formattedCFrame = itemData.cframe
+                    end
+                
+                    local formattedColors = {}
+                    if type(itemData.colors) == "table" then
+                        for _, color in ipairs(itemData.colors) do
+                            if typeof(color) == "Color3" then
+                                table.insert(formattedColors, {color.R, color.G, color.B})
+                            end
                         end
                     end
+                
+                    table.insert(parsedFurniture, {
+                        id = itemData.id,
+                        cframe = formattedCFrame,
+                        scale = itemData.scale or 1,
+                        colors = formattedColors
+                    })
                 end
-            
-                table.insert(parsedFurniture, {
-                    id = itemData.id,
-                    cframe = formattedCFrame,
-                    scale = itemData.scale or 1,
-                    colors = formattedColors
-                })
             end
 
             local parsedTextures = {}
@@ -301,16 +318,35 @@ function Module:Init(Library, Window, Tab)
             local newFileName = "AdoptMeHouse_" .. os.date("%H%M%S")
             self:SaveHouse(newFileName, saveData)
             
-            self:RefreshList()
-            -- ДОБАВИТЬ ЭТО: Автоматически закидываем и выбираем дом в main.lua
             if getgenv().AutoSelectNewHouse then
                 getgenv().AutoSelectNewHouse(newFileName)
             end
-            
             self:RefreshList()
-            Library:Notify("Success!", "House exported as " .. newFileName, 3, "rbxassetid://91727514118912", "rbxassetid://72958619361915")
+            
+            -- ВЫВОД РЕЗУЛЬТАТОВ ОБ ОТСЕЯННЫХ ПРЕДМЕТАХ
+            if skippedTotal > 0 then
+                warn("======== [HOUSE PARSER: SKIPPED ITEMS] ========")
+                local notifyText = "Skipped " .. skippedTotal .. " event items:\n"
+                local i = 0
+                
+                for itemName, amt in pairs(skippedItems) do
+                    warn(" - " .. itemName .. " (x" .. amt .. ")")
+                    if i < 3 then
+                        notifyText = notifyText .. itemName .. " x" .. amt .. "\n"
+                    elseif i == 3 then
+                        notifyText = notifyText .. "...and more (Check F9)"
+                    end
+                    i = i + 1
+                end
+                warn("===============================================")
+                
+                Library:Notify("Partial Export", notifyText, 8, "rbxassetid://11401835376", "rbxassetid://72958619361915")
+            else
+                Library:Notify("Success!", "House exported flawlessly as " .. newFileName, 3, "rbxassetid://91727514118912", "rbxassetid://72958619361915")
+            end
         end)
     end)
+
 -- Создаем девайдер прямо внутри списка, сразу после кнопки парсера
     Tab:CreateDivider({
         Text = "HOUSE SCHEMATICS",
