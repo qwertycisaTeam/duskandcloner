@@ -228,18 +228,30 @@ function Module:Init(Library, Window, Tab)
             local skippedTotal = 0
             local count = 0
             
-            local unbuyableDB = {}
+            -- ПОДКЛЮЧАЕМ БАЗУ НАПРЯМУЮ (БЕЗ ВНЕШНИХ ФАЙЛОВ)
+            local FurnitureDB = {}
             pcall(function()
-                if isfile("AdoptMe_UnbuyableFurniture.json") then
-                    unbuyableDB = HttpService:JSONDecode(readfile("AdoptMe_UnbuyableFurniture.json"))
-                end
+                local Fsys = require(game:GetService("ReplicatedStorage"):WaitForChild("Fsys"))
+                FurnitureDB = Fsys.load("FurnitureDB")
             end)
             
             for uniqueId, itemData in pairs(rawFurniture) do
-                local dbInfo = unbuyableDB[itemData.id]
+                local isBuyable = true
+                local itemName = itemData.id
                 
-                if dbInfo then
-                    local itemName = dbInfo.name or itemData.id
+                -- Сверяем с живой базой игры
+                if type(FurnitureDB) == "table" and FurnitureDB[itemData.id] then
+                    local dbInfo = FurnitureDB[itemData.id]
+                    itemName = dbInfo.name or itemData.id
+                    
+                    -- ОТСЕВ: Лимитки, ивенты, запрещенные к покупке, или если цены НЕТ ВООБЩЕ (nil). 
+                    -- Заметь: 0 теперь разрешен (базовые фигуры и кирпичи парсятся)
+                    if dbInfo.is_limited == true or dbInfo.is_event == true or dbInfo.price == nil or dbInfo.is_buyable == false then
+                        isBuyable = false
+                    end
+                end
+                
+                if not isBuyable then
                     skippedItems[itemName] = (skippedItems[itemName] or 0) + 1
                     skippedTotal = skippedTotal + 1
                 else
@@ -268,7 +280,6 @@ function Module:Init(Library, Window, Tab)
                     })
                 end
             end
-
             local parsedTextures = {}
             local rawTextures = targetData.house_interior.textures or {}
             local textureCount = 0
