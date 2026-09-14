@@ -229,32 +229,38 @@ function Module:Init(Library, Window, Tab)
             end
             
             local rawFurniture = targetData.house_interior.furniture
-                    -- 🛑 ВРЕМЕННЫЙ КОД ДЛЯ ТЕСТА (УДАЛИ ПОСЛЕ ПРОВЕРКИ) 🛑
-            -- Создаем копию таблицы, чтобы не сломать реальный дом в игре
-            local testFurniture = {}
-            for k, v in pairs(rawFurniture) do testFurniture[k] = v end
-            
-            -- Подбрасываем 3 фейковые лимитки (1 надгробие и 2 круга)
-            testFurniture["Fake_Event_1"] = { id = "tombstone", cframe = {0,0,0, 1,0,0, 0,1,0, 0,0,1} }
-            testFurniture["Fake_Event_2"] = { id = "pool_2023_purple_inner_tube", cframe = {0,0,0, 1,0,0, 0,1,0, 0,0,1} }
-            testFurniture["Fake_Event_3"] = { id = "pool_2023_purple_inner_tube", cframe = {0,0,0, 1,0,0, 0,1,0, 0,0,1} }
-            
-            rawFurniture = testFurniture -- Подменяем оригинальную таблицу на тестовую
-            -- 🛑 КОНЕЦ ВРЕМЕННОГО КОДА 🛑
             local parsedFurniture = {}
             local skippedItems = {}
             local skippedTotal = 0
             
-            -- Проверяем кэш один раз ДО цикла
-            local dbIsValid = type(CachedFurnitureDB) == "table"
+            -- 🛑 ВРЕМЕННЫЙ КОД ДЛЯ ТЕСТА 🛑
+            local testFurniture = {}
+            for k, v in pairs(rawFurniture) do testFurniture[k] = v end
+            testFurniture["Fake_Event_1"] = { id = "tombstone", cframe = {0,0,0, 1,0,0, 0,1,0, 0,0,1} }
+            testFurniture["Fake_Event_2"] = { id = "pool_2023_purple_inner_tube", cframe = {0,0,0, 1,0,0, 0,1,0, 0,0,1} }
+            rawFurniture = testFurniture
+            -- 🛑 ===================== 🛑
+
+            -- СИНХРОННАЯ ЗАГРУЗКА БАЗЫ (без task.spawn)
+            local FurnitureDB = nil
+            pcall(function()
+                local Fsys = require(game:GetService("ReplicatedStorage"):WaitForChild("Fsys"))
+                FurnitureDB = Fsys.load("FurnitureDB")
+            end)
+            
+            -- Если база не загрузилась, скрипт об этом скажет
+            if type(FurnitureDB) ~= "table" then
+                warn("[PARSER ERROR] Не удалось вытащить FurnitureDB из памяти игры!")
+                Library:Notify("Warning", "Database failed to load! Filter is disabled.", 5, "rbxassetid://11401835376", "rbxassetid://72958619361915")
+            end
             
             for uniqueId, itemData in pairs(rawFurniture) do
                 local isBuyable = true
                 local itemName = itemData.id
                 
-                -- Быстрое обращение к кэшу
-                if dbIsValid then
-                    local dbInfo = CachedFurnitureDB[itemData.id]
+                -- Сверяем с базой, только если она успешно загрузилась
+                if type(FurnitureDB) == "table" then
+                    local dbInfo = FurnitureDB[itemData.id]
                     if dbInfo then
                         itemName = dbInfo.name or itemData.id
                         if dbInfo.is_limited or dbInfo.is_event or dbInfo.is_buyable == false then
@@ -267,10 +273,8 @@ function Module:Init(Library, Window, Tab)
                     skippedItems[itemName] = (skippedItems[itemName] or 0) + 1
                     skippedTotal = skippedTotal + 1
                 else
-                    -- Быстрый парсинг CFrame
                     local formattedCFrame = typeof(itemData.cframe) == "CFrame" and {itemData.cframe:GetComponents()} or itemData.cframe
                 
-                    -- Быстрая сборка массива цветов
                     local formattedColors = {}
                     if type(itemData.colors) == "table" then
                         for i, color in ipairs(itemData.colors) do
@@ -280,7 +284,6 @@ function Module:Init(Library, Window, Tab)
                         end
                     end
                 
-                    -- Оптимизированная вставка в таблицу
                     parsedFurniture[#parsedFurniture + 1] = {
                         id = itemData.id,
                         cframe = formattedCFrame,
