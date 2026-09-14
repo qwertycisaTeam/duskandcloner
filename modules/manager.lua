@@ -264,9 +264,27 @@ function Module:Init(Library, Window, Tab)
                 textureCount = textureCount + 1
             end
 
+            -- 1. ЛОКАЛЬНАЯ ФУНКЦИЯ КОНВЕРТАЦИИ ЦВЕТОВ
+            local function formatAmbianceColors(tbl)
+                local formatted = {}
+                for k, v in pairs(tbl) do
+                    if typeof(v) == "Color3" then
+                        formatted[k] = {v.R, v.G, v.B}
+                    elseif type(v) == "table" then
+                        formatted[k] = formatAmbianceColors(v)
+                    else
+                        formatted[k] = v
+                    end
+                end
+                return formatted
+            end
+
             local rawAmbiance = targetData.house_interior.ambiance or {}
-            local parsedParticles = {}
             
+            -- 2. ПАРСИМ ЦВЕТА АТМОСФЕРЫ ПЕРЕД СОХРАНЕНИЕМ
+            local parsedAmbiance = formatAmbianceColors(rawAmbiance) 
+            
+            local parsedParticles = {}
             if rawAmbiance.custom_props and type(rawAmbiance.custom_props.Custom) == "table" then
                 for k, v in pairs(rawAmbiance.custom_props.Custom) do
                     parsedParticles[k] = v
@@ -276,7 +294,7 @@ function Module:Init(Library, Window, Tab)
             local saveData = {
                 furniture = parsedFurniture,
                 textures = parsedTextures,  
-                ambiance = rawAmbiance,     
+                ambiance = parsedAmbiance, -- 3. СОХРАНЯЕМ ИСПРАВЛЕННУЮ АТМОСФЕРУ
                 particles = parsedParticles 
             }
             
