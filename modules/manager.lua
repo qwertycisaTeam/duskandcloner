@@ -206,19 +206,17 @@ function Module:Init(Library, Window, Tab)
     end)
     
     Library:Connect(ParseBtn.MouseButton1Click, function()
-            local t = Library.Utils.TBT(ParseScale, 0.1, {Scale = 0.95})
-            t.Completed:Connect(function() Library.Utils.TBT(ParseScale, 0.2, {Scale = 1}, Enum.EasingStyle.Bounce) end)
+        local t = Library.Utils.TBT(ParseScale, 0.1, {Scale = 0.95})
+        t.Completed:Connect(function() Library.Utils.TBT(ParseScale, 0.2, {Scale = 1}, Enum.EasingStyle.Bounce) end)
+        
+        task.spawn(function()
+            -- 🚨 1. ЖЕСТКАЯ ПРОВЕРКА НА ИНТЕРЬЕР 🚨
+            local camY = workspace.CurrentCamera.CFrame.Position.Y
+            local blueprint = workspace:FindFirstChild("HouseInteriors") and workspace.HouseInteriors:FindFirstChild("blueprint")
             
-            task.spawn(function()
-                -- 🚨 ЖЕСТКАЯ ПРОВЕРКА НА ИНТЕРЬЕР 🚨
-                local camY = workspace.CurrentCamera.CFrame.Position.Y
-                local blueprint = workspace:FindFirstChild("HouseInteriors") and workspace.HouseInteriors:FindFirstChild("blueprint")
-                
-                -- Дом находится на высоте ~4000. Мейн остров - 50. Лужайка - 9500+.
-                -- Проверяем, что мы в нужном "коридоре" высоты И стены дома существуют.
-                if camY < 500 or camY > 8500 or not blueprint or #blueprint:GetChildren() == 0 then
-                    return Library:Notify("Error", "Go inside the house! You can't scan outside.", 3, "rbxassetid://73186275216515", "rbxassetid://72958619361915")
-                end
+            if camY < 500 or camY > 8500 or not blueprint or #blueprint:GetChildren() == 0 then
+                return Library:Notify("Error", "Go inside the house! You can't scan outside.", 3, "rbxassetid://73186275216515", "rbxassetid://72958619361915")
+            end
 
             local data = getgenv().DuskCore.M.ClientData.get_data()
             local TARGET_OWNER = Players.LocalPlayer.Name 
@@ -228,44 +226,39 @@ function Module:Init(Library, Window, Tab)
                 return Library:Notify("Error", "Interior data not found or empty!", 3, "rbxassetid://73186275216515", "rbxassetid://72958619361915")
             end
             
+            -- 🛠️ 2. ПАРСИНГ МЕБЕЛИ С УМНЫМ ФИЛЬТРОМ 🛠️
             local rawFurniture = targetData.house_interior.furniture
             local parsedFurniture = {}
             local skippedItems = {}
             local skippedTotal = 0
+            local count = 0
             
-            -- 🛑 ВРЕМЕННЫЙ КОД ДЛЯ ТЕСТА 🛑
+            -- Достаем саму подтаблицу с предметами из памяти игры
+            local itemsTable = {}
+            pcall(function()
+                local Fsys = require(game:GetService("ReplicatedStorage"):WaitForChild("Fsys"))
+                local FurnitureDB = Fsys.load("FurnitureDB")
+                itemsTable = FurnitureDB.entries or FurnitureDB.items or FurnitureDB
+            end)
+            
+            -- 🛑 ВРЕМЕННЫЙ КОД ДЛЯ ТЕСТА (Подбрасываем фейки) 🛑
             local testFurniture = {}
             for k, v in pairs(rawFurniture) do testFurniture[k] = v end
             testFurniture["Fake_Event_1"] = { id = "tombstone", cframe = {0,0,0, 1,0,0, 0,1,0, 0,0,1} }
             testFurniture["Fake_Event_2"] = { id = "pool_2023_purple_inner_tube", cframe = {0,0,0, 1,0,0, 0,1,0, 0,0,1} }
             rawFurniture = testFurniture
-            -- 🛑 ===================== 🛑
+            -- 🛑 ============================================ 🛑
 
-            -- СИНХРОННАЯ ЗАГРУЗКА БАЗЫ (без task.spawn)
-            local FurnitureDB = nil
-            pcall(function()
-                local Fsys = require(game:GetService("ReplicatedStorage"):WaitForChild("Fsys"))
-                FurnitureDB = Fsys.load("FurnitureDB")
-            end)
-            
-            -- Если база не загрузилась, скрипт об этом скажет
-            if type(FurnitureDB) ~= "table" then
-                warn("[PARSER ERROR] Не удалось вытащить FurnitureDB из памяти игры!")
-                Library:Notify("Warning", "Database failed to load! Filter is disabled.", 5, "rbxassetid://11401835376", "rbxassetid://72958619361915")
-            end
-            
             for uniqueId, itemData in pairs(rawFurniture) do
                 local isBuyable = true
                 local itemName = itemData.id
                 
-                -- Сверяем с базой, только если она успешно загрузилась
-                if type(FurnitureDB) == "table" then
-                    local dbInfo = FurnitureDB[itemData.id]
-                    if dbInfo then
-                        itemName = dbInfo.name or itemData.id
-                        if dbInfo.is_limited or dbInfo.is_event or dbInfo.is_buyable == false then
-                            isBuyable = false
-                        end
+                local dbInfo = itemsTable[itemData.id]
+                if dbInfo then
+                    itemName = dbInfo.name or itemData.id
+                    -- Бан только по официальным флагам, блоки и стены не трогаем
+                    if dbInfo.is_limited or dbInfo.is_event or dbInfo.is_buyable == false then
+                        isBuyable = false
                     end
                 end
                 
@@ -273,38 +266,35 @@ function Module:Init(Library, Window, Tab)
                     skippedItems[itemName] = (skippedItems[itemName] or 0) + 1
                     skippedTotal = skippedTotal + 1
                 else
+                    count = count + 1
                     local formattedCFrame = typeof(itemData.cframe) == "CFrame" and {itemData.cframe:GetComponents()} or itemData.cframe
                 
                     local formattedColors = {}
                     if type(itemData.colors) == "table" then
-                        for i, color in ipairs(itemData.colors) do
+                        for _, color in ipairs(itemData.colors) do
                             if typeof(color) == "Color3" then
-                                formattedColors[i] = {color.R, color.G, color.B}
+                                table.insert(formattedColors, {color.R, color.G, color.B})
                             end
                         end
                     end
                 
-                    parsedFurniture[#parsedFurniture + 1] = {
+                    table.insert(parsedFurniture, {
                         id = itemData.id,
                         cframe = formattedCFrame,
                         scale = itemData.scale or 1,
                         colors = formattedColors
-                    }
+                    })
                 end
             end
+
+            -- 🎨 3. ПАРСИНГ ТЕКСТУР И ОБОЕВ 🎨
             local parsedTextures = {}
             local rawTextures = targetData.house_interior.textures or {}
-            local textureCount = 0
-            
             for roomName, roomData in pairs(rawTextures) do
-                parsedTextures[roomName] = {
-                    floors = roomData.floors or "",
-                    walls = roomData.walls or ""
-                }
-                textureCount = textureCount + 1
+                parsedTextures[roomName] = { floors = roomData.floors or "", walls = roomData.walls or "" }
             end
 
-            -- 1. ЛОКАЛЬНАЯ ФУНКЦИЯ КОНВЕРТАЦИИ ЦВЕТОВ
+            -- ☁️ 4. ФИКС И ПАРСИНГ АТМОСФЕРЫ ☁️
             local function formatAmbianceColors(tbl)
                 local formatted = {}
                 for k, v in pairs(tbl) do
@@ -320,8 +310,6 @@ function Module:Init(Library, Window, Tab)
             end
 
             local rawAmbiance = targetData.house_interior.ambiance or {}
-            
-            -- 2. ПАРСИМ ЦВЕТА АТМОСФЕРЫ ПЕРЕД СОХРАНЕНИЕМ
             local parsedAmbiance = formatAmbianceColors(rawAmbiance) 
             
             local parsedParticles = {}
@@ -331,10 +319,11 @@ function Module:Init(Library, Window, Tab)
                 end
             end
             
+            -- 💾 5. СОХРАНЕНИЕ И ВЫВОД ИТОГОВ 💾
             local saveData = {
                 furniture = parsedFurniture,
                 textures = parsedTextures,  
-                ambiance = parsedAmbiance, -- 3. СОХРАНЯЕМ ИСПРАВЛЕННУЮ АТМОСФЕРУ
+                ambiance = parsedAmbiance,
                 particles = parsedParticles 
             }
             
@@ -346,7 +335,6 @@ function Module:Init(Library, Window, Tab)
             end
             self:RefreshList()
             
-            -- ВЫВОД РЕЗУЛЬТАТОВ ОБ ОТСЕЯННЫХ ПРЕДМЕТАХ
             if skippedTotal > 0 then
                 warn("======== [HOUSE PARSER: SKIPPED ITEMS] ========")
                 local notifyText = "Skipped " .. skippedTotal .. " event items:\n"
