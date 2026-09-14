@@ -493,13 +493,26 @@ function Module:CreateFileCard(fileName)
         })
         Library:Connect(self.ClickCatcher.MouseButton1Click, CloseDropdown)
 
+        -- ==== ДИНАМИЧЕСКАЯ ПОЗИЦИЯ МЕНЮ ====
+        local dropHeight = 152
+        local page = self.Tab.Page
+        local pageBottom = page.AbsolutePosition.Y + page.AbsoluteSize.Y
+        local dropBottom = Card.AbsolutePosition.Y + 30 + dropHeight
+        
+        -- Если меню уходит за нижнюю границу страницы, открываем его ВВЕРХ
+        local openUpwards = dropBottom > (pageBottom - 10)
+        local targetAnchor = openUpwards and Vector2.new(0, 1) or Vector2.new(0, 0)
+        local targetY = openUpwards and -5 or 30
+
         local Dropdown = Library.Utils.Make("Frame", { 
-            Size = UDim2.new(0, 160, 0, 152),
+            Size = UDim2.new(0, 160, 0, dropHeight),
             BackgroundTransparency = 1,
             ZIndex = 1000, 
-            Position = UDim2.new(1, -172, 0, 30), 
+            AnchorPoint = targetAnchor,
+            Position = UDim2.new(1, -172, 0, targetY), 
             Parent = Card 
         }, { BackgroundColor3 = "Sidebar" })
+        -- =====================================
         
         Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 8), Parent = Dropdown })
         Library.Utils.Make("UIStroke", { Name = "DropStroke", Thickness = 1, Transparency = 1, Parent = Dropdown }, { Color = "Stroke" })
