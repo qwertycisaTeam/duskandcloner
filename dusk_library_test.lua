@@ -319,8 +319,15 @@ function Library:CreateWindow(config)
     })
     Library.Utils.Make("UIListLayout", { HorizontalAlignment = "Right", VerticalAlignment = "Bottom", Padding = UDim.new(0, 5), Parent = NotifyHolder })
 
-    local BaseScale = (getgenv().UIScaleSize or 125) / 125
-    local MainUIScale = Library.Utils.Make("UIScale", { Parent = ScreenGui, Scale = BaseScale })
+    -- Сразу берем актуальный масштаб из памяти (или 1 по умолчанию, то есть 100%)
+    local currentSavedScale = getgenv().UIScaleSize or 100
+    local MainUIScale = Library.Utils.Make("UIScale", { Parent = ScreenGui, Scale = currentSavedScale / 100 })
+
+    Library:Connect(Camera:GetPropertyChangedSignal("ViewportSize"), function()
+        local Viewport = Camera.ViewportSize
+        local scaleFactor = (getgenv().UIScaleSize or 100) / 100
+        MainUIScale.Scale = Viewport.X < 700 and (scaleFactor * (Viewport.X / 700)) or scaleFactor
+    end)
 
     Library:Connect(Camera:GetPropertyChangedSignal("ViewportSize"), function()
         local Viewport = Camera.ViewportSize
