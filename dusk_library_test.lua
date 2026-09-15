@@ -864,7 +864,10 @@ function Library:CreateWindow(config)
 
             Library.ConfigUpdaters[flag] = function(val) SetState(val) end
             Library:Connect(Sw.MouseButton1Click, function() SetState(not Library.Flags[flag]) end)
-            
+            -- ЭТОТ БЛОК НУЖНО ДОБАВИТЬ: Запускаем логику при спавне кнопки!
+            task.spawn(function()
+                pcall(callback, Library.Flags[flag])
+            end)
             return { 
                 Container = F, -- Возвращаем САМ ФРЕЙМ для полного хардкора (см. Уровень 2)
                 SetState = SetState,
