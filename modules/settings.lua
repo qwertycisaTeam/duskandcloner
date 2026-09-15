@@ -248,12 +248,19 @@ function Module:Init(Library, Window, Tab)
             end
         end)
 
-        Library:Connect(Btn.MouseButton1Click, function()
+       Library:Connect(Btn.MouseButton1Click, function()
             getgenv().CloserType = opt
             
             -- Плавно перекрашиваем тексты всех кнопок
             for name, button in pairs(closerBtns) do
                 local active = (name == opt)
+                
+                -- 🔥 ФИКС: Обновляем привязку к теме в ядре библиотеки!
+                -- Теперь библиотека навсегда запомнит, какая кнопка реально активна.
+                if Library.ThemeObjects[button] then
+                    Library.ThemeObjects[button].TextColor3 = active and "Accent" or "SubText"
+                end
+                
                 TweenService:Create(button, TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
                     TextColor3 = active and Library.CurrentTheme.Accent or Library.CurrentTheme.SubText
                 }):Play()
