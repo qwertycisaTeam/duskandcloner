@@ -770,16 +770,21 @@ function Library:CreateWindow(config)
             return F
         end
 
-        function Tab:CreateToggle(config)
+       function Tab:CreateToggle(config)
             config = config or {}
             local title = config.Name or "Toggle"
             local desc = config.Description or ""
-            local default = config.Default or false
             local flag = config.Flag or title:gsub("%s+", "")
-            local callback = config.Callback or function() end
             
-            -- КАСТОМНЫЙ АРГУМЕНТ: Функция для шестеренки
-            local settingsCallback = config.Settings 
+            -- ФИКС 1: Защита от перезаписи. Читаем флаг, если он уже загружен автосейвом
+            local default = Library.Flags[flag]
+            if default == nil then 
+                default = (config.Default ~= nil) and config.Default or false 
+            end
+            Library.Flags[flag] = default
+        
+            local callback = config.Callback or function() end
+            local settingsCallback = config.Settings
 
             Library.Flags[flag] = default
 
@@ -845,6 +850,14 @@ function Library:CreateWindow(config)
                 
                 Library.Utils.TBT(Sw, 0.25, {BackgroundColor3 = tCol})
                 Library.Utils.TBT(Kn, 0.25, {Position = newState and OnP or OffP})
+                
+                -- ФИКС 2: Добавляем градиент при включении и убиваем при выключении
+                if newState then
+                    Library.Utils.ApplyGradient(Sw, Library.CurrentTheme.Accent)
+                else
+                    local grad = Sw:FindFirstChild("DuskShine_Gradient")
+                    if grad then grad:Destroy() end
+                end
                 
                 pcall(callback, newState)
             end
