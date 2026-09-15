@@ -278,7 +278,8 @@ function Module:Init(Library, Window, Tab)
     Tab:CreateUIXPanel({
         Min = 25, 
         Max = safeMaxScale,
-        DefaultScale = math.clamp(getgenv().UIScaleSize or 50, 25, safeMaxScale),
+        -- Принудительно берем из getgenv, а если там пусто — из флагов библиотеки, и только потом дефолт 100
+        DefaultScale = getgenv().UIScaleSize or Library.Flags["UIScaleSize"] or 100,
         ScaleFlag = "UIScaleSize",
         ScaleCallback = function(val)
             getgenv().UIScaleSize = val
