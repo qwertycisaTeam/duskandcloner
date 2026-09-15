@@ -776,9 +776,6 @@ function Library:CreateWindow(config)
             local desc = config.Description or ""
             local default = config.Default or false
             local flag = config.Flag or title:gsub("%s+", "")
-            
-            -- ФИКС: Считываем из кэша, если конфиг уже загрузился
-            if Library.Flags[flag] ~= nil then default = Library.Flags[flag] else Library.Flags[flag] = default end
             local callback = config.Callback or function() end
             
             -- КАСТОМНЫЙ АРГУМЕНТ: Функция для шестеренки
@@ -840,38 +837,17 @@ function Library:CreateWindow(config)
             end
 
             local function SetState(newState)
+                if Library.Flags[flag] == newState then return end
                 Library.Flags[flag] = newState
                 
-                if Library.ThemeObjects[Sw] then
-                    Library.ThemeObjects[Sw]["BackgroundColor3"] = newState and "Accent" or "ToggleOff"
-                end
-                
+                Library.ThemeObjects[Sw]["BackgroundColor3"] = newState and "Accent" or "ToggleOff"
                 local tCol = newState and Library.CurrentTheme.Accent or Library.CurrentTheme.ToggleOff
+                
                 Library.Utils.TBT(Sw, 0.25, {BackgroundColor3 = tCol})
                 Library.Utils.TBT(Kn, 0.25, {Position = newState and OnP or OffP})
                 
-                -- Динамическое управление градиентом при переключении
-                local grad = Sw:FindFirstChild("DuskShine_Gradient")
-                if newState then
-                    if not grad then
-                        Library.Utils.ApplyGradient(Sw, Library.CurrentTheme.Accent)
-                    else
-                        grad.Enabled = true
-                        Library.Utils.ApplyGradient(Sw, Library.CurrentTheme.Accent)
-                    end
-                else
-                    if grad then
-                        grad.Enabled = false
-                    end
-                end
-                
-                if F then
-                    Library.Utils.TBT(F, 0.25, {BackgroundTransparency = getgenv().TransparentUI and 0.3 or 0})
-                end
-                
                 pcall(callback, newState)
             end
-
 
             Library.ConfigUpdaters[flag] = function(val) SetState(val) end
             Library:Connect(Sw.MouseButton1Click, function() SetState(not Library.Flags[flag]) end)
@@ -963,11 +939,11 @@ function Library:CreateWindow(config)
 
         function Tab:CreateSlider(config)
             config = config or {}
+            local title = config.Name or "Slider"
             local min = config.Min or 0
             local max = config.Max or 100
             local default = config.Default or min
             local flag = config.Flag or title:gsub("%s+", "")
-            if Library.Flags[flag] ~= nil then default = Library.Flags[flag] else Library.Flags[flag] = default end
             local callback = config.Callback or function() end
 
             Library.Flags[flag] = default
@@ -1072,7 +1048,6 @@ function Library:CreateWindow(config)
             local options = config.Options or {}
             local default = config.Default or options[1] or "Select..."
             local flag = config.Flag or title:gsub("%s+", "")
-            if Library.Flags[flag] ~= nil then default = Library.Flags[flag] else Library.Flags[flag] = default end
             local callback = config.Callback or function() end
 
             Library.Flags[flag] = default
@@ -1157,7 +1132,6 @@ function Library:CreateWindow(config)
             local title = config.Name or "Keybind"
             local default = config.Default or Enum.KeyCode.Unknown
             local flag = config.Flag or title:gsub("%s+", "")
-            if Library.Flags[flag] ~= nil then default = Library.Flags[flag] else Library.Flags[flag] = default end
             local callback = config.Callback or function() end
 
             Library.Flags[flag] = default
@@ -1227,12 +1201,10 @@ function Library:CreateWindow(config)
             local max = config.Max or 175
             local defaultScale = config.DefaultScale or 50
             local scaleFlag = config.ScaleFlag or "UIScaleSize"
-            local defaultScale = config.DefaultScale or 50
-            if Library.Flags[scaleFlag] ~= nil then defaultScale = Library.Flags[scaleFlag] else Library.Flags[scaleFlag] = defaultScale end
+            local scaleCallback = config.ScaleCallback or function() end
 
-            local colorFlag = config.ColorFlag or "ThemeAccent"
             local defaultColor = config.DefaultColor or Color3.new(1, 1, 1)
-            if Library.Flags[colorFlag] ~= nil then defaultColor = Library.Flags[colorFlag] else Library.Flags[colorFlag] = defaultColor end
+            local colorFlag = config.ColorFlag or "ThemeAccent"
             local colorCallback = config.ColorCallback or function() end
 
             Library.Flags[scaleFlag] = defaultScale
@@ -1399,7 +1371,6 @@ function Library:CreateWindow(config)
             local placeholder = config.Placeholder or "Type here..."
             local default = config.Default or ""
             local flag = config.Flag or title:gsub("%s+", "")
-            if Library.Flags[flag] ~= nil then default = Library.Flags[flag] else Library.Flags[flag] = default end
             local clearOnFocus = config.ClearTextOnFocus or false
             local callback = config.Callback or function() end
 
@@ -1761,24 +1732,14 @@ function Library:CreateWindow(config)
 
             -- Логика самого Тоггла
             local function SetState(newState)
+                if Library.Flags[flag .. "_State"] == newState then return end
                 Library.Flags[flag .. "_State"] = newState
                 
-                if Library.ThemeObjects[Sw] then
-                    Library.ThemeObjects[Sw]["BackgroundColor3"] = newState and "Accent" or "ToggleOff"
-                end
-                
-                local tCol = newState and Library.CurrentTheme.Accent or Library.CurrentTheme.ToggleOff
-                Library.Utils.TBT(Sw, 0.25, {BackgroundColor3 = tCol})
+                Library.ThemeObjects[Sw]["BackgroundColor3"] = newState and "Accent" or "ToggleOff"
+                Library.Utils.TBT(Sw, 0.25, {BackgroundColor3 = newState and Library.CurrentTheme.Accent or Library.CurrentTheme.ToggleOff})
                 Library.Utils.TBT(Kn, 0.25, {Position = newState and OnP or OffP})
-                
-                -- Гарантируем стабильную прозрачность для контейнера модального тоггла
-                if F then
-                    Library.Utils.TBT(F, 0.25, {BackgroundTransparency = getgenv().TransparentUI and 0.2 or 0})
-                end
-                
                 pcall(toggleCallback, newState)
             end
-
             Library.ConfigUpdaters[flag .. "_State"] = function(val) SetState(val) end
             Library:Connect(Sw.MouseButton1Click, function() SetState(not Library.Flags[flag .. "_State"]) end)
             
