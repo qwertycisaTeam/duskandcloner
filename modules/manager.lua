@@ -230,15 +230,19 @@ function Module:Init(Library, Window, Tab)
             
             local rawFurniture = targetData.house_interior.furniture
             local parsedFurniture = {}
-            local skippedItems = {}
-            local skippedTotal = 0
+            local warnedItems = {}
+            local warnedTotal = 0
             
             -- Проверяем кэш один раз ДО цикла
             local dbIsValid = type(CachedFurnitureDB) == "table"
-            
+            -- 🧪 ВРЕМЕННЫЙ ТЕСТ (УДАЛИ ПОСЛЕ ПРОВЕРКИ) 🧪
+            rawFurniture["test_item_1"] = { id = "basicbed", cframe = {0,0,0,1,0,0,0,1,0,0,0,1} } -- Пройдет тихо
+            rawFurniture["test_item_2"] = { id = "driftwood_chair", cframe = {0,0,0,1,0,0,0,1,0,0,0,1} } -- Напишет: Limited/Event
+            rawFurniture["test_item_3"] = { id = "fake_item_999", cframe = {0,0,0,1,0,0,0,1,0,0,0,1} } -- Напишет: Not in FurnitureDB
             for uniqueId, itemData in pairs(rawFurniture) do
-                local isBuyable = true
                 local itemName = itemData.id
+                local isSuspicious = false
+                local warningReason = ""
                 
                 -- Быстрое обращение к кэшу
                 if dbIsValid then
@@ -246,50 +250,60 @@ function Module:Init(Library, Window, Tab)
                     if dbInfo then
                         itemName = dbInfo.name or itemData.id
                         if dbInfo.is_limited or dbInfo.is_event or dbInfo.is_buyable == false then
-                            isBuyable = false
+                            isSuspicious = true
+                            warningReason = "Limited/Event"
                         end
+                    else
+                        -- Предмета вообще нет в базе игры (кусок карты или удаленная вещь)
+                        isSuspicious = true
+                        warningReason = "Not in FurnitureDB"
                     end
                 end
                 
-                if not isBuyable then
-                    skippedItems[itemName] = (skippedItems[itemName] or 0) + 1
-                    skippedTotal = skippedTotal + 1
-                else
-                    -- Быстрый парсинг CFrame
-                    local formattedCFrame = typeof(itemData.cframe) == "CFrame" and {itemData.cframe:GetComponents()} or itemData.cframe
+                -- Если предмет подозрительный, закидываем в список для логов
+                if isSuspicious then
+                    local logKey = itemName .. " [" .. warningReason .. "]"
+                    warnedItems[logKey] = (warnedItems[logKey] or 0) + 1
+                    warnedTotal = warnedTotal + 1
+                end
                 
-                    -- Быстрая сборка массива цветов
-                    local formattedColors = {}
-                    if type(itemData.colors) == "table" then
-                        for i, color in ipairs(itemData.colors) do
-                            if typeof(color) == "Color3" then
-                                formattedColors[i] = {color.R, color.G, color.B}
-                            end
+                -- 🔥 ВАЖНО: МЫ СОХРАНЯЕМ В ФАЙЛ ВООБЩЕ ВСЁ, ДАЖЕ ЛИМИТКИ 🔥
+                -- Быстрый парсинг CFrame
+                local formattedCFrame = typeof(itemData.cframe) == "CFrame" and {itemData.cframe:GetComponents()} or itemData.cframe
+            
+                -- Быстрая сборка массива цветов
+                local formattedColors = {}
+                if type(itemData.colors) == "table" then
+                    for i, color in ipairs(itemData.colors) do
+                        if typeof(color) == "Color3" then
+                            formattedColors[i] = {color.R, color.G, color.B}
+                        elseif type(color) == "table" then
+                            formattedColors[i] = color
                         end
                     end
-                
-                    -- Оптимизированная вставка в таблицу
-                    parsedFurniture[#parsedFurniture + 1] = {
-                        id = itemData.id,
-                        cframe = formattedCFrame,
-                        scale = itemData.scale or 1,
-                        colors = formattedColors
-                    }
                 end
+            
+                -- Оптимизированная вставка в таблицу
+                parsedFurniture[#parsedFurniture + 1] = {
+                    id = itemData.id,
+                    cframe = formattedCFrame,
+                    scale = itemData.scale or 1,
+                    colors = formattedColors
+                }
             end
+
+            -- 🎨 ПАРСИНГ ТЕКСТУР И ОБОЕВ
             local parsedTextures = {}
             local rawTextures = targetData.house_interior.textures or {}
-            local textureCount = 0
             
             for roomName, roomData in pairs(rawTextures) do
                 parsedTextures[roomName] = {
                     floors = roomData.floors or "",
                     walls = roomData.walls or ""
                 }
-                textureCount = textureCount + 1
             end
 
-            -- 1. ЛОКАЛЬНАЯ ФУНКЦИЯ КОНВЕРТАЦИИ ЦВЕТОВ
+            -- ☁️ ЛОКАЛЬНАЯ ФУНКЦИЯ КОНВЕРТАЦИИ ЦВЕТОВ
             local function formatAmbianceColors(tbl)
                 local formatted = {}
                 for k, v in pairs(tbl) do
@@ -305,8 +319,6 @@ function Module:Init(Library, Window, Tab)
             end
 
             local rawAmbiance = targetData.house_interior.ambiance or {}
-            
-            -- 2. ПАРСИМ ЦВЕТА АТМОСФЕРЫ ПЕРЕД СОХРАНЕНИЕМ
             local parsedAmbiance = formatAmbianceColors(rawAmbiance) 
             
             local parsedParticles = {}
@@ -316,10 +328,11 @@ function Module:Init(Library, Window, Tab)
                 end
             end
             
+            -- 💾 СОХРАНЕНИЕ
             local saveData = {
                 furniture = parsedFurniture,
                 textures = parsedTextures,  
-                ambiance = parsedAmbiance, -- 3. СОХРАНЯЕМ ИСПРАВЛЕННУЮ АТМОСФЕРУ
+                ambiance = parsedAmbiance,
                 particles = parsedParticles 
             }
             
@@ -331,16 +344,17 @@ function Module:Init(Library, Window, Tab)
             end
             self:RefreshList()
             
-            -- ВЫВОД РЕЗУЛЬТАТОВ ОБ ОТСЕЯННЫХ ПРЕДМЕТАХ
-            if skippedTotal > 0 then
-                warn("======== [HOUSE PARSER: SKIPPED ITEMS] ========")
-                local notifyText = "Skipped " .. skippedTotal .. " event items:\n"
+            -- === ВЫВОД РЕЗУЛЬТАТОВ (ОН СОХРАНИЛ ВСЁ, НО ПРЕДУПРЕДИТ) ===
+            if warnedTotal > 0 then
+                warn("======== [HOUSE PARSER: WARNING ITEMS] ========")
+                warn("Exported ALL items, but found items that might not build:")
+                local notifyText = "Exported ALL, but " .. warnedTotal .. " items might be unbuyable:\n"
                 local i = 0
                 
-                for itemName, amt in pairs(skippedItems) do
-                    warn(" - " .. itemName .. " (x" .. amt .. ")")
+                for logKey, amt in pairs(warnedItems) do
+                    warn(" - " .. logKey .. " (x" .. amt .. ")")
                     if i < 3 then
-                        notifyText = notifyText .. itemName .. " x" .. amt .. "\n"
+                        notifyText = notifyText .. logKey .. " x" .. amt .. "\n"
                     elseif i == 3 then
                         notifyText = notifyText .. "...and more (Check F9)"
                     end
@@ -348,7 +362,8 @@ function Module:Init(Library, Window, Tab)
                 end
                 warn("===============================================")
                 
-                Library:Notify("Partial Export", notifyText, 8, "rbxassetid://11401835376", "rbxassetid://72958619361915")
+                -- Выводим желтое предупреждение. Дом сохранен 100%, но юзер в курсе лимиток!
+                Library:Notify("Exported With Warnings", notifyText, 8, "rbxassetid://11401835376", "rbxassetid://72958619361915")
             else
                 Library:Notify("Success!", "House exported flawlessly as " .. newFileName, 3, "rbxassetid://91727514118912", "rbxassetid://72958619361915")
             end
