@@ -1388,13 +1388,32 @@ function Library:CreateWindow(config)
 
             Library.ConfigUpdaters[scaleFlag] = UpdateScaleVisuals
             Library.ConfigUpdaters[colorFlag] = function(color)
-                Library.Flags[colorFlag] = color
-                ColorPreview.BackgroundColor3 = color
-                local hC = color:ToHSV()
-                Selector.Position = UDim2.new(hC, 0, 0.5, 0)
-                pcall(colorCallback, color)
+                if typeof(color) == "Color3" then
+                    Library.Flags[colorFlag] = color
+                    ColorPreview.BackgroundColor3 = color
+                    local hC = color:ToHSV()
+                    Selector.Position = UDim2.new(hC, 0, 0.5, 0)
+                    pcall(colorCallback, color)
+                end
             end
-            
+
+            -- === ТВОЙ ФИКС С TASK.SPAWN (Адаптированный под визуал) ===
+            task.spawn(function()
+                -- 1. Двигаем ползунок масштаба и вызываем колбэк
+                if Library.Flags[scaleFlag] then
+                    UpdateScaleVisuals(Library.Flags[scaleFlag])
+                end
+                
+                -- 2. Обновляем позицию на палитре цветов и вызываем колбэк
+                if Library.Flags[colorFlag] then
+                    local c = Library.Flags[colorFlag]
+                    ColorPreview.BackgroundColor3 = c
+                    local hC = c:ToHSV()
+                    Selector.Position = UDim2.new(hC, 0, 0.5, 0)
+                    pcall(colorCallback, c)
+                end
+            end)
+
             return { Container = F }
         end
 
