@@ -235,10 +235,21 @@ function Module:Init(Library, Window, Tab)
             
             -- Проверяем кэш один раз ДО цикла
             local dbIsValid = type(CachedFurnitureDB) == "table"
-            -- 🧪 ВРЕМЕННЫЙ ТЕСТ (УДАЛИ ПОСЛЕ ПРОВЕРКИ) 🧪
-            rawFurniture["test_item_1"] = { id = "basicbed", cframe = {0,0,0,1,0,0,0,1,0,0,0,1} } -- Пройдет тихо
-            rawFurniture["test_item_2"] = { id = "driftwood_chair", cframe = {0,0,0,1,0,0,0,1,0,0,0,1} } -- Напишет: Limited/Event
-            rawFurniture["test_item_3"] = { id = "fake_item_999", cframe = {0,0,0,1,0,0,0,1,0,0,0,1} } -- Напишет: Not in FurnitureDB
+            -- ====================================================
+            -- 🧪 ВРЕМЕННЫЙ ДЕБАГ-ТЕСТ (УДАЛИ ПОСЛЕ ПРОВЕРКИ!) 🧪
+            -- ====================================================
+            -- 0. Настоящая покупная шмотка (Пройдет тихо, ничего не напишет)
+            rawFurniture["test_item_0"] = { id = "basicbed", cframe = {0,0,0,1,0,0,0,1,0,0,0,1} } 
+            
+            -- 1. Та самая ёлка (christmastree)
+            rawFurniture["test_item_1"] = { id = "christmastree", cframe = {0,0,0,1,0,0,0,1,0,0,0,1} } 
+            
+            -- 2. Надгробие (tombstone)
+            rawFurniture["test_item_2"] = { id = "tombstone", cframe = {0,0,0,1,0,0,0,1,0,0,0,1} } 
+            
+            -- 3. Предмет, которого ваще в игре нет
+            rawFurniture["test_item_3"] = { id = "super_fake_item_999", cframe = {0,0,0,1,0,0,0,1,0,0,0,1} }
+            -- ====================================================
             for uniqueId, itemData in pairs(rawFurniture) do
                 local itemName = itemData.id
                 local isSuspicious = false
@@ -249,7 +260,7 @@ function Module:Init(Library, Window, Tab)
                     local dbInfo = CachedFurnitureDB[itemData.id]
                     if dbInfo then
                         itemName = dbInfo.name or itemData.id
-                        if dbInfo.is_limited or dbInfo.is_event or dbInfo.is_buyable == false then
+                        if dbInfo.is_limited or dbInfo.is_event then
                             isSuspicious = true
                             warningReason = "Limited/Event"
                         end
