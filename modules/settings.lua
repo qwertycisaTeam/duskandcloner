@@ -211,15 +211,15 @@ function Module:Init(Library, Window, Tab)
     local closerOptions = {"Top Bar", "Floating Logo"}
     local closerBtns = {}
 
-    -- 🔥 ФИКС 1: Привязываем к автосейверу Library.Flags и проверяем кэш до постройки
-    local savedCloser = Library.Flags["CloserType"]
-    if savedCloser == nil then savedCloser = getgenv().CloserType or "Top Bar" end
+    -- 1. Считываем и жестко задаем значение из автосейва
+    local savedCloser = Library.Flags["CloserType"] or getgenv().CloserType or "Top Bar"
     Library.Flags["CloserType"] = savedCloser
     getgenv().CloserType = savedCloser 
 
     for i, opt in ipairs(closerOptions) do
         local isSelected = (Library.Flags["CloserType"] == opt)
         
+        -- 2. ВАЖНО: Убрали TextColor3 из themeProps, чтобы ховер не багался!
         local Btn = Library.Utils.Make("TextButton", { 
             Size = UDim2.new(0.5, -5, 1, 0), 
             LayoutOrder = i, 
@@ -227,11 +227,9 @@ function Module:Init(Library, Window, Tab)
             Font = Enum.Font.GothamSemibold, 
             TextSize = 13, 
             AutoButtonColor = false, 
+            TextColor3 = isSelected and Library.CurrentTheme.Accent or Library.CurrentTheme.SubText, -- Ручной цвет
             Parent = CloserGrid 
-        }, { 
-            BackgroundColor3 = "Sidebar", 
-            TextColor3 = isSelected and "Accent" or "SubText" 
-        })
+        }, { BackgroundColor3 = "Sidebar" })
         
         Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 8), Parent = Btn })
         local scale = Instance.new("UIScale", Btn)
@@ -252,41 +250,31 @@ function Module:Init(Library, Window, Tab)
         end)
 
         Library:Connect(Btn.MouseButton1Click, function()
-            -- При клике мы просто вызываем наш апдейтер (он всё перекрасит и запишет)
-            if Library.ConfigUpdaters["CloserType"] then
-                Library.ConfigUpdaters["CloserType"](opt)
+            if Library.ConfigUpdaters["CloserType"] then 
+                Library.ConfigUpdaters["CloserType"](opt) 
             end
         end)
     end
 
-    -- 🔥 ФИКС 2: Регистрируем ConfigUpdater, чтобы автосейвер мог управлять кнопками!
+    -- 3. Апдейтер для автосейва
     Library.ConfigUpdaters["CloserType"] = function(newOpt)
         Library.Flags["CloserType"] = newOpt
         getgenv().CloserType = newOpt
         
         for name, button in pairs(closerBtns) do
             local active = (name == newOpt)
-            
-            -- Обновляем внутренний реестр тем
-            if Library.ThemeObjects[button] then
-                Library.ThemeObjects[button].TextColor3 = active and "Accent" or "SubText"
-            end
-            
             TweenService:Create(button, TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
                 TextColor3 = active and Library.CurrentTheme.Accent or Library.CurrentTheme.SubText
             }):Play()
         end
         
-        -- Анимация "клика" только для нажатой/выбранной кнопки
         local activeBtn = closerBtns[newOpt]
         if activeBtn then
             local s = activeBtn:FindFirstChildOfClass("UIScale")
             if s then
                 s.Scale = 0.94
                 TweenService:Create(s, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1.04}):Play()
-                task.delay(0.35, function()
-                    if s then TweenService:Create(s, TweenInfo.new(0.2), {Scale = 1}):Play() end
-                end)
+                task.delay(0.35, function() if s then TweenService:Create(s, TweenInfo.new(0.2), {Scale = 1}):Play() end end)
             end
         end
         
