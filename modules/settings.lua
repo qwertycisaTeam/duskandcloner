@@ -195,7 +195,7 @@ function Module:Init(Library, Window, Tab)
         end)
     end
 
-    local CloserStyleContainer = Library.Utils.Make("Frame", { Size = UDim2.new(1, 0, 0, 75), Parent = Tab.Page }, { BackgroundColor3 = "Section" })
+local CloserStyleContainer = Library.Utils.Make("Frame", { Size = UDim2.new(1, 0, 0, 75), Parent = Tab.Page }, { BackgroundColor3 = "Section" })
     Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 10), Parent = CloserStyleContainer })
     Library.Utils.Make("UIStroke", { Thickness = 1, Transparency = 0.7, Parent = CloserStyleContainer }, { Color = "Stroke" })
     
@@ -211,7 +211,6 @@ function Module:Init(Library, Window, Tab)
     local closerOptions = {"Top Bar", "Floating Logo"}
     local closerBtns = {}
 
-    -- 1. Считываем и жестко задаем значение из автосейва
     local savedCloser = Library.Flags["CloserType"] or getgenv().CloserType or "Top Bar"
     Library.Flags["CloserType"] = savedCloser
     getgenv().CloserType = savedCloser 
@@ -219,7 +218,7 @@ function Module:Init(Library, Window, Tab)
     for i, opt in ipairs(closerOptions) do
         local isSelected = (Library.Flags["CloserType"] == opt)
         
-        -- 2. ВАЖНО: Убрали TextColor3 из themeProps, чтобы ховер не багался!
+        -- 🔥 ФИКС: Вернул TextColor3 обратно в 3-й аргумент. Теперь колор-пикер снова видит эту кнопку!
         local Btn = Library.Utils.Make("TextButton", { 
             Size = UDim2.new(0.5, -5, 1, 0), 
             LayoutOrder = i, 
@@ -227,9 +226,11 @@ function Module:Init(Library, Window, Tab)
             Font = Enum.Font.GothamSemibold, 
             TextSize = 13, 
             AutoButtonColor = false, 
-            TextColor3 = isSelected and Library.CurrentTheme.Accent or Library.CurrentTheme.SubText, -- Ручной цвет
             Parent = CloserGrid 
-        }, { BackgroundColor3 = "Sidebar" })
+        }, { 
+            BackgroundColor3 = "Sidebar",
+            TextColor3 = isSelected and "Accent" or "SubText" 
+        })
         
         Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 8), Parent = Btn })
         local scale = Instance.new("UIScale", Btn)
@@ -256,13 +257,18 @@ function Module:Init(Library, Window, Tab)
         end)
     end
 
-    -- 3. Апдейтер для автосейва
     Library.ConfigUpdaters["CloserType"] = function(newOpt)
         Library.Flags["CloserType"] = newOpt
         getgenv().CloserType = newOpt
         
         for name, button in pairs(closerBtns) do
             local active = (name == newOpt)
+            
+            -- 🔥 Обновляем базу данных тем библиотеки при клике
+            if Library.ThemeObjects[button] then
+                Library.ThemeObjects[button].TextColor3 = active and "Accent" or "SubText"
+            end
+            
             TweenService:Create(button, TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
                 TextColor3 = active and Library.CurrentTheme.Accent or Library.CurrentTheme.SubText
             }):Play()
@@ -280,7 +286,6 @@ function Module:Init(Library, Window, Tab)
         
         if getgenv().SaveConfig then pcall(getgenv().SaveConfig) end
     end
-
     local camera = workspace.CurrentCamera
     local viewport = camera and camera.ViewportSize or Vector2.new(1920, 1080)
     
