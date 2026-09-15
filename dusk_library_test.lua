@@ -1223,8 +1223,18 @@ function Library:CreateWindow(config)
             local colorFlag = config.ColorFlag or "ThemeAccent"
             local colorCallback = config.ColorCallback or function() end
 
-            Library.Flags[scaleFlag] = defaultScale
-            Library.Flags[colorFlag] = defaultColor
+-- Защита от перезаписи: проверяем, есть ли уже сохраненный масштаб
+            if Library.Flags[scaleFlag] == nil then
+                Library.Flags[scaleFlag] = defaultScale
+            else
+                defaultScale = Library.Flags[scaleFlag]
+            end
+    
+            if Library.Flags[colorFlag] == nil then
+                Library.Flags[colorFlag] = defaultColor
+            else
+                defaultColor = Library.Flags[colorFlag]
+            end
 
             local isTransparent = getgenv().TransparentUI or false -- Читаем стиль
 
