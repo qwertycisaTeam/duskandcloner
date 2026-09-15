@@ -226,58 +226,68 @@ function Module:Init(Library, Window, Tab)
                 return Library:Notify("Error", "Interior data not found or empty!", 3, "rbxassetid://73186275216515", "rbxassetid://72958619361915")
             end
             
-            -- 🛠️ 2. ПАРСИНГ МЕБЕЛИ С УМНЫМ ФИЛЬТРОМ 🛠️
+            -- 🛠️ 2. ПАРСИНГ МЕБЕЛИ (СОХРАНЯЕТ ВСЕ, НО ВЫДАЕТ ПРЕДУПРЕЖДЕНИЯ) 🛠️
             local rawFurniture = targetData.house_interior.furniture
             local parsedFurniture = {}
-            local skippedItems = {}
-            local skippedTotal = 0
+            local warnedItems = {}
+            local warnedTotal = 0
             local count = 0
             
-            -- Достаем саму подтаблицу с предметами из памяти игры
+            -- Достаем саму подтаблицу с предметами из памяти игры для дебага
             local itemsTable = {}
             pcall(function()
                 local Fsys = require(game:GetService("ReplicatedStorage"):WaitForChild("Fsys"))
                 local FurnitureDB = Fsys.load("FurnitureDB")
                 itemsTable = FurnitureDB.entries or FurnitureDB.items or FurnitureDB
             end)
-            
 
             for uniqueId, itemData in pairs(rawFurniture) do
-                local isBuyable = true
                 local itemName = itemData.id
+                local isSuspicious = false
+                local warningReason = ""
                 
                 local dbInfo = itemsTable[itemData.id]
                 if dbInfo then
                     itemName = dbInfo.name or itemData.id
-                    -- Бан только по официальным флагам, блоки и стены не трогаем
+                    -- Проверяем на лимитки, но ничего не удаляем
                     if dbInfo.is_limited or dbInfo.is_event or dbInfo.is_buyable == false then
-                        isBuyable = false
+                        isSuspicious = true
+                        warningReason = "Limited/Event"
                     end
+                else
+                    -- Предмета нет в базе (возможно кусок карты)
+                    isSuspicious = true
+                    warningReason = "Not in FurnitureDB"
                 end
                 
-                if not isBuyable then
-                    skippedItems[itemName] = (skippedItems[itemName] or 0) + 1
-                    skippedTotal = skippedTotal + 1
-                else
-                    count = count + 1
-                    local formattedCFrame = typeof(itemData.cframe) == "CFrame" and {itemData.cframe:GetComponents()} or itemData.cframe
+                -- Логируем подозрительные предметы
+                if isSuspicious then
+                    local logKey = itemName .. " [" .. warningReason .. "]"
+                    warnedItems[logKey] = (warnedItems[logKey] or 0) + 1
+                    warnedTotal = warnedTotal + 1
+                end
                 
-                    local formattedColors = {}
-                    if type(itemData.colors) == "table" then
-                        for _, color in ipairs(itemData.colors) do
-                            if typeof(color) == "Color3" then
-                                table.insert(formattedColors, {color.R, color.G, color.B})
-                            end
+                -- ДОБАВЛЯЕМ В МАССИВ АБСОЛЮТНО ВСЕ ПРЕДМЕТЫ
+                count = count + 1
+                local formattedCFrame = typeof(itemData.cframe) == "CFrame" and {itemData.cframe:GetComponents()} or itemData.cframe
+                
+                local formattedColors = {}
+                if type(itemData.colors) == "table" then
+                    for _, color in ipairs(itemData.colors) do
+                        if typeof(color) == "Color3" then
+                            table.insert(formattedColors, {color.R, color.G, color.B})
+                        elseif type(color) == "table" then
+                            table.insert(formattedColors, color)
                         end
                     end
-                
-                    table.insert(parsedFurniture, {
-                        id = itemData.id,
-                        cframe = formattedCFrame,
-                        scale = itemData.scale or 1,
-                        colors = formattedColors
-                    })
                 end
+                
+                table.insert(parsedFurniture, {
+                    id = itemData.id,
+                    cframe = formattedCFrame,
+                    scale = itemData.scale or 1,
+                    colors = formattedColors
+                })
             end
 
             -- 🎨 3. ПАРСИНГ ТЕКСТУР И ОБОЕВ 🎨
@@ -328,15 +338,17 @@ function Module:Init(Library, Window, Tab)
             end
             self:RefreshList()
             
-            if skippedTotal > 0 then
-                warn("======== [HOUSE PARSER: SKIPPED ITEMS] ========")
-                local notifyText = "Skipped " .. skippedTotal .. " event items:\n"
+            -- === ДЕБАГ В F9 И КРАСИВЫЙ NOTIFY ===
+            if warnedTotal > 0 then
+                warn("======== [HOUSE PARSER: WARNING ITEMS] ========")
+                warn("Exported everything, but found items that might not build:")
+                local notifyText = "Exported ALL, but " .. warnedTotal .. " items might be unbuyable:\n"
                 local i = 0
                 
-                for itemName, amt in pairs(skippedItems) do
-                    warn(" - " .. itemName .. " (x" .. amt .. ")")
+                for logKey, amt in pairs(warnedItems) do
+                    warn(" - " .. logKey .. " (x" .. amt .. ")")
                     if i < 3 then
-                        notifyText = notifyText .. itemName .. " x" .. amt .. "\n"
+                        notifyText = notifyText .. logKey .. " x" .. amt .. "\n"
                     elseif i == 3 then
                         notifyText = notifyText .. "...and more (Check F9)"
                     end
@@ -344,7 +356,7 @@ function Module:Init(Library, Window, Tab)
                 end
                 warn("===============================================")
                 
-                Library:Notify("Partial Export", notifyText, 8, "rbxassetid://11401835376", "rbxassetid://72958619361915")
+                Library:Notify("Exported With Warnings", notifyText, 8, "rbxassetid://11401835376", "rbxassetid://72958619361915")
             else
                 Library:Notify("Success!", "House exported flawlessly as " .. newFileName, 3, "rbxassetid://91727514118912", "rbxassetid://72958619361915")
             end
