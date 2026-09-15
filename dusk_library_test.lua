@@ -1663,14 +1663,20 @@ function Library:CreateWindow(config)
             config = config or {}
             local title = config.Name or "Mode Toggle"
             local desc = config.Description or ""
-            local defaultState = config.DefaultState or false
-            local modes = config.Modes or {} -- Ожидаем массив таблиц: {{Name = "Legit", Image = "..."}, {Name = "Rage", Image = "..."}}
-            local defaultMode = config.DefaultMode or (modes[1] and modes[1].Name) or ""
+            local modes = config.Modes or {} 
             local flag = config.Flag or title:gsub("%s+", "")
             
+            -- ФИКС 1: Защита стейта и мода
+            local defaultState = Library.Flags[flag .. "_State"]
+            if defaultState == nil then defaultState = (config.DefaultState ~= nil) and config.DefaultState or false end
+            
+            local defaultMode = Library.Flags[flag .. "_Mode"]
+            if defaultMode == nil then defaultMode = config.DefaultMode or (modes[1] and modes[1].Name) or "" end
+        
+            Library.Flags[flag .. "_State"] = defaultState
+            Library.Flags[flag .. "_Mode"] = defaultMode
+        
             local toggleCallback = config.ToggleCallback or function() end
-            local modeCallback = config.ModeCallback or function() end
-            local settingsCallback = config.Settings
 
             -- Инициализация флагов в ядре
             Library.Flags[flag .. "_State"] = defaultState
@@ -1744,13 +1750,22 @@ function Library:CreateWindow(config)
             end)
 
             -- Логика самого Тоггла
-            local function SetState(newState)
+           local function SetState(newState)
                 if Library.Flags[flag .. "_State"] == newState then return end
                 Library.Flags[flag .. "_State"] = newState
                 
                 Library.ThemeObjects[Sw]["BackgroundColor3"] = newState and "Accent" or "ToggleOff"
                 Library.Utils.TBT(Sw, 0.25, {BackgroundColor3 = newState and Library.CurrentTheme.Accent or Library.CurrentTheme.ToggleOff})
                 Library.Utils.TBT(Kn, 0.25, {Position = newState and OnP or OffP})
+                
+                -- ФИКС 2: Градиент
+                if newState then
+                    Library.Utils.ApplyGradient(Sw, Library.CurrentTheme.Accent)
+                else
+                    local grad = Sw:FindFirstChild("DuskShine_Gradient")
+                    if grad then grad:Destroy() end
+                end
+        
                 pcall(toggleCallback, newState)
             end
             Library.ConfigUpdaters[flag .. "_State"] = function(val) SetState(val) end
