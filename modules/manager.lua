@@ -235,21 +235,7 @@ function Module:Init(Library, Window, Tab)
             
             -- Проверяем кэш один раз ДО цикла
             local dbIsValid = type(CachedFurnitureDB) == "table"
-            -- ====================================================
-            -- 🧪 ВРЕМЕННЫЙ ДЕБАГ-ТЕСТ (УДАЛИ ПОСЛЕ ПРОВЕРКИ!) 🧪
-            -- ====================================================
-            -- 0. Настоящая покупная шмотка (Пройдет тихо, ничего не напишет)
-            rawFurniture["test_item_0"] = { id = "basicbed", cframe = {0,0,0,1,0,0,0,1,0,0,0,1} } 
-            
-            -- 1. Та самая ёлка (christmastree)
-            rawFurniture["test_item_1"] = { id = "christmastree", cframe = {0,0,0,1,0,0,0,1,0,0,0,1} } 
-            
-            -- 2. Надгробие (tombstone)
-            rawFurniture["test_item_2"] = { id = "tombstone", cframe = {0,0,0,1,0,0,0,1,0,0,0,1} } 
-            
-            -- 3. Предмет, которого ваще в игре нет
-            rawFurniture["test_item_3"] = { id = "super_fake_item_999", cframe = {0,0,0,1,0,0,0,1,0,0,0,1} }
-            -- ====================================================
+
             for uniqueId, itemData in pairs(rawFurniture) do
                 local itemName = itemData.id
                 local isSuspicious = false
