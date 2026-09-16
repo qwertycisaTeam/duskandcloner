@@ -1401,7 +1401,8 @@ function Library:CreateWindow(config)
             task.spawn(function()
                 -- 1. Двигаем ползунок масштаба и вызываем колбэк
                 if Library.Flags[scaleFlag] then
-                    UpdateScaleVisuals(Library.Flags[scaleFlag])
+                    UpdateScaleVisuals(Library.Flags[scaleFlag])\
+                    pcall(scaleCallback, Library.Flags[scaleFlag])
                 end
                 
                 -- 2. Обновляем позицию на палитре цветов и вызываем колбэк
