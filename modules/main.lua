@@ -367,7 +367,7 @@ function Module:Init(Library, Window, Tab)
             end
             task.wait(0.5)
 
--- 2. ДЕБАГ И АВТО-ПОВТОР
+            -- 2. АВТО-ПОВТОР
            
             local totalBought, totalFailed = 0, 0
 
