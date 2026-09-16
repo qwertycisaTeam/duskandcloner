@@ -268,23 +268,74 @@ function Module:Init(Library, Window, Tab)
             local ACTUALLY_BUILD = true
             local MICRO_SHIFT_Y = 0 
             
-            -- [ТУТ ОСТАЕТСЯ ТВОЯ ФУНКЦИЯ loadAmbiance И ЕЁ ВЫЗОВ]
-            -- ... (оставил твой код без изменений) ...
+            -- Функция загрузки атмосферы
+            local function loadAmbiance(ambianceData)
+                if not ambianceData then return end
+                
+                local function toColor3(rgbArray)
+                    if type(rgbArray) ~= "table" or #rgbArray < 3 then return Color3.new(1, 1, 1) end
+                    return Color3.new(rgbArray[1], rgbArray[2], rgbArray[3])
+                end
+                
+                local cProps = ambianceData.custom_props or {}
+                local lData = cProps.Lighting or {}
+                local ccData = cProps.ColorCorrectionEffect or {}
+                local srData = cProps.SunRaysEffect or {}
+                local atmData = cProps.Atmosphere or {}
+            
+                local bKind = ambianceData.base_kind or "day"
+                local kKind = ambianceData.kind or "day"
+
+                local args = {{
+                    base_kind = bKind, kind = kKind, priority = 3,
+                    custom_props = {
+                        Lighting = {
+                            ClockTime = lData.ClockTime or 14,
+                            ExposureCompensation = lData.ExposureCompensation ~= nil and lData.ExposureCompensation or 0,
+                            Ambient = toColor3(lData.Ambient),
+                            OutdoorAmbient = toColor3(lData.OutdoorAmbient),
+                            ColorShift_Top = toColor3(lData.ColorShift_Top)
+                        },
+                        ColorCorrectionEffect = {
+                            TintColor = toColor3(ccData.TintColor),
+                            Saturation = ccData.Saturation or 0,
+                            Contrast = ccData.Contrast or 0
+                        },
+                        SunRaysEffect = { Intensity = srData.Intensity or 0 },
+                        Atmosphere = {
+                            Density = atmData.Density or 0.3, 
+                            Glare = atmData.Glare or 0,
+                            Haze = atmData.Haze or 0, 
+                            Color = toColor3(atmData.Color)
+                        },
+                        Custom = savedHouse.particles or {}
+                    }
+                }}
+                
+                local API_Folder = ReplicatedStorage:WaitForChild("API", 5)
+                if API_Folder then
+                    local ambianceRemote = API_Folder:FindFirstChild("AmbianceAPI/UpdateAmbiance")
+                    if ambianceRemote then pcall(function() ambianceRemote:FireServer(unpack(args)) end) end
+                end
+            end
             
             if savedHouse.ambiance then loadAmbiance(savedHouse.ambiance) end
 
             if CopyTextures and savedHouse.textures then
                 Library:Notify("Builder", "Applying wallpapers and floors...", 3, "rbxassetid://91727514118912", "rbxassetid://72958619361915")
-                local BuyTextureRemote = ReplicatedStorage:WaitForChild("API", 5):FindFirstChild("HousingAPI/BuyTexture")
-                if BuyTextureRemote then
-                    for roomName, texData in pairs(savedHouse.textures) do
-                        if texData.walls and texData.walls ~= "" then
-                            pcall(function() BuyTextureRemote:FireServer(roomName, "walls", texData.walls) end)
-                            task.wait(getgenv().CurrentBuildDelay or 0)
-                        end
-                        if texData.floors and texData.floors ~= "" then
-                            pcall(function() BuyTextureRemote:FireServer(roomName, "floors", texData.floors) end)
-                            task.wait(getgenv().CurrentBuildDelay or 0)
+                local API_Folder = ReplicatedStorage:WaitForChild("API", 5)
+                if API_Folder then
+                    local BuyTextureRemote = API_Folder:FindFirstChild("HousingAPI/BuyTexture")
+                    if BuyTextureRemote then
+                        for roomName, texData in pairs(savedHouse.textures) do
+                            if texData.walls and texData.walls ~= "" then
+                                pcall(function() BuyTextureRemote:FireServer(roomName, "walls", texData.walls) end)
+                                task.wait(getgenv().CurrentBuildDelay or 0)
+                            end
+                            if texData.floors and texData.floors ~= "" then
+                                pcall(function() BuyTextureRemote:FireServer(roomName, "floors", texData.floors) end)
+                                task.wait(getgenv().CurrentBuildDelay or 0)
+                            end
                         end
                     end
                 end
@@ -297,14 +348,12 @@ function Module:Init(Library, Window, Tab)
             local rawFurniture = savedHouse.furniture or savedHouse
             local pendingChanges = {}
             
-            -- БЕЗОПАСНАЯ СОРТИРОВКА (Защита от ошибки если cframe поврежден)
             table.sort(rawFurniture, function(a, b)
                 local yA = (type(a.cframe) == "table" and a.cframe[2]) or 0
                 local yB = (type(b.cframe) == "table" and b.cframe[2]) or 0
                 return yA < yB
             end)
             
-            -- БЕЗОПАСНОЕ ПОЛУЧЕНИЕ РЕМОУТОВ (Без бесконечного зависания)
             local API_Folder = ReplicatedStorage:WaitForChild("API", 5)
             if not API_Folder then 
                 return Library:Notify("Error", "API folder not found!", 3, "rbxassetid://73186275216515", "rbxassetid://72958619361915")
@@ -315,10 +364,9 @@ function Module:Init(Library, Window, Tab)
             local pushFurnitureEvent = API_Folder:FindFirstChild("HousingAPI/PushFurnitureChanges")
 
             if not buyFurnituresRemote then
-                return Library:Notify("Error", "BuyFurnitures remote missing! Adopt Me updated?", 3, "rbxassetid://73186275216515", "rbxassetid://72958619361915")
+                return Library:Notify("Error", "BuyFurnitures remote missing!", 3, "rbxassetid://73186275216515", "rbxassetid://72958619361915")
             end
 
-            -- 1. ПРЕДВАРИТЕЛЬНОЕ КЭШИРОВАНИЕ (Только если ремоут существует)
             if downloadApi then
                 local uniqueIDs = {}
                 for _, item in ipairs(rawFurniture) do uniqueIDs[item.id] = true end
@@ -328,7 +376,6 @@ function Module:Init(Library, Window, Tab)
                 task.wait(0.5)
             end
 
-            -- 2. ПОСТРОЙКА И АВТО-ПОВТОР
             local RunService = game:GetService("RunService")
             local currentBatch = {}
             local batchOriginalItems = {}
@@ -347,7 +394,6 @@ function Module:Init(Library, Window, Tab)
                 table.insert(currentBatch, { kind = item.id, properties = buyProps })
                 table.insert(batchOriginalItems, { item = item, localCFrame = localCFrame, buyProps = buyProps })
                 
-                -- ПРАВИЛЬНАЯ ПРИВЯЗКА К СЛАЙДЕРУ
                 local batchLimit = getgenv().CurrentBatchSize or 15
                 local buildDelay = getgenv().CurrentBuildDelay or 0
 
@@ -389,7 +435,6 @@ function Module:Init(Library, Window, Tab)
                 end
             end
             
-            -- 3. ПРИМЕНЕНИЕ ЦВЕТОВ И РАЗМЕРА
             if pushFurnitureEvent then
                 local chunk = {}
                 for i, change in ipairs(pendingChanges) do
@@ -402,136 +447,6 @@ function Module:Init(Library, Window, Tab)
                 end
             end
             
-            Library:Notify("Success", "House successfully built!", 3, "rbxassetid://18926561608", "rbxassetid://72958619361915")
-        end)
-            
-            if savedHouse.ambiance then loadAmbiance(savedHouse.ambiance) end
-
-            local hasParticles = false
-            if type(savedHouse.particles) == "table" then
-                for _, _ in pairs(savedHouse.particles) do
-                    hasParticles = true
-                    break
-                end
-            end
-                    
-            if CopyTextures and savedHouse.textures then
-                Library:Notify("Builder", "Applying wallpapers and floors...", 3, "rbxassetid://91727514118912", "rbxassetid://72958619361915")
-                local BuyTextureRemote = ReplicatedStorage:WaitForChild("API"):FindFirstChild("HousingAPI/BuyTexture")
-                if BuyTextureRemote then
-                    for roomName, texData in pairs(savedHouse.textures) do
-                        if texData.walls and texData.walls ~= "" then
-                            pcall(function() BuyTextureRemote:FireServer(roomName, "walls", texData.walls) end)
-                            task.wait(CurrentBuildDelay)
-                        end
-                        if texData.floors and texData.floors ~= "" then
-                            pcall(function() BuyTextureRemote:FireServer(roomName, "floors", texData.floors) end)
-                            task.wait(CurrentBuildDelay)
-                        end
-                    end
-                end
-            end
-
-            if not ACTUALLY_BUILD then return end
-            
-            Library:Notify("Builder", "Starting furniture purchase...", 3, "rbxassetid://91727514118912", "rbxassetid://72958619361915")
-            
-            local rawFurniture = savedHouse.furniture or savedHouse
-            local pendingChanges = {}
-            
-            table.sort(rawFurniture, function(a, b)
-                return a.cframe[2] < b.cframe[2]
-            end)
-            
-            local downloadApi = ReplicatedStorage:WaitForChild("API"):WaitForChild("DownloadsAPI/Download")
-            local buyFurnituresRemote = ReplicatedStorage:WaitForChild("API"):WaitForChild("HousingAPI/BuyFurnitures")
-            local pushFurnitureEvent = ReplicatedStorage:WaitForChild("API"):WaitForChild("HousingAPI/PushFurnitureChanges")
-
-            -- 1. ПРЕДВАРИТЕЛЬНОЕ КЭШИРОВАНИЕ
-            local uniqueIDs = {}
-            for _, item in ipairs(rawFurniture) do uniqueIDs[item.id] = true end
-            for id, _ in pairs(uniqueIDs) do
-                task.spawn(function() pcall(function() downloadApi:InvokeServer("Furniture", id) end) end)
-            end
-            task.wait(0.5)
-
-            -- 2. АВТО-ПОВТОР
-           
-            local totalBought, totalFailed = 0, 0
-
-            local RunService = game:GetService("RunService")
-            local currentBatch = {}
-            local batchOriginalItems = {}
-
-            for i, item in ipairs(rawFurniture) do
-                local baseCFrame = CFrame.new(unpack(item.cframe))
-                local localCFrame = baseCFrame + Vector3.new(0, MICRO_SHIFT_Y, 0)
-                
-                local buyProps = {cframe = localCFrame}
-                if item.colors and #item.colors > 0 then
-                    local c3table = {}
-                    for _, c in ipairs(item.colors) do table.insert(c3table, Color3.new(c[1], c[2], c[3])) end
-                    buyProps.colors = c3table
-                end
-                
-                table.insert(currentBatch, { kind = item.id, properties = buyProps })
-                table.insert(batchOriginalItems, { item = item, localCFrame = localCFrame, buyProps = buyProps })
-                
-                -- Тут теперь используется CurrentBatchSize, управляемый слайдером
-                if #currentBatch >= CurrentBatchSize or i == #rawFurniture then
-                    local successPurchase = false
-                    local attempts = 0
-                    local maxAttempts = 3 
-
-                    repeat
-                        attempts = attempts + 1
-                        local buildSuccess, response = pcall(function() return buyFurnituresRemote:InvokeServer(currentBatch) end)
-                        
-                        if buildSuccess and type(response) == "table" and response.success then
-                            successPurchase = true
-                            if response.results then
-                                for resultIndex, result in ipairs(response.results) do
-                                    if result.unique then
-                                        totalBought = totalBought + 1
-                                        local orig = batchOriginalItems[resultIndex]
-                                        local changeArgs = { unique = result.unique, cframe = orig.localCFrame }
-                                        if orig.item.scale and orig.item.scale ~= 1 then changeArgs.scale = orig.item.scale end
-                                        if orig.buyProps.colors then changeArgs.colors = orig.buyProps.colors end
-                                        table.insert(pendingChanges, changeArgs)
-                                    end
-                                end
-                            end
-                        else
-                            
-                            task.wait(1.5)
-                        end
-                    until successPurchase or attempts >= maxAttempts
-
-                    if not successPurchase then totalFailed = totalFailed + #currentBatch end
-                    
-                    currentBatch = {}
-                    batchOriginalItems = {}
-                    
-                    -- Логика задержки от слайдера
-                    if CurrentBuildDelay > 0 then 
-                        -- Работает, если слайдер от 101 до 200
-                        task.wait(CurrentBuildDelay) 
-                    else
-                        -- Работает на Инстанте (0) и Быстрой (1-100)
-                        -- Ждет 1 кадр, чтобы игра не зависла намертво от цикла
-                        RunService.Heartbeat:Wait() 
-                    end
-                end
-            end
-            local chunk = {}
-            for i, change in ipairs(pendingChanges) do
-                table.insert(chunk, change)
-                if #chunk >= 50 or i == #pendingChanges then
-                    pcall(function() pushFurnitureEvent:FireServer(chunk) end)
-                    chunk = {}
-                    task.wait(0.5) 
-                end
-            end
             Library:Notify("Success", "House successfully built!", 3, "rbxassetid://18926561608", "rbxassetid://72958619361915")
         end)
     end)
