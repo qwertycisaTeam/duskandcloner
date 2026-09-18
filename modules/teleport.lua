@@ -237,7 +237,7 @@ function Module:Init(Library, Window, Tab)
 
             if hrp then
                 local posY = hrp.Position.Y
-                if posY < 9000 then
+                if posY < 10000 then
                     if Library.Notify then
                         Library:Notify("Error", "Teleport ONLY works in the neighborhood!", 3, "rbxassetid://73186275216515", "rbxassetid://72958619361915")
                     end
@@ -250,16 +250,14 @@ function Module:Init(Library, Window, Tab)
                     return 
                 end
 
-                local lookTarget = (touchPart.CFrame * CFrame.new(0, 0, -5)).Position
-                hrp.CFrame = CFrame.lookAt(touchPart.Position, lookTarget)
-
                 if Library.Notify then
                     Library:Notify("Teleport", "Entering " .. houseData.Owner .. "'s house...", 3, "rbxassetid://91727514118912", "rbxassetid://72958619361915")
                 end
 
                 task.spawn(function()
-                    task.wait(0.25) 
                     local doorModel = touchPart.Parent.Parent
+                    
+                    -- 1. Удаленно разблокируем дверь
                     pcall(function()
                         local successDoors, DoorsM = pcall(function()
                             return require(ReplicatedStorage.ClientModules.Core.DoorsM.DoorsM)
@@ -279,12 +277,26 @@ function Module:Init(Library, Window, Tab)
                         end
                     end)
 
-                    hrp.CFrame = hrp.CFrame * CFrame.new(0, 0, -0.5)
-
+                    -- 2. Удаленное касание (без перемещения персонажа)
                     if firetouchinterest then
+                        -- Если эксплойт поддерживает firetouchinterest, дистанция вообще не важна
                         firetouchinterest(hrp, touchPart, 0)
                         task.wait(0.1)
                         firetouchinterest(hrp, touchPart, 1)
+                    else
+                        -- Надежный запасной вариант: притягиваем хитбокс к игроку на 0.1 сек
+                        local originalCFrame = touchPart.CFrame
+                        local originalSize = touchPart.Size
+                        
+                        -- Делаем деталь чуть больше, чтобы гарантировать касание, и кидаем в игрока
+                        touchPart.Size = Vector3.new(5, 5, 5)
+                        touchPart.CFrame = hrp.CFrame
+                        
+                        task.wait(0.15)
+                        
+                        -- Возвращаем всё как было, чтобы не сломать игру другим
+                        touchPart.CFrame = originalCFrame
+                        touchPart.Size = originalSize
                     end
                 end)
             end
