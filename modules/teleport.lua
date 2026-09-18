@@ -71,29 +71,47 @@ function Module:Init(Library, Window, Tab)
 
     local function getServerHouses()
         local houses = {}
+        local addedOwners = {}
+
+        -- 1. Сначала собираем реальные дома (если мы уже в районе)
         local workspaceExteriors = workspace:FindFirstChild("HouseExteriors")
-        if not workspaceExteriors then return houses end
+        if workspaceExteriors then
+            for _, plot in pairs(workspaceExteriors:GetChildren()) do
+                local houseModel = plot:GetChildren()[1]
+                if houseModel and houseModel:FindFirstChild("Doors") and houseModel.Doors:FindFirstChild("MainDoor") then
+                    local mainDoor = houseModel.Doors.MainDoor
+                    local config = mainDoor:FindFirstChild("WorkingParts") and mainDoor.WorkingParts:FindFirstChild("Configuration")
 
-        for _, plot in pairs(workspaceExteriors:GetChildren()) do
-            local houseModel = plot:GetChildren()[1]
-            if houseModel and houseModel:FindFirstChild("Doors") and houseModel.Doors:FindFirstChild("MainDoor") then
-                local mainDoor = houseModel.Doors.MainDoor
-                local config = mainDoor:FindFirstChild("WorkingParts") and mainDoor.WorkingParts:FindFirstChild("Configuration")
+                    if config and config:FindFirstChild("house_owner") then
+                        local ownerName = config.house_owner.Value
+                        local touchPart = mainDoor.WorkingParts:FindFirstChild("TouchToEnter")
 
-                if config and config:FindFirstChild("house_owner") then
-                    local ownerName = config.house_owner.Value
-                    local touchPart = mainDoor.WorkingParts:FindFirstChild("TouchToEnter")
-
-                   if ownerName and ownerName ~= "" and touchPart then
-                        table.insert(houses, {
-                            Owner = ownerName,
-                            HouseType = houseModel.Name,
-                            DoorPart = touchPart
-                        })
+                       if ownerName and ownerName ~= "" and touchPart then
+                            addedOwners[ownerName] = true
+                            table.insert(houses, {
+                                Owner = ownerName,
+                                HouseType = houseModel.Name,
+                                DoorPart = touchPart
+                            })
+                        end
                     end
                 end
             end
         end
+
+        -- 2. Добиваем список остальными игроками сервера (если дома еще не прогружены)
+        local fallbackModels = {"FamilyHome", "Estate", "Micro", "Treehouse", "Modern"}
+        for _, p in ipairs(Players:GetPlayers()) do
+            if not addedOwners[p.Name] then
+                local pseudoRandom = (p.UserId % #fallbackModels) + 1
+                table.insert(houses, {
+                    Owner = p.Name,
+                    HouseType = fallbackModels[pseudoRandom],
+                    DoorPart = nil -- Дверь пока не существует в памяти
+                })
+            end
+        end
+
         return houses
     end
 
@@ -234,72 +252,92 @@ function Module:Init(Library, Window, Tab)
 
             local char = LocalPlayer.Character
             local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            if not hrp then return end
 
-            if hrp then
-                local posY = hrp.Position.Y
-                if posY < 10000 then
-                    if Library.Notify then
-                        Library:Notify("Error", "Teleport ONLY works in the neighborhood!", 3, "rbxassetid://73186275216515", "rbxassetid://72958619361915")
-                    end
-                    return 
-                end
+            local targetOwner = houseData.Owner
 
+            task.spawn(function()
                 local touchPart = houseData.DoorPart
-                if not touchPart or not touchPart.Parent then 
-                    if Library.Notify then Library:Notify("Error", "House not found!", 3, "rbxassetid://73186275216515", "rbxassetid://72958619361915") end
-                    return 
-                end
-
-                if Library.Notify then
-                    Library:Notify("Teleport", "Entering " .. houseData.Owner .. "'s house...", 3, "rbxassetid://91727514118912", "rbxassetid://72958619361915")
-                end
-
-                task.spawn(function()
-                    local doorModel = touchPart.Parent.Parent
+                
+                -- Если дверь не прогружена (мы не в районе), запрашиваем маршрут
+                if not touchPart or not touchPart.Parent then
+                    if Library.Notify then Library:Notify("Teleport", "Routing to Neighborhood...", 2, "rbxassetid://13549782519", "rbxassetid://72958619361915") end
                     
-                    -- 1. Удаленно разблокируем дверь
-                    pcall(function()
-                        local successDoors, DoorsM = pcall(function()
-                            return require(ReplicatedStorage.ClientModules.Core.DoorsM.DoorsM)
-                        end)
-
-                        if successDoors and DoorsM then
-                            local doorObj = DoorsM.get_door(doorModel)
-                            if doorObj then
-                                doorObj.is_open = true
-                                doorObj.can_enter = true
-                                doorObj.locked = false
-                                doorObj.is_locked = false 
-                                if type(doorObj.update) == "function" then
-                                    pcall(function() doorObj:update() end)
+                    -- Заставляем игру перекинуть нас в район
+                    pcall(function() getgenv().DuskCore.API.SetLocation:FireServer("Neighborhood") end)
+                    
+                    -- Ждем, пока папка с домами физически появится
+                    local t = tick()
+                    local exts = nil
+                    repeat 
+                        task.wait(0.2)
+                        exts = workspace:FindFirstChild("HouseExteriors")
+                    until (exts and #exts:GetChildren() > 0) or (tick() - t > 5)
+                    
+                    task.wait(0.5) -- Доп. время на спавн дверей
+                    
+                    -- Ищем нужную дверь свежим поиском
+                    if exts then
+                        for _, plot in pairs(exts:GetChildren()) do
+                            local hModel = plot:GetChildren()[1]
+                            if hModel and hModel:FindFirstChild("Doors") and hModel.Doors:FindFirstChild("MainDoor") then
+                                local mainDoor = hModel.Doors.MainDoor
+                                local config = mainDoor:FindFirstChild("WorkingParts") and mainDoor.WorkingParts:FindFirstChild("Configuration")
+                                if config and config:FindFirstChild("house_owner") and config.house_owner.Value == targetOwner then
+                                    touchPart = mainDoor.WorkingParts:FindFirstChild("TouchToEnter")
+                                    break
                                 end
                             end
                         end
+                    end
+                end
+
+                if not touchPart then
+                    if Library.Notify then Library:Notify("Error", "Could not find " .. targetOwner .. "'s house!", 3, "rbxassetid://73186275216515", "rbxassetid://72958619361915") end
+                    return
+                end
+
+                if Library.Notify then
+                    Library:Notify("Teleport", "Entering " .. targetOwner .. "'s house...", 3, "rbxassetid://91727514118912", "rbxassetid://72958619361915")
+                end
+
+                -- Взлом и удаленное касание
+                local doorModel = touchPart.Parent.Parent
+                
+                pcall(function()
+                    local successDoors, DoorsM = pcall(function()
+                        return require(ReplicatedStorage.ClientModules.Core.DoorsM.DoorsM)
                     end)
 
-                    -- 2. Удаленное касание (без перемещения персонажа)
-                    if firetouchinterest then
-                        -- Если эксплойт поддерживает firetouchinterest, дистанция вообще не важна
-                        firetouchinterest(hrp, touchPart, 0)
-                        task.wait(0.1)
-                        firetouchinterest(hrp, touchPart, 1)
-                    else
-                        -- Надежный запасной вариант: притягиваем хитбокс к игроку на 0.1 сек
-                        local originalCFrame = touchPart.CFrame
-                        local originalSize = touchPart.Size
-                        
-                        -- Делаем деталь чуть больше, чтобы гарантировать касание, и кидаем в игрока
-                        touchPart.Size = Vector3.new(5, 5, 5)
-                        touchPart.CFrame = hrp.CFrame
-                        
-                        task.wait(0.15)
-                        
-                        -- Возвращаем всё как было, чтобы не сломать игру другим
-                        touchPart.CFrame = originalCFrame
-                        touchPart.Size = originalSize
+                    if successDoors and DoorsM then
+                        local doorObj = DoorsM.get_door(doorModel)
+                        if doorObj then
+                            doorObj.is_open = true
+                            doorObj.can_enter = true
+                            doorObj.locked = false
+                            doorObj.is_locked = false 
+                            if type(doorObj.update) == "function" then
+                                pcall(function() doorObj:update() end)
+                            end
+                        end
                     end
                 end)
-            end
+
+                if firetouchinterest then
+                    firetouchinterest(hrp, touchPart, 0)
+                    task.wait(0.1)
+                    firetouchinterest(hrp, touchPart, 1)
+                else
+                    local originalCFrame = touchPart.CFrame
+                    local originalSize = touchPart.Size
+                    
+                    touchPart.Size = Vector3.new(5, 5, 5)
+                    touchPart.CFrame = hrp.CFrame
+                    task.wait(0.15)
+                    touchPart.CFrame = originalCFrame
+                    touchPart.Size = originalSize
+                end
+            end)
         end)
     end
 
