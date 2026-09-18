@@ -1,3 +1,4 @@
+
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
@@ -171,10 +172,10 @@ function Module:Init(Library, Window, Tab)
             local distance = (radius / math.tan(math.rad(VpCamera.FieldOfView / 2))) * 1.1
 
             local angle = 0
-            local renderConn 
+            local renderConn -- Заранее объявляем переменную
             renderConn = RunService.RenderStepped:Connect(function(dt)
                 if not Viewport.Parent then 
-                    if renderConn then renderConn:Disconnect() end 
+                    if renderConn then renderConn:Disconnect() end -- Жестко убиваем цикл, когда карточка удаляется
                     return 
                 end
                 angle = angle + math.rad(25 * dt)
@@ -232,8 +233,7 @@ function Module:Init(Library, Window, Tab)
 
             if hrp then
                 local posY = hrp.Position.Y
-                -- Обновленная проверка высоты под новые реалии (больше 10000)
-                if posY < 10000 then
+                if posY < 9000 then
                     if Library.Notify then
                         Library:Notify("Error", "Teleport ONLY works in the neighborhood!", 3, "rbxassetid://73186275216515", "rbxassetid://72958619361915")
                     end
@@ -332,7 +332,7 @@ function Module:Init(Library, Window, Tab)
 
     queueRefresh()
 
-    local workspaceExteriors = workspace:WaitForChild("HouseExteriors", 5)
+local workspaceExteriors = workspace:WaitForChild("HouseExteriors", 5)
     if workspaceExteriors then
         table.insert(Library.Connections, workspaceExteriors.DescendantAdded:Connect(function(descendant)
             if descendant.Parent and descendant.Parent.Parent == workspaceExteriors then
