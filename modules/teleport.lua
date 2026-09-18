@@ -34,19 +34,28 @@ function Module:Init(Library, Window, Tab)
     end
 
     -- ==========================================
-    -- 3D РЕНДЕР: УЛУЧШЕННЫЙ ПОИСК МОДЕЛЕЙ
+    -- 3D РЕНДЕР: УЛУЧШЕННЫЙ ПОИСК МОДЕЛЕЙ + ГОЛОГРАММЫ
     -- ==========================================
     local function buildCleanPreview(houseType, viewportFrame)
+        local isUnknown = false
+        
+        -- Если дом неизвестен, делаем из него болванку Micro
+        if houseType == "Unknown" then
+            isUnknown = true
+            houseType = "Micro"
+        end
+        
+        houseType = tostring(houseType) -- Защита от краша "got number"
         local houseModel = nil
 
-        -- 1. Сначала ищем модель в хранилище (работает с главной карты)
+        -- 1. Ищем модель в хранилище
         local Resources = ReplicatedStorage:FindFirstChild("Resources")
         local rsExteriors = Resources and Resources:FindFirstChild("HouseExteriors")
         if rsExteriors then
             houseModel = rsExteriors:FindFirstChild(houseType)
         end
 
-        -- 2. Если в хранилище нет (разрабы перенесли), берем физическую модель со спального района
+        -- 2. Ищем физическую модель со спального района
         if not houseModel then
             local wsExteriors = workspace:FindFirstChild("HouseExteriors")
             if wsExteriors then
@@ -64,6 +73,7 @@ function Module:Init(Library, Window, Tab)
             local displayHouse = houseModel:Clone()
 
             if displayHouse:FindFirstChild("Doors") then displayHouse.Doors:Destroy() end
+            
             for _, part in pairs(displayHouse:GetDescendants()) do
                 if part:IsA("BasePart") then
                     local n = string.lower(part.Name)
@@ -72,6 +82,21 @@ function Module:Init(Library, Window, Tab)
                     else
                         part.Anchored = true
                         part.CanCollide = false
+                        
+                        -- ===== ЭФФЕКТ ГОЛОГРАММЫ =====
+                        if isUnknown then
+                            -- Удаляем текстуры
+                            for _, fx in pairs(part:GetChildren()) do
+                                if fx:IsA("Texture") or fx:IsA("Decal") then
+                                    fx:Destroy()
+                                end
+                            end
+                            -- Делаем деталь призрачной
+                            part.Material = Enum.Material.ForceField -- Дает классный неоновый контур
+                            part.Color = Color3.fromRGB(150, 200, 255) -- Голубоватый цвет
+                            part.Transparency = 0.2
+                        end
+                        -- =============================
                     end
                 elseif not part:IsA("Model") and not part:IsA("Folder") then
                     part:Destroy() 
@@ -86,14 +111,18 @@ function Module:Init(Library, Window, Tab)
     end
 
     -- ==========================================
-    -- ГЛОБАЛЬНЫЙ РАДАР (Через карту участков)
+    -- ГЛОБАЛЬНЫЙ РАДАР (Кэширование)
     -- ==========================================
+    -- Создаем вечный кэш в памяти эксплойта
+    getgenv().DuskHouseCache = getgenv().DuskHouseCache or {}
+
     local function getServerHouses()
         local houses = {}
         local addedOwners = {}
 
-        -- 1. Сначала собираем то, что реально прогружено в воркспейсе
         local workspaceExteriors = workspace:FindFirstChild("HouseExteriors")
+        
+        -- 1. Тихо обновляем кэш из воркспейса (если мы стоим в спальном районе)
         if workspaceExteriors then
             for _, plot in pairs(workspaceExteriors:GetChildren()) do
                 local houseModel = plot:GetChildren()[1]
@@ -103,45 +132,55 @@ function Module:Init(Library, Window, Tab)
 
                     if config and config:FindFirstChild("house_owner") then
                         local ownerName = config.house_owner.Value
-                        local touchPart = mainDoor.WorkingParts:FindFirstChild("TouchToEnter")
-
-                       if ownerName and ownerName ~= "" and touchPart then
-                            addedOwners[ownerName] = true
-                            table.insert(houses, {
-                                Owner = ownerName,
-                                HouseType = houseModel.Name,
-                                DoorPart = touchPart
-                            })
+                        if ownerName and ownerName ~= "" then
+                            -- Запоминаем дом игрока
+                            getgenv().DuskHouseCache[ownerName] = tostring(houseModel.Name)
                         end
                     end
                 end
             end
         end
 
-        -- 2. Добираем остальных игроков, используя данные профиля или стабильный дефолт
-        local success, clientDataModule = pcall(function() return getgenv().DuskCore.M.ClientData end)
-        local allData = success and clientDataModule and type(clientDataModule.get_data) == "function" and clientDataModule.get_data()
-
-        local fallbackModels = {"FamilyHome", "Estate", "Micro", "Treehouse", "Modern"}
-        
+        -- 2. Формируем список для интерфейса
         for _, p in ipairs(Players:GetPlayers()) do
-            if not addedOwners[p.Name] then
-                addedOwners[p.Name] = true
-                
-                local hType = "Micro"
-                if allData and allData[p.Name] and allData[p.Name].house_exterior_model then
-                    hType = allData[p.Name].house_exterior_model
-                else
-                    local pseudoRandom = (p.UserId % #fallbackModels) + 1
-                    hType = fallbackModels[pseudoRandom]
-                end
+            addedOwners[p.Name] = true
+            
+            local hType = "Unknown"
 
-                table.insert(houses, {
-                    Owner = p.Name,
-                    HouseType = hType,
-                    DoorPart = nil
-                })
+            if p == LocalPlayer then
+                -- Свой собственный дом берем из ClientData
+                local success, clientDataModule = pcall(function() return getgenv().DuskCore.M.ClientData end)
+                if success and clientDataModule and type(clientDataModule.get_data) == "function" then
+                    local myData = clientDataModule.get_data()[p.Name]
+                    if myData and myData.house_exterior_model then
+                        hType = myData.house_exterior_model
+                    end
+                end
+            elseif getgenv().DuskHouseCache[p.Name] then
+                -- Если мы видели дом этого игрока - берем из кэша
+                hType = getgenv().DuskHouseCache[p.Name]
             end
+
+            -- Опциональный поиск физической двери для старых функций
+            local touchPart = nil
+            if workspaceExteriors and hType ~= "Unknown" then
+                for _, plot in pairs(workspaceExteriors:GetChildren()) do
+                    local h = plot:GetChildren()[1]
+                    if h and h.Name == tostring(hType) then
+                        local conf = h:FindFirstChild("Doors") and h.Doors.MainDoor.WorkingParts:FindFirstChild("Configuration")
+                        if conf and conf:FindFirstChild("house_owner") and conf.house_owner.Value == p.Name then
+                            touchPart = h.Doors.MainDoor.WorkingParts:FindFirstChild("TouchToEnter")
+                            break
+                        end
+                    end
+                end
+            end
+
+            table.insert(houses, {
+                Owner = p.Name,
+                HouseType = tostring(hType),
+                DoorPart = touchPart
+            })
         end
 
         return houses
@@ -249,9 +288,15 @@ function Module:Init(Library, Window, Tab)
         Library.Utils.Make("UIStroke", {Thickness = 2, Parent = Avatar}, {Color = "Section"}) 
         applyAvatar(Avatar, houseData.Owner, index) 
 
+        -- Добавляем приписку для неизвестных домов
+        local displayName = houseData.Owner
+        if houseData.HouseType == "Unknown" then
+            displayName = houseData.Owner .. " (?)"
+        end
+
         local NameLbl = Library.Utils.Make("TextLabel", { 
-            Text = houseData.Owner, 
-            Size = UDim2.new(1, -54, 0, 20), 
+            Text = displayName, 
+            Size = UDim2.new(1, -54, 0, 20),
             Position = UDim2.new(0, 48, 1, -12), 
             AnchorPoint = Vector2.new(0, 1), 
             BackgroundTransparency = 1, 
