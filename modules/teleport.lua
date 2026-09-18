@@ -171,14 +171,18 @@ function Module:Init(Library, Window, Tab)
             local radius = houseSize.Magnitude / 2
             local distance = (radius / math.tan(math.rad(VpCamera.FieldOfView / 2))) * 1.1
 
-            local angle = 0
-            local renderConn -- Заранее объявляем переменную
-            renderConn = RunService.RenderStepped:Connect(function(dt)
+            local renderConn 
+            renderConn = RunService.RenderStepped:Connect(function()
                 if not Viewport.Parent then 
-                    if renderConn then renderConn:Disconnect() end -- Жестко убиваем цикл, когда карточка удаляется
+                    if renderConn then renderConn:Disconnect() end 
                     return 
                 end
-                angle = angle + math.rad(25 * dt)
+                
+                -- Берем абсолютное время для идеально плавного вращения независимо от просадок FPS
+                local current_time = os.clock()
+                local speed = 0.5 -- Скорость вращения
+                local angle = current_time * speed
+                
                 local camPos = centerPos + Vector3.new(math.cos(angle) * distance * 0.8, distance * 0.4, math.sin(angle) * distance * 0.8)
                 VpCamera.CFrame = CFrame.lookAt(camPos, centerPos)
             end)
