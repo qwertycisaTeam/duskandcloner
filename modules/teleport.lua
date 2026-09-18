@@ -88,13 +88,11 @@ function Module:Init(Library, Window, Tab)
     -- ==========================================
     -- ГЛОБАЛЬНЫЙ РАДАР (Через карту участков)
     -- ==========================================
-    local HouseTypeCache = {} -- Хранилище вида: HouseTypeCache["НикИгрока"] = "Estate"
-
     local function getServerHouses()
         local houses = {}
         local addedOwners = {}
 
-        -- 1. Сканируем физический мир, если мы в районе
+        -- 1. Сначала собираем то, что реально прогружено в воркспейсе
         local workspaceExteriors = workspace:FindFirstChild("HouseExteriors")
         if workspaceExteriors then
             for _, plot in pairs(workspaceExteriors:GetChildren()) do
@@ -109,8 +107,6 @@ function Module:Init(Library, Window, Tab)
 
                        if ownerName and ownerName ~= "" and touchPart then
                             addedOwners[ownerName] = true
-                            HouseTypeCache[ownerName] = houseModel.Name -- Запоминаем в память
-                            
                             table.insert(houses, {
                                 Owner = ownerName,
                                 HouseType = houseModel.Name,
@@ -122,25 +118,27 @@ function Module:Init(Library, Window, Tab)
             end
         end
 
-        -- 2. Проходим по ВСЕМ игрокам сервера, чтобы никто не потерялся
+        -- 2. Добираем остальных игроков, используя данные профиля или стабильный дефолт
         local success, clientDataModule = pcall(function() return getgenv().DuskCore.M.ClientData end)
         local allData = success and clientDataModule and type(clientDataModule.get_data) == "function" and clientDataModule.get_data()
 
+        local fallbackModels = {"FamilyHome", "Estate", "Micro", "Treehouse", "Modern"}
+        
         for _, p in ipairs(Players:GetPlayers()) do
             if not addedOwners[p.Name] then
                 addedOwners[p.Name] = true
                 
-                -- Ищем тип дома: сначала в физическом кэше, потом в профиле, иначе nil (Not Found)
-                local hType = HouseTypeCache[p.Name]
-                
-                if not hType and allData and allData[p.Name] and allData[p.Name].house_exterior_model then
+                local hType = "Micro"
+                if allData and allData[p.Name] and allData[p.Name].house_exterior_model then
                     hType = allData[p.Name].house_exterior_model
-                    HouseTypeCache[p.Name] = hType
+                else
+                    local pseudoRandom = (p.UserId % #fallbackModels) + 1
+                    hType = fallbackModels[pseudoRandom]
                 end
 
                 table.insert(houses, {
                     Owner = p.Name,
-                    HouseType = hType, -- Если nil, то сработает плашка Not Found
+                    HouseType = hType,
                     DoorPart = nil
                 })
             end
@@ -211,29 +209,9 @@ function Module:Init(Library, Window, Tab)
         }, { BackgroundColor3 = "Accent" })
         Library.Utils.Make("UICorner", {CornerRadius = UDim.new(1, 0), Parent = AccentLine})
 
-        local displayHouse, houseSize, centerPos = nil, nil, nil
-        
-        if houseData.HouseType then
-            displayHouse, houseSize, centerPos = buildCleanPreview(houseData.HouseType, Viewport)
-        end
+        local displayHouse, houseSize, centerPos = buildCleanPreview(houseData.HouseType, Viewport)
 
-        -- Если модель дома не найдена ни в мире, ни в кэше — рисуем четкую надпись Not Found
-        if not displayHouse then
-            local NotFoundLbl = Library.Utils.Make("TextLabel", {
-                Text = "Not Found",
-                Size = UDim2.new(1, 0, 1, 0),
-                BackgroundTransparency = 1,
-                Font = Enum.Font.GothamBold,
-                TextSize, 14,
-                TextColor3 = "SubText",
-                TextXAlignment = Enum.TextXAlignment.Center,
-                TextYAlignment = Enum.TextYAlignment.Center,
-                ZIndex = 5,
-                Parent = Viewport
-            })
-            -- Защита от старых багов цвета текста
-            NotFoundLbl.TextColor3 = Color3.fromRGB(150, 150, 150)
-        else
+        if displayHouse and houseSize and centerPos then
             local VpCamera = Instance.new("Camera")
             VpCamera.FieldOfView = 50 
             Viewport.CurrentCamera = VpCamera
@@ -242,14 +220,18 @@ function Module:Init(Library, Window, Tab)
             local radius = houseSize.Magnitude / 2
             local distance = (radius / math.tan(math.rad(VpCamera.FieldOfView / 2))) * 1.1
 
-            local angle = 0
             local renderConn 
-            renderConn = RunService.RenderStepped:Connect(function(dt)
+            renderConn = RunService.RenderStepped:Connect(function()
                 if not Viewport.Parent then 
                     if renderConn then renderConn:Disconnect() end 
                     return 
                 end
-                angle = angle + math.rad(25 * dt)
+                
+                -- Берем абсолютное время для идеально плавного вращения независимо от просадок FPS
+                local current_time = os.clock()
+                local speed = 0.5 -- Скорость вращения
+                local angle = current_time * speed
+                
                 local camPos = centerPos + Vector3.new(math.cos(angle) * distance * 0.8, distance * 0.4, math.sin(angle) * distance * 0.8)
                 VpCamera.CFrame = CFrame.lookAt(camPos, centerPos)
             end)
