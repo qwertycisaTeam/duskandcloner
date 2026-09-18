@@ -166,7 +166,7 @@ function Module:Init(Library, Window, Tab)
 
         task.spawn(function()
             while Tile and Tile.Parent do
-                if getgenv().MenuParticlesEnabled and Window.MainFrame.Visible then
+                if Window.MainFrame.Visible then
                     local p = Instance.new("Frame")
                     p.BorderSizePixel = 0
                     p.Parent = Tile
