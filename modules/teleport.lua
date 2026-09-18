@@ -34,14 +34,31 @@ function Module:Init(Library, Window, Tab)
     end
 
     -- ==========================================
-    -- 3D РЕНДЕР: ТОЛЬКО ДОМ, ИДЕАЛЬНАЯ КАМЕРА
+    -- 3D РЕНДЕР: УЛУЧШЕННЫЙ ПОИСК МОДЕЛЕЙ
     -- ==========================================
     local function buildCleanPreview(houseType, viewportFrame)
-        local Resources = ReplicatedStorage:FindFirstChild("Resources")
-        if not Resources then return end
+        local houseModel = nil
 
-        local houseExteriors = Resources:FindFirstChild("HouseExteriors")
-        local houseModel = houseExteriors and houseExteriors:FindFirstChild(houseType)
+        -- 1. Сначала ищем модель в хранилище (работает с главной карты)
+        local Resources = ReplicatedStorage:FindFirstChild("Resources")
+        local rsExteriors = Resources and Resources:FindFirstChild("HouseExteriors")
+        if rsExteriors then
+            houseModel = rsExteriors:FindFirstChild(houseType)
+        end
+
+        -- 2. Если в хранилище нет (разрабы перенесли), берем физическую модель со спального района
+        if not houseModel then
+            local wsExteriors = workspace:FindFirstChild("HouseExteriors")
+            if wsExteriors then
+                for _, plot in pairs(wsExteriors:GetChildren()) do
+                    local h = plot:GetChildren()[1]
+                    if h and h.Name == houseType then
+                        houseModel = h
+                        break
+                    end
+                end
+            end
+        end
 
         if houseModel then
             local displayHouse = houseModel:Clone()
@@ -62,11 +79,54 @@ function Module:Init(Library, Window, Tab)
             end
 
             displayHouse.Parent = viewportFrame
-
             local cf, size = displayHouse:GetBoundingBox()
             return displayHouse, size, cf.Position
         end
         return nil, nil, nil
+    end
+
+    -- ==========================================
+    -- ГЛОБАЛЬНЫЙ РАДАР (Через карту участков)
+    -- ==========================================
+    local function getServerHouses()
+        local houses = {}
+        local addedOwners = {}
+        local LocalPlayer = game:GetService("Players").LocalPlayer
+        
+        local success, clientDataModule = pcall(function() return getgenv().DuskCore.M.ClientData end)
+        if success and clientDataModule and type(clientDataModule.get_data) == "function" then
+            local allData = clientDataModule.get_data()
+            if type(allData) == "table" and allData[LocalPlayer.Name] then
+                
+                -- Вытаскиваем ГЛОБАЛЬНУЮ КАРТУ УЧАСТКОВ из твоего профиля
+                local myData = allData[LocalPlayer.Name]
+                if type(myData.house_exteriors) == "table" then
+                    for plotNum, plotData in pairs(myData.house_exteriors) do
+                        if type(plotData) == "table" and plotData.owner and plotData.model then
+                            addedOwners[plotData.owner] = true
+                            table.insert(houses, {
+                                Owner = plotData.owner,
+                                HouseType = plotData.model
+                            })
+                        end
+                    end
+                end
+            end
+        end
+
+        -- Страховка: добиваем фейками тех, кто только что зашел на сервер и еще не получил участок
+        local fallbackModels = {"FamilyHome", "Estate", "Micro", "Treehouse", "Modern"}
+        for _, p in ipairs(game:GetService("Players"):GetPlayers()) do
+            if not addedOwners[p.Name] then
+                local pseudoRandom = (p.UserId % #fallbackModels) + 1
+                table.insert(houses, {
+                    Owner = p.Name,
+                    HouseType = fallbackModels[pseudoRandom]
+                })
+            end
+        end
+
+        return houses
     end
 
     -- 1. ГЕНЕРАТОР КАРТОЧЕК (С заглушками для тех, кто далеко)
