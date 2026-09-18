@@ -91,22 +91,26 @@ function Module:Init(Library, Window, Tab)
     local function getServerHouses()
         local houses = {}
         local addedOwners = {}
-        local LocalPlayer = game:GetService("Players").LocalPlayer
-        
-        local success, clientDataModule = pcall(function() return getgenv().DuskCore.M.ClientData end)
-        if success and clientDataModule and type(clientDataModule.get_data) == "function" then
-            local allData = clientDataModule.get_data()
-            if type(allData) == "table" and allData[LocalPlayer.Name] then
-                
-                -- Вытаскиваем ГЛОБАЛЬНУЮ КАРТУ УЧАСТКОВ из твоего профиля
-                local myData = allData[LocalPlayer.Name]
-                if type(myData.house_exteriors) == "table" then
-                    for plotNum, plotData in pairs(myData.house_exteriors) do
-                        if type(plotData) == "table" and plotData.owner and plotData.model then
-                            addedOwners[plotData.owner] = true
+
+        -- 1. Сначала собираем то, что реально прогружено в воркспейсе
+        local workspaceExteriors = workspace:FindFirstChild("HouseExteriors")
+        if workspaceExteriors then
+            for _, plot in pairs(workspaceExteriors:GetChildren()) do
+                local houseModel = plot:GetChildren()[1]
+                if houseModel and houseModel:FindFirstChild("Doors") and houseModel.Doors:FindFirstChild("MainDoor") then
+                    local mainDoor = houseModel.Doors.MainDoor
+                    local config = mainDoor:FindFirstChild("WorkingParts") and mainDoor.WorkingParts:FindFirstChild("Configuration")
+
+                    if config and config:FindFirstChild("house_owner") then
+                        local ownerName = config.house_owner.Value
+                        local touchPart = mainDoor.WorkingParts:FindFirstChild("TouchToEnter")
+
+                       if ownerName and ownerName ~= "" and touchPart then
+                            addedOwners[ownerName] = true
                             table.insert(houses, {
-                                Owner = plotData.owner,
-                                HouseType = plotData.model
+                                Owner = ownerName,
+                                HouseType = houseModel.Name,
+                                DoorPart = touchPart
                             })
                         end
                     end
@@ -114,14 +118,28 @@ function Module:Init(Library, Window, Tab)
             end
         end
 
-        -- Страховка: добиваем фейками тех, кто только что зашел на сервер и еще не получил участок
+        -- 2. Добираем остальных игроков, используя данные профиля или стабильный дефолт
+        local success, clientDataModule = pcall(function() return getgenv().DuskCore.M.ClientData end)
+        local allData = success and clientDataModule and type(clientDataModule.get_data) == "function" and clientDataModule.get_data()
+
         local fallbackModels = {"FamilyHome", "Estate", "Micro", "Treehouse", "Modern"}
-        for _, p in ipairs(game:GetService("Players"):GetPlayers()) do
+        
+        for _, p in ipairs(Players:GetPlayers()) do
             if not addedOwners[p.Name] then
-                local pseudoRandom = (p.UserId % #fallbackModels) + 1
+                addedOwners[p.Name] = true
+                
+                local hType = "Micro"
+                if allData and allData[p.Name] and allData[p.Name].house_exterior_model then
+                    hType = allData[p.Name].house_exterior_model
+                else
+                    local pseudoRandom = (p.UserId % #fallbackModels) + 1
+                    hType = fallbackModels[pseudoRandom]
+                end
+
                 table.insert(houses, {
                     Owner = p.Name,
-                    HouseType = fallbackModels[pseudoRandom]
+                    HouseType = hType,
+                    DoorPart = nil
                 })
             end
         end
