@@ -268,23 +268,27 @@ function Module:Init(Library, Window, Tab)
             local ACTUALLY_BUILD = true
             local MICRO_SHIFT_Y = 0 
             
-            -- Функция загрузки атмосферы
-            local function loadAmbiance(ambianceData)
-                if not ambianceData then return end
-                
+            -- ИСПРАВЛЕННАЯ ФУНКЦИЯ АТМОСФЕРЫ (Жесткий сброс)
+            local function loadAmbiance(ambianceData, particleData)
                 local function toColor3(rgbArray)
                     if type(rgbArray) ~= "table" or #rgbArray < 3 then return Color3.new(1, 1, 1) end
                     return Color3.new(rgbArray[1], rgbArray[2], rgbArray[3])
                 end
                 
-                local cProps = ambianceData.custom_props or {}
+                local cProps = (type(ambianceData) == "table" and ambianceData.custom_props) or {}
                 local lData = cProps.Lighting or {}
                 local ccData = cProps.ColorCorrectionEffect or {}
                 local srData = cProps.SunRaysEffect or {}
                 local atmData = cProps.Atmosphere or {}
             
-                local bKind = ambianceData.base_kind or "day"
-                local kKind = ambianceData.kind or "day"
+                local bKind = (type(ambianceData) == "table" and ambianceData.base_kind) or "day"
+                local kKind = (type(ambianceData) == "table" and ambianceData.kind) or "day"
+
+                -- Принудительно выключаем все эффекты по умолчанию, если их нет в JSON
+                local customParticles = { Rain = false, CherryBlossoms = false, Leaves = false, Snow = false }
+                if type(particleData) == "table" then
+                    for k, v in pairs(particleData) do customParticles[k] = v end
+                end
 
                 local args = {{
                     base_kind = bKind, kind = kKind, priority = 3,
@@ -308,7 +312,7 @@ function Module:Init(Library, Window, Tab)
                             Haze = atmData.Haze or 0, 
                             Color = toColor3(atmData.Color)
                         },
-                        Custom = savedHouse.particles or {}
+                        Custom = customParticles
                     }
                 }}
                 
@@ -319,7 +323,8 @@ function Module:Init(Library, Window, Tab)
                 end
             end
             
-            if savedHouse.ambiance then loadAmbiance(savedHouse.ambiance) end
+            -- Вызываем атмосферу ВСЕГДА, чтобы гарантировать сброс старой погоды
+            loadAmbiance(savedHouse.ambiance, savedHouse.particles)
 
             if CopyTextures and savedHouse.textures then
                 Library:Notify("Builder", "Applying wallpapers and floors...", 3, "rbxassetid://91727514118912", "rbxassetid://72958619361915")
@@ -369,7 +374,10 @@ function Module:Init(Library, Window, Tab)
 
             if downloadApi then
                 local uniqueIDs = {}
-                for _, item in ipairs(rawFurniture) do uniqueIDs[item.id] = true end
+                for _, item in ipairs(rawFurniture) do 
+                    local itemId = item.id or item.name or item.kind
+                    if itemId then uniqueIDs[itemId] = true end 
+                end
                 for id, _ in pairs(uniqueIDs) do
                     task.spawn(function() pcall(function() downloadApi:InvokeServer("Furniture", id) end) end)
                 end
@@ -381,6 +389,9 @@ function Module:Init(Library, Window, Tab)
             local batchOriginalItems = {}
 
             for i, item in ipairs(rawFurniture) do
+                local itemId = item.id or item.name or item.kind
+                if not itemId then continue end
+
                 local baseCFrame = CFrame.new(unpack(item.cframe))
                 local localCFrame = baseCFrame + Vector3.new(0, MICRO_SHIFT_Y, 0)
                 
@@ -391,7 +402,7 @@ function Module:Init(Library, Window, Tab)
                     buyProps.colors = c3table
                 end
                 
-                table.insert(currentBatch, { kind = item.id, properties = buyProps })
+                table.insert(currentBatch, { kind = itemId, properties = buyProps })
                 table.insert(batchOriginalItems, { item = item, localCFrame = localCFrame, buyProps = buyProps })
                 
                 local batchLimit = getgenv().CurrentBatchSize or 15
@@ -400,7 +411,7 @@ function Module:Init(Library, Window, Tab)
                 if #currentBatch >= batchLimit or i == #rawFurniture then
                     local successPurchase = false
                     local attempts = 0
-                    local maxAttempts = 3 
+                    local maxAttempts = 2 
 
                     repeat
                         attempts = attempts + 1
@@ -420,9 +431,29 @@ function Module:Init(Library, Window, Tab)
                                 end
                             end
                         else
-                            task.wait(1.5)
+                            task.wait(0.5)
                         end
                     until successPurchase or attempts >= maxAttempts
+
+                    -- ИСПРАВЛЕНИЕ: Fallback-система. Если пачка не купилась (из-за туториальной ванны и т.д.), покупаем их поштучно!
+                    if not successPurchase and #currentBatch > 0 then
+                        for bIndex, singleItemReq in ipairs(currentBatch) do
+                            local sBuildSuccess, sResponse = pcall(function() return buyFurnituresRemote:InvokeServer({singleItemReq}) end)
+                            if sBuildSuccess and type(sResponse) == "table" and sResponse.success and sResponse.results then
+                                local orig = batchOriginalItems[bIndex]
+                                for _, result in ipairs(sResponse.results) do
+                                    if result.unique then
+                                        local changeArgs = { unique = result.unique, cframe = orig.localCFrame }
+                                        if orig.item.scale and orig.item.scale ~= 1 then changeArgs.scale = orig.item.scale end
+                                        if orig.buyProps.colors then changeArgs.colors = orig.buyProps.colors end
+                                        table.insert(pendingChanges, changeArgs)
+                                    end
+                                end
+                            end
+                            -- Микро-задержка, чтобы не спамить сервер при поштучной покупке
+                            task.wait(0.02)
+                        end
+                    end
 
                     currentBatch = {}
                     batchOriginalItems = {}
