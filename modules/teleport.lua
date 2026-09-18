@@ -88,7 +88,7 @@ function Module:Init(Library, Window, Tab)
     -- ==========================================
     -- ГЛОБАЛЬНЫЙ РАДАР (Через карту участков)
     -- ==========================================
-    local CachedHouses = {} -- Вынеси эту переменную чуть выше, если ее там нет
+    local HouseTypeCache = {} -- Хранилище вида: HouseTypeCache["НикИгрока"] = "Estate"
 
     local function getServerHouses()
         local houses = {}
@@ -109,6 +109,8 @@ function Module:Init(Library, Window, Tab)
 
                        if ownerName and ownerName ~= "" and touchPart then
                             addedOwners[ownerName] = true
+                            HouseTypeCache[ownerName] = houseModel.Name -- Запоминаем в память
+                            
                             table.insert(houses, {
                                 Owner = ownerName,
                                 HouseType = houseModel.Name,
@@ -120,45 +122,28 @@ function Module:Init(Library, Window, Tab)
             end
         end
 
-        -- 2. Оптимизация: если физических домов нет (мы в интерьере или в городе), 
-        -- но у нас есть старый кэш — берем типы домов из памяти, чтобы карточки не ломались!
-        if #houses == 0 and #CachedHouses > 0 then
-            return CachedHouses
-        end
-
-        -- 3. Добираем остальных игроков (если появились новые)
+        -- 2. Проходим по ВСЕМ игрокам сервера, чтобы никто не потерялся
         local success, clientDataModule = pcall(function() return getgenv().DuskCore.M.ClientData end)
         local allData = success and clientDataModule and type(clientDataModule.get_data) == "function" and clientDataModule.get_data()
-        
+
         for _, p in ipairs(Players:GetPlayers()) do
             if not addedOwners[p.Name] then
                 addedOwners[p.Name] = true
                 
-                -- Ищем старый тип из кэша, если он там был
-                local hType = nil
-                for _, old in ipairs(CachedHouses) do
-                    if old.Owner == p.Name and old.HouseType then
-                        hType = old.HouseType
-                        break
-                    end
-                end
-
-                -- Если и в кэше не было, смотрим в профиле
+                -- Ищем тип дома: сначала в физическом кэше, потом в профиле, иначе nil (Not Found)
+                local hType = HouseTypeCache[p.Name]
+                
                 if not hType and allData and allData[p.Name] and allData[p.Name].house_exterior_model then
                     hType = allData[p.Name].house_exterior_model
+                    HouseTypeCache[p.Name] = hType
                 end
 
                 table.insert(houses, {
                     Owner = p.Name,
-                    HouseType = hType, -- Если все еще nil, отрисуется "Not Found" по памяти
+                    HouseType = hType, -- Если nil, то сработает плашка Not Found
                     DoorPart = nil
                 })
             end
-        end
-
-        -- Обновляем глобальный кэш
-        if #houses > 0 then
-            CachedHouses = houses
         end
 
         return houses
