@@ -266,34 +266,29 @@ function Module:Init(Library, Window, Tab)
                     -- Заставляем игру перекинуть нас в район
                     pcall(function() getgenv().DuskCore.API.SetLocation:FireServer("Neighborhood") end)
                     
-                    -- Ждем, пока папка с домами физически появится
+                    -- АГРЕССИВНЫЙ ПОИСК ДВЕРИ (Ждем до 10 секунд)
                     local t = tick()
-                    local exts = nil
                     repeat 
-                        task.wait(0.2)
-                        exts = workspace:FindFirstChild("HouseExteriors")
-                    until (exts and #exts:GetChildren() > 0) or (tick() - t > 5)
-                    
-                    task.wait(0.5) -- Доп. время на спавн дверей
-                    
-                    -- Ищем нужную дверь свежим поиском
-                    if exts then
-                        for _, plot in pairs(exts:GetChildren()) do
-                            local hModel = plot:GetChildren()[1]
-                            if hModel and hModel:FindFirstChild("Doors") and hModel.Doors:FindFirstChild("MainDoor") then
-                                local mainDoor = hModel.Doors.MainDoor
-                                local config = mainDoor:FindFirstChild("WorkingParts") and mainDoor.WorkingParts:FindFirstChild("Configuration")
-                                if config and config:FindFirstChild("house_owner") and config.house_owner.Value == targetOwner then
-                                    touchPart = mainDoor.WorkingParts:FindFirstChild("TouchToEnter")
-                                    break
+                        task.wait(0.25)
+                        local exts = workspace:FindFirstChild("HouseExteriors")
+                        if exts then
+                            for _, plot in pairs(exts:GetChildren()) do
+                                local hModel = plot:GetChildren()[1]
+                                if hModel and hModel:FindFirstChild("Doors") and hModel.Doors:FindFirstChild("MainDoor") then
+                                    local mainDoor = hModel.Doors.MainDoor
+                                    local config = mainDoor:FindFirstChild("WorkingParts") and mainDoor.WorkingParts:FindFirstChild("Configuration")
+                                    if config and config:FindFirstChild("house_owner") and config.house_owner.Value == targetOwner then
+                                        touchPart = mainDoor.WorkingParts:FindFirstChild("TouchToEnter")
+                                    end
                                 end
                             end
                         end
-                    end
+                    until touchPart or (tick() - t > 10)
                 end
 
+                -- Если спустя 10 секунд дверь так и не прогрузилась
                 if not touchPart then
-                    if Library.Notify then Library:Notify("Error", "Could not find " .. targetOwner .. "'s house!", 3, "rbxassetid://73186275216515", "rbxassetid://72958619361915") end
+                    if Library.Notify then Library:Notify("Error", "Could not find " .. targetOwner .. "'s house! Try again.", 3, "rbxassetid://73186275216515", "rbxassetid://72958619361915") end
                     return
                 end
 
