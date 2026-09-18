@@ -1,10 +1,19 @@
-
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local LocalPlayer = getgenv().DuskCore.plr
 
 local Module = {}
+
+local set_identity = (syn and syn.set_thread_identity) or setthreadidentity or setidentity
+local get_identity = (syn and syn.get_thread_identity) or getthreadidentity or getidentity
+
+local function SafeTeleport(dest, door, data)
+    local current_id = get_identity and get_identity() or 7
+    if set_identity then pcall(set_identity, 2) end
+    pcall(function() getgenv().DuskCore.M.InteriorsM.enter_smooth(dest, door, data) end)
+    if set_identity then pcall(set_identity, current_id) end
+end
 
 function Module:Init(Library, Window, Tab)
 
@@ -69,31 +78,47 @@ function Module:Init(Library, Window, Tab)
         return nil, nil, nil
     end
 
+    -- === НОВАЯ ЛОГИКА СБОРА ДОМОВ (ГЛОБАЛЬНАЯ) ===
     local function getServerHouses()
         local houses = {}
+        local addedOwners = {}
+
+        -- 1. Попытка получить реальные дома (если мы в Neighborhood)
         local workspaceExteriors = workspace:FindFirstChild("HouseExteriors")
-        if not workspaceExteriors then return houses end
+        if workspaceExteriors then
+            for _, plot in pairs(workspaceExteriors:GetChildren()) do
+                local houseModel = plot:GetChildren()[1]
+                if houseModel and houseModel:FindFirstChild("Doors") and houseModel.Doors:FindFirstChild("MainDoor") then
+                    local mainDoor = houseModel.Doors.MainDoor
+                    local config = mainDoor:FindFirstChild("WorkingParts") and mainDoor.WorkingParts:FindFirstChild("Configuration")
 
-        for _, plot in pairs(workspaceExteriors:GetChildren()) do
-            local houseModel = plot:GetChildren()[1]
-            if houseModel and houseModel:FindFirstChild("Doors") and houseModel.Doors:FindFirstChild("MainDoor") then
-                local mainDoor = houseModel.Doors.MainDoor
-                local config = mainDoor:FindFirstChild("WorkingParts") and mainDoor.WorkingParts:FindFirstChild("Configuration")
-
-                if config and config:FindFirstChild("house_owner") then
-                    local ownerName = config.house_owner.Value
-                    local touchPart = mainDoor.WorkingParts:FindFirstChild("TouchToEnter")
-
-                   if ownerName and ownerName ~= "" and touchPart then
-                        table.insert(houses, {
-                            Owner = ownerName,
-                            HouseType = houseModel.Name,
-                            DoorPart = touchPart
-                        })
+                    if config and config:FindFirstChild("house_owner") then
+                        local ownerName = config.house_owner.Value
+                        if ownerName and ownerName ~= "" and not addedOwners[ownerName] then
+                            addedOwners[ownerName] = true
+                            table.insert(houses, {
+                                Owner = ownerName,
+                                HouseType = houseModel.Name
+                            })
+                        end
                     end
                 end
             end
         end
+
+        -- 2. Заполняем список остальными игроками сервера с фейковыми 3D-модельками
+        local fallbackModels = {"FamilyHome", "Estate", "Micro", "Treehouse", "Modern"}
+        for _, p in ipairs(Players:GetPlayers()) do
+            if not addedOwners[p.Name] then
+                -- Привязываем модельку к UserId, чтобы она не менялась каждую секунду
+                local pseudoRandom = (p.UserId % #fallbackModels) + 1
+                table.insert(houses, {
+                    Owner = p.Name,
+                    HouseType = fallbackModels[pseudoRandom]
+                })
+            end
+        end
+
         return houses
     end
 
@@ -172,10 +197,10 @@ function Module:Init(Library, Window, Tab)
             local distance = (radius / math.tan(math.rad(VpCamera.FieldOfView / 2))) * 1.1
 
             local angle = 0
-            local renderConn -- Заранее объявляем переменную
+            local renderConn
             renderConn = RunService.RenderStepped:Connect(function(dt)
                 if not Viewport.Parent then 
-                    if renderConn then renderConn:Disconnect() end -- Жестко убиваем цикл, когда карточка удаляется
+                    if renderConn then renderConn:Disconnect() end
                     return 
                 end
                 angle = angle + math.rad(25 * dt)
@@ -228,67 +253,58 @@ function Module:Init(Library, Window, Tab)
             Library.Utils.TBT(Scale, 0.15, {Scale = 1}, Enum.EasingStyle.Bounce)
             Library.Utils.CreateRipple(RippleContainer)
 
-            local char = LocalPlayer.Character
-            local hrp = char and char:FindFirstChild("HumanoidRootPart")
-
-            if hrp then
-                local posY = hrp.Position.Y
-                if posY < 8500 then
-                    if Library.Notify then
-                        Library:Notify("Error", "Teleport ONLY works in the neighborhood!", 3, "rbxassetid://73186275216515", "rbxassetid://72958619361915")
-                    end
-                    return 
+            local targetPlayer = Players:FindFirstChild(houseData.Owner)
+            
+            if not targetPlayer then
+                if Library.Notify then 
+                    Library:Notify("Error", "Player is no longer in the server!", 3, "rbxassetid://73186275216515", "rbxassetid://72958619361915") 
                 end
-
-                local touchPart = houseData.DoorPart
-                if not touchPart or not touchPart.Parent then 
-                    if Library.Notify then Library:Notify("Error", "House not found!", 3, "rbxassetid://73186275216515", "rbxassetid://72958619361915") end
-                    return 
-                end
-
-                local lookTarget = (touchPart.CFrame * CFrame.new(0, 0, -5)).Position
-                hrp.CFrame = CFrame.lookAt(touchPart.Position, lookTarget)
-
-                if Library.Notify then
-                    Library:Notify("Teleport", "Entering " .. houseData.Owner .. "'s house...", 3, "rbxassetid://91727514118912", "rbxassetid://72958619361915")
-                end
-
-                task.spawn(function()
-                    task.wait(0.25) 
-                    local doorModel = touchPart.Parent.Parent
-                    pcall(function()
-                        local successDoors, DoorsM = pcall(function()
-                            return require(ReplicatedStorage.ClientModules.Core.DoorsM.DoorsM)
-                        end)
-
-                        if successDoors and DoorsM then
-                            local doorObj = DoorsM.get_door(doorModel)
-                            if doorObj then
-                                doorObj.is_open = true
-                                doorObj.can_enter = true
-                                doorObj.locked = false
-                                doorObj.is_locked = false 
-                                if type(doorObj.update) == "function" then
-                                    pcall(function() doorObj:update() end)
-                                end
-                            end
-                        end
-                    end)
-
-                    hrp.CFrame = hrp.CFrame * CFrame.new(0, 0, -0.5)
-
-                    if firetouchinterest then
-                        firetouchinterest(hrp, touchPart, 0)
-                        task.wait(0.1)
-                        firetouchinterest(hrp, touchPart, 1)
-                    end
-                end)
+                return
             end
+
+            task.spawn(function()
+                local DuskCore = getgenv().DuskCore
+                local API = DuskCore.API
+                
+                -- Проверяем наличие загруженных домов. Если они есть — мы уже в Neighborhood.
+                local exts = workspace:FindFirstChild("HouseExteriors")
+                local inNeigh = exts and #exts:GetChildren() > 0
+                
+                if not inNeigh then
+                    if Library.Notify then 
+                        Library:Notify("Teleport", "Routing to Neighborhood...", 2, "rbxassetid://13549782519", "rbxassetid://72958619361915") 
+                    end
+                    
+                    local currentLoc = DuskCore.M.ClientData.get("location_id")
+                    if currentLoc == "housing" then
+                        pcall(function() API.UnsubscribeFromHouse:InvokeServer(LocalPlayer) end)
+                    end
+                    
+                    pcall(function() API.SetLocation:FireServer("Neighborhood") end)
+                    SafeTeleport("Neighborhood", "MainDoor", {})
+                    
+                    -- Ждем физического появления папки с домами
+                    local t = tick()
+                    repeat 
+                        task.wait(0.2)
+                        exts = workspace:FindFirstChild("HouseExteriors")
+                    until (exts and #exts:GetChildren() > 0) or (tick() - t > 8)
+                    task.wait(0.5) 
+                end
+                
+                if Library.Notify then 
+                    Library:Notify("Teleport", "Entering " .. houseData.Owner .. "'s house...", 3, "rbxassetid://91727514118912", "rbxassetid://72958619361915") 
+                end
+                
+                -- Идеальный плавный вход
+                SafeTeleport("housing", "MainDoor", {
+                    ["house_owner"] = targetPlayer
+                })
+            end)
         end)
     end
 
     local refreshThread = nil
-    local CachedHouses = {}
 
     local function updateHouseCards()
         for _, child in ipairs(Container:GetChildren()) do
@@ -301,20 +317,13 @@ function Module:Init(Library, Window, Tab)
             local houses = getServerHouses()
 
             if #houses > 0 then
-                CachedHouses = houses
-            else
-                houses = CachedHouses 
-            end
-
-            if #houses > 0 then
                 for index, houseData in ipairs(houses) do
                     createHouseCard(houseData, index)
                 end
             else
                 createHouseCard({
                     Owner = LocalPlayer.Name,
-                    HouseType = "Micro",
-                    DoorPart = nil
+                    HouseType = "Micro"
                 }, 1)
             end
         end)
@@ -332,22 +341,20 @@ function Module:Init(Library, Window, Tab)
 
     queueRefresh()
 
-local workspaceExteriors = workspace:WaitForChild("HouseExteriors", 5)
+    -- === ОБНОВЛЕННЫЕ ТРИГГЕРЫ ===
+    -- Теперь мы слушаем заход/выход игроков, так как список зависит от них!
+    table.insert(Library.Connections, Players.PlayerAdded:Connect(queueRefresh))
+    table.insert(Library.Connections, Players.PlayerRemoving:Connect(queueRefresh))
+
+    local workspaceExteriors = workspace:WaitForChild("HouseExteriors", 5)
     if workspaceExteriors then
         table.insert(Library.Connections, workspaceExteriors.DescendantAdded:Connect(function(descendant)
-            if descendant.Parent and descendant.Parent.Parent == workspaceExteriors then
-                queueRefresh()
-            end
+            if descendant.Parent and descendant.Parent.Parent == workspaceExteriors then queueRefresh() end
         end))
-
         table.insert(Library.Connections, workspaceExteriors.DescendantRemoving:Connect(function(descendant)
-            if descendant.Parent and descendant.Parent.Parent == workspaceExteriors then
-                queueRefresh()
-            end
+            if descendant.Parent and descendant.Parent.Parent == workspaceExteriors then queueRefresh() end
         end))
     end
-
-   table.insert(Library.Connections, Players.PlayerRemoving:Connect(queueRefresh))
 end
 
 return Module
