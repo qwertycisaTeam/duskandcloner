@@ -635,7 +635,8 @@ function Module:CreateFileCard(fileName)
         AddAction("Rename", "rbxassetid://77580518418895", "SubText", "Accent", false, function() TitleLbl.Visible = false; RenameBox.Visible = true; RenameBox.Text = fileName; RenameBox:CaptureFocus() end)
         AddAction("Duplicate", "rbxassetid://91403080584860", "SubText", "Accent", false, function() local data = self:LoadHouse(fileName); if data then self:SaveHouse(fileName .. "_copy", data); self:RefreshList(); Library:Notify("File Manager", "Duplicated: " .. fileName, 3, "rbxassetid://91727514118912", "rbxassetid://72958619361915" ) end end)
         AddAction("Copy Code", "rbxassetid://76443890191204", "SubText", "Accent", false, function() local data = self:LoadHouse(fileName); if data and setclipboard then setclipboard(HttpService:JSONEncode(data)); Library:Notify("Copied", "JSON code copied to clipboard!", 3, "rbxassetid://91727514118912", "rbxassetid://72958619361915") end end)
-        AddAction("Price Viewer", "rbxassetid://10698878025", "SubText", "Accent", false, function()
+
+        AddAction("Price Viewer", "rbxassetid://134478231016808", "SubText", "Accent", false, function()
             local data = self:LoadHouse(fileName)
             if not data or type(data.furniture) ~= "table" then
                 return Library:Notify("Error", "Failed to read house data!", 3, "rbxassetid://73186275216515", "rbxassetid://72958619361915")
@@ -644,24 +645,33 @@ function Module:CreateFileCard(fileName)
             local totalCost = 0
             local totalItems = #data.furniture
             local unbuyableCount = 0
+            local unbuyableNames = {}
             local dbIsValid = type(CachedFurnitureDB) == "table"
 
             for _, item in ipairs(data.furniture) do
                 local dbInfo = dbIsValid and CachedFurnitureDB[item.id]
-                if dbInfo and dbInfo.cost then
+                if dbInfo and dbInfo.cost ~= nil and not dbInfo.is_limited and not dbInfo.is_event then
+                    -- Сюда попадут и обычные предметы, и бесплатные (у которых cost == 0)
                     totalCost = totalCost + dbInfo.cost
                 else
+                    -- Сюда попадут только предметы без цены (как _tutorial) или лимитки
                     unbuyableCount = unbuyableCount + 1
+                    unbuyableNames[item.id] = (unbuyableNames[item.id] or 0) + 1
                 end
             end
 
             local infoText = string.format("Items: %d\nEstimated Cost: $%d", totalItems, totalCost)
             if unbuyableCount > 0 then
-                infoText = infoText .. string.format("\nUnpriced/Limited: %d", unbuyableCount)
+                infoText = infoText .. string.format("\nUnbuyable/Special: %d", unbuyableCount)
+                warn("=== [PRICE VIEWER: UNBUYABLE ITEMS in " .. fileName .. "] ===")
+                for id, count in pairs(unbuyableNames) do
+                    warn(" - " .. tostring(id) .. " (x" .. count .. ")")
+                end
             end
 
-            Library:Notify("Price Viewer: " .. fileName, infoText, 6, "rbxassetid://10698878025", "rbxassetid://72958619361915")
+            Library:Notify("Price Viewer: " .. fileName, infoText, 6, "rbxassetid://134478231016808", "rbxassetid://72958619361915")
         end)
+
         local div = Library.Utils.Make("Frame", { Size = UDim2.new(1, -12, 0, 1), Position = UDim2.new(0, 6, 0, 0), BackgroundTransparency = 0.8, ZIndex = 1002, Parent = Content }, { BackgroundColor3 = "Stroke" })
         Library.Utils.TBT(div, 0.15, {BackgroundTransparency = 0.8})
         
