@@ -478,7 +478,7 @@ function Module:CreateFileCard(fileName)
             for _, child in ipairs(drop.Content:GetChildren()) do
                 if child:IsA("TextButton") then 
                     Library.Utils.TBT(child, 0.15, {BackgroundTransparency = 1})
-                    for _, d in ipairs(child:GetChildren()) do
+                    for _, d in ipairs(child:GetDescendants()) do
                         if d:IsA("TextLabel") then Library.Utils.TBT(d, 0.15, {TextTransparency = 1}) end
                         if d:IsA("ImageLabel") then Library.Utils.TBT(d, 0.15, {ImageTransparency = 1}) end
                     end
@@ -578,12 +578,25 @@ function Module:CreateFileCard(fileName)
                 Text = "", Size = UDim2.new(1, 0, 0, 29), BackgroundTransparency = 1, ZIndex = 1002, AutoButtonColor = false, Parent = Content 
             })
             Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 6), Parent = btn })
+            local isPriceIcon = (title == "Price Viewer")
+            local iconSize = isPriceIcon and 19 or 16 -- Увеличиваем иконку прайса (или поставь 20, если захочешь еще крупнее)
 
             local Icon = Library.Utils.Make("ImageLabel", {
-                Size = UDim2.new(0, 16, 0, 16), AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 8, 0.5, 0),
+                Size = UDim2.new(0, iconSize, 0, iconSize),
+                AnchorPoint = Vector2.new(0.5, 0.5),
+                Position = UDim2.new(0, 16, 0.5, 0), -- Строго по центру вертикальной оси всех иконок (8 + 16/2 = 16)
                 BackgroundTransparency = 1, Image = iconId, ImageTransparency = 1, ZIndex = 1003, Parent = btn
             }, { ImageColor3 = baseColorKey })
 
+            -- Если это Price Viewer, накладываем дубликат пиксель-в-пиксель, чтобы сделать тонкие линии жирными и яркими
+            local IconBoost = nil
+            if isPriceIcon then
+                IconBoost = Library.Utils.Make("ImageLabel", {
+                    Size = UDim2.new(1, 0, 1, 0),
+                    BackgroundTransparency = 1, Image = iconId, ImageTransparency = 1, ZIndex = 1003, Parent = Icon
+                }, { ImageColor3 = baseColorKey })
+                Library.Utils.TBT(IconBoost, 0.15, {ImageTransparency = 0})
+            end
             local TextLbl = Library.Utils.Make("TextLabel", {
                 Text = title, Size = UDim2.new(1, -34, 1, 0), Position = UDim2.new(0, 34, 0, 0),
                 BackgroundTransparency = 1, Font = Enum.Font.GothamMedium, TextSize = 13, TextTransparency = 1,
@@ -602,6 +615,7 @@ function Module:CreateFileCard(fileName)
                     Library.Utils.TBT(btn, 0.15, {BackgroundTransparency = 0.85}, Enum.EasingStyle.Quint) 
                     Library.Utils.TBT(TextLbl, 0.15, {TextColor3 = Library.CurrentTheme[hoverColorKey]}, Enum.EasingStyle.Quint)
                     Library.Utils.TBT(Icon, 0.15, {ImageColor3 = Library.CurrentTheme[hoverColorKey]}, Enum.EasingStyle.Quint)
+                    if IconBoost then Library.Utils.TBT(IconBoost, 0.15, {ImageColor3 = Library.CurrentTheme[hoverColorKey]}, Enum.EasingStyle.Quint) end
                 end
             end)
             
@@ -610,6 +624,7 @@ function Module:CreateFileCard(fileName)
                 if not isDelete then
                     Library.Utils.TBT(TextLbl, 0.15, {TextColor3 = Library.CurrentTheme[baseColorKey]}, Enum.EasingStyle.Quint)
                     Library.Utils.TBT(Icon, 0.15, {ImageColor3 = Library.CurrentTheme[baseColorKey]}, Enum.EasingStyle.Quint)
+                    if IconBoost then Library.Utils.TBT(IconBoost, 0.15, {ImageColor3 = Library.CurrentTheme[baseColorKey]}, Enum.EasingStyle.Quint) end
                 end
             end)
 
