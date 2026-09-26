@@ -579,31 +579,40 @@ function Module:CreateFileCard(fileName)
             })
             Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 6), Parent = btn })
             local isPriceIcon = (title == "Price Viewer")
-            local iconSize = isPriceIcon and 19 or 16 -- Увеличиваем иконку прайса (или поставь 20, если захочешь еще крупнее)
+            local Icon, PriceRingStroke, PriceDollarTxt
 
-            local Icon = Library.Utils.Make("ImageLabel", {
-                Size = UDim2.new(0, iconSize, 0, iconSize),
-                AnchorPoint = Vector2.new(0.5, 0.5),
-                Position = UDim2.new(0, 16, 0.5, 0), -- Строго по центру вертикальной оси всех иконок (8 + 16/2 = 16)
-                BackgroundTransparency = 1, Image = iconId, ImageTransparency = 1, ZIndex = 1003, Parent = btn
-            }, { ImageColor3 = baseColorKey })
-
-            -- Если это Price Viewer, накладываем дубликат пиксель-в-пиксель, чтобы сделать тонкие линии жирными и яркими
-            local IconBoost = nil
             if isPriceIcon then
-                IconBoost = Library.Utils.Make("ImageLabel", {
-                    Size = UDim2.new(1, 0, 1, 0),
-                    BackgroundTransparency = 1, Image = iconId, ImageTransparency = 1, ZIndex = 1003, Parent = Icon
+                Icon = Library.Utils.Make("Frame", {
+                    Size = UDim2.new(0, 15, 0, 15), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0, 16, 0.5, 0),
+                    BackgroundTransparency = 1, ZIndex = 1003, Parent = btn
+                })
+                Library.Utils.Make("UICorner", { CornerRadius = UDim.new(1, 0), Parent = Icon })
+                PriceRingStroke = Library.Utils.Make("UIStroke", {
+                    Thickness = 1.6, Transparency = 1, Parent = Icon
+                }, { Color = baseColorKey })
+
+                PriceDollarTxt = Library.Utils.Make("TextLabel", {
+                    Text = "$", Size = UDim2.new(1, 0, 1, 0), Position = UDim2.new(0, 0, 0, 0),
+                    BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 11, TextTransparency = 1,
+                    ZIndex = 1004, Parent = Icon
+                }, { TextColor3 = baseColorKey })
+
+                Library.Utils.TBT(PriceRingStroke, 0.15, {Transparency = 0})
+                Library.Utils.TBT(PriceDollarTxt, 0.15, {TextTransparency = 0})
+            else
+                Icon = Library.Utils.Make("ImageLabel", {
+                    Size = UDim2.new(0, 16, 0, 16), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0, 16, 0.5, 0),
+                    BackgroundTransparency = 1, Image = iconId, ImageTransparency = 1, ZIndex = 1003, Parent = btn
                 }, { ImageColor3 = baseColorKey })
-                Library.Utils.TBT(IconBoost, 0.15, {ImageTransparency = 0})
+                Library.Utils.TBT(Icon, 0.15, {ImageTransparency = 0})
             end
+
             local TextLbl = Library.Utils.Make("TextLabel", {
                 Text = title, Size = UDim2.new(1, -34, 1, 0), Position = UDim2.new(0, 34, 0, 0),
                 BackgroundTransparency = 1, Font = Enum.Font.GothamMedium, TextSize = 13, TextTransparency = 1,
                 TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 1003, Parent = btn
             }, { TextColor3 = baseColorKey })
 
-            Library.Utils.TBT(Icon, 0.15, {ImageTransparency = 0})
             Library.Utils.TBT(TextLbl, 0.15, {TextTransparency = 0})
 
             local isConfirming = false
@@ -614,8 +623,12 @@ function Module:CreateFileCard(fileName)
                 else
                     Library.Utils.TBT(btn, 0.15, {BackgroundTransparency = 0.85}, Enum.EasingStyle.Quint) 
                     Library.Utils.TBT(TextLbl, 0.15, {TextColor3 = Library.CurrentTheme[hoverColorKey]}, Enum.EasingStyle.Quint)
-                    Library.Utils.TBT(Icon, 0.15, {ImageColor3 = Library.CurrentTheme[hoverColorKey]}, Enum.EasingStyle.Quint)
-                    if IconBoost then Library.Utils.TBT(IconBoost, 0.15, {ImageColor3 = Library.CurrentTheme[hoverColorKey]}, Enum.EasingStyle.Quint) end
+                    if isPriceIcon then
+                        Library.Utils.TBT(PriceRingStroke, 0.15, {Color = Library.CurrentTheme[hoverColorKey]}, Enum.EasingStyle.Quint)
+                        Library.Utils.TBT(PriceDollarTxt, 0.15, {TextColor3 = Library.CurrentTheme[hoverColorKey]}, Enum.EasingStyle.Quint)
+                    else
+                        Library.Utils.TBT(Icon, 0.15, {ImageColor3 = Library.CurrentTheme[hoverColorKey]}, Enum.EasingStyle.Quint)
+                    end
                 end
             end)
             
@@ -623,8 +636,12 @@ function Module:CreateFileCard(fileName)
                 Library.Utils.TBT(btn, 0.15, {BackgroundTransparency = 1}, Enum.EasingStyle.Quint) 
                 if not isDelete then
                     Library.Utils.TBT(TextLbl, 0.15, {TextColor3 = Library.CurrentTheme[baseColorKey]}, Enum.EasingStyle.Quint)
-                    Library.Utils.TBT(Icon, 0.15, {ImageColor3 = Library.CurrentTheme[baseColorKey]}, Enum.EasingStyle.Quint)
-                    if IconBoost then Library.Utils.TBT(IconBoost, 0.15, {ImageColor3 = Library.CurrentTheme[baseColorKey]}, Enum.EasingStyle.Quint) end
+                    if isPriceIcon then
+                        Library.Utils.TBT(PriceRingStroke, 0.15, {Color = Library.CurrentTheme[baseColorKey]}, Enum.EasingStyle.Quint)
+                        Library.Utils.TBT(PriceDollarTxt, 0.15, {TextColor3 = Library.CurrentTheme[baseColorKey]}, Enum.EasingStyle.Quint)
+                    else
+                        Library.Utils.TBT(Icon, 0.15, {ImageColor3 = Library.CurrentTheme[baseColorKey]}, Enum.EasingStyle.Quint)
+                    end
                 end
             end)
 
