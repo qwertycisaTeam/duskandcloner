@@ -23,31 +23,10 @@ function Module:Init(Library, Window, Tab)
     local LocalPlayer = Players.LocalPlayer
     local SelectedHouse = nil
     local CurrentBuildDelay = 0
-    local CurrentBuildDelay = 0
     local CurrentBatchSize = 15
     local CopyTextures = true
-    local UseStorageItems = true -- Переменная для нового тогла
     local HouseDropdown 
 
-    -- Функция получения копии текущего склада мебели игрока
-    local function GetPlayerStorage()
-        local storageCopy = {}
-        pcall(function()
-            local Fsys = require(ReplicatedStorage:WaitForChild("Fsys")).load
-            local ClientData = Fsys("ClientData")
-            local allData = ClientData.get_data()
-            local myData = allData and allData[LocalPlayer.Name]
-            if myData and myData.furniture_storage_manager then
-                local rawStorage = myData.furniture_storage_manager.storage_plus_temp or myData.furniture_storage_manager.storage
-                if type(rawStorage) == "table" then
-                    for k, count in pairs(rawStorage) do
-                        storageCopy[k] = count
-                    end
-                end
-            end
-        end)
-        return storageCopy
-    end
     -- ==========================================
     -- 1. АДАПТИВНАЯ ШАПКА И РЕФРЕШ
     -- ==========================================
@@ -408,10 +387,6 @@ function Module:Init(Library, Window, Tab)
             local RunService = game:GetService("RunService")
             local currentBatch = {}
             local batchOriginalItems = {}
-            
-            -- Загружаем склад перед постройкой, если тогл включен
-            local availableStorage = UseStorageItems and GetPlayerStorage() or {}
-            local usedFromStorageCount = 0
 
             for i, item in ipairs(rawFurniture) do
                 local itemId = item.id or item.name or item.kind
@@ -420,34 +395,16 @@ function Module:Init(Library, Window, Tab)
                 local baseCFrame = CFrame.new(unpack(item.cframe))
                 local localCFrame = baseCFrame + Vector3.new(0, MICRO_SHIFT_Y, 0)
                 
-                -- Собираем цвета для последующей покраски через PushFurnitureChanges
-                local colorTable = nil
-                if item.colors and #item.colors > 0 then
-                    colorTable = {}
-                    for _, c in ipairs(item.colors) do table.insert(colorTable, Color3.new(c[1], c[2], c[3])) end
-                end
-
                 local buyProps = {cframe = localCFrame}
-                
-                -- Проверяем, есть ли предмет в сторадже при включенном тогле
-                local isFromStorage = false
-                if UseStorageItems and availableStorage[itemId] and availableStorage[itemId] > 0 then
-                    availableStorage[itemId] = availableStorage[itemId] - 1
-                    usedFromStorageCount = usedFromStorageCount + 1
-                    isFromStorage = true
-                    -- Для предмета со склада передаем чистый CFrame (как в нашем тесте), 
-                    -- а цвет и размер применятся следом через PushFurnitureChanges
-                else
-                    if colorTable then buyProps.colors = colorTable end
+                if item.colors and #item.colors > 0 then
+                    local c3table = {}
+                    for _, c in ipairs(item.colors) do table.insert(c3table, Color3.new(c[1], c[2], c[3])) end
+                    buyProps.colors = c3table
                 end
                 
                 table.insert(currentBatch, { kind = itemId, properties = buyProps })
-                table.insert(batchOriginalItems, { 
-                    item = item, 
-                    localCFrame = localCFrame, 
-                    buyProps = { cframe = localCFrame, colors = colorTable },
-                    fromStorage = isFromStorage
-                })
+                table.insert(batchOriginalItems, { item = item, localCFrame = localCFrame, buyProps = buyProps })
+                
                 local batchLimit = getgenv().CurrentBatchSize or 15
                 local buildDelay = getgenv().CurrentBuildDelay or 0
 
@@ -521,10 +478,7 @@ function Module:Init(Library, Window, Tab)
                 end
             end
             
-            local msg = usedFromStorageCount > 0 
-                and ("House built! (Used from storage: " .. usedFromStorageCount .. ")") 
-                or "House successfully built!"
-            Library:Notify("Success", msg, 4, "rbxassetid://18926561608", "rbxassetid://72958619361915")
+            Library:Notify("Success", "House successfully built!", 3, "rbxassetid://18926561608", "rbxassetid://72958619361915")
         end)
     end)
 
@@ -542,15 +496,7 @@ function Module:Init(Library, Window, Tab)
             CopyTextures = state
         end
     })
-    Tab:CreateToggle({
-        Name = "Use Storage Items",
-        Description = "Automatically place matching furniture from your inventory.",
-        Default = true,
-        Flag = "Replicator_UseStorage",
-        Callback = function(state)
-            UseStorageItems = state
-        end
-    })
+
     local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 
