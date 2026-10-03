@@ -50,7 +50,25 @@ function Module:Init(Library, Window, Tab)
         local canPlace = math.max(0, maxLimit - placedCount)
         return placedCount, maxLimit, canPlace
     end
+    
+    -- === НОВОЕ: БАЗА МЕБЕЛИ И БАЛАНС ИГРОКА ===
+    local CachedFurnitureDB = nil
+    task.spawn(function()
+        pcall(function()
+            CachedFurnitureDB = Fsys("FurnitureDB")
+        end)
+    end)
 
+    local function GetPlayerBucks()
+        local bucks = 0
+        pcall(function()
+            local allData = ClientData.get_data()
+            if allData and allData[LocalPlayer.Name] then
+                bucks = allData[LocalPlayer.Name].bucks or 0
+            end
+        end)
+        return bucks
+    end
     -- ==========================================
     -- 1. АДАПТИВНАЯ ШАПКА И РЕФРЕШ
     -- ==========================================
@@ -383,21 +401,53 @@ function Module:Init(Library, Window, Tab)
             local rawFurniture = savedHouse.furniture or savedHouse
             local pendingChanges = {}
 
-            -- === УМНАЯ АВТООЧИСТКА (ЗАЩИТА ОТ НАСЛАИВАНИЯ ДОМОВ) ===
+            -- === УМНАЯ ЗАЩИТА: ЛИМИТ, НАСЛОЕНИЕ И ДЕНЬГИ ===
             local placed, maxLimit, freeSlots = GetHouseFurnitureStatus()
             local neededSlots = #rawFurniture
 
-            -- 1. Если схема физически больше лимита дома (например 4500 > 4000) - блокируем
+            -- 1. Считаем стоимость дома
+            local totalCost = 0
+            if type(CachedFurnitureDB) == "table" then
+                for _, item in ipairs(rawFurniture) do
+                    local dbInfo = CachedFurnitureDB[item.id or item.name or item.kind]
+                    if dbInfo and dbInfo.cost and not dbInfo.is_limited and not dbInfo.is_event then
+                        totalCost = totalCost + dbInfo.cost
+                    end
+                end
+            end
+            
+            local currentBucks = GetPlayerBucks()
+
+            -- 2. Если схема физически больше лимита (4500 > 4000) - жестко блокируем
             if neededSlots > maxLimit then
                 return Library:Notify("Error", string.format("Schematic is too big! Needs %d slots, your max is %d.", neededSlots, maxLimit), 5, "rbxassetid://73186275216515", "rbxassetid://72958619361915")
             end
 
-            -- 2. Если в доме есть ХОТЯ БЫ 1 предмет, мы ОБЯЗАНЫ спросить подтверждение на очистку
-            if placed > 0 and not forceBuildMode then
+            -- 3. Выявляем проблемы (мусор в доме или нет денег)
+            local hasOverlap = (placed > 0)
+            local isPoor = (currentBucks < totalCost)
+
+            if (hasOverlap or isPoor) and not forceBuildMode then
                 forceBuildMode = true
-                BuildText.Text = "STORE OLD HOUSE & BUILD"
                 
-                Library:Notify("Warning", string.format("House has %d items! CLICK AGAIN to store them and build cleanly.", placed), 6, "rbxassetid://73186275216515", "rbxassetid://72958619361915")
+                local warnTitle = "Warning"
+                local warnText = ""
+                
+                if hasOverlap then
+                    BuildText.Text = "STORE OLD & BUILD"
+                    warnText = string.format("House has %d items! ", placed)
+                else
+                    BuildText.Text = "BUILD ANYWAY"
+                end
+                
+                if isPoor then
+                    warnTitle = "Low Bucks!"
+                    warnText = warnText .. string.format("Cost: $%d, but you have $%d! ", totalCost, currentBucks)
+                end
+                
+                warnText = warnText .. "CLICK AGAIN to force build."
+                
+                Library:Notify(warnTitle, warnText, 6, "rbxassetid://73186275216515", "rbxassetid://72958619361915")
                 
                 task.delay(6, function()
                     if forceBuildMode then
@@ -409,40 +459,46 @@ function Module:Init(Library, Window, Tab)
                 return -- Ждем второго клика!
             end
 
-            -- 3. Если юзер нажал второй раз (Очищаем дом на склад)
-            if forceBuildMode and placed > 0 then
+            -- 4. Если юзер подтвердил стройку (второй клик)
+            if forceBuildMode then
                 forceBuildMode = false
                 BuildText.Text = "BUILD SELECTED HOUSE"
 
-                Library:Notify("Storing", "Clearing old house to prevent overlap...", 3, "rbxassetid://91727514118912", "rbxassetid://72958619361915")
-                
-                local uniques = {}
-                pcall(function()
-                    local houseInterior = ClientData.get("house_interior")
-                    if houseInterior and type(houseInterior.furniture) == "table" then
-                        for uniqueId, _ in pairs(houseInterior.furniture) do
-                            table.insert(uniques, uniqueId)
-                        end
-                    end
-                end)
-
-                if #uniques > 0 then
-                    local API_Folder = ReplicatedStorage:WaitForChild("API", 5)
-                    local sellRemote = (getgenv().DuskCore and getgenv().DuskCore.API and getgenv().DuskCore.API.SellFurniture)
-                        or (API_Folder and API_Folder:FindFirstChild("HousingAPI/SellFurniture"))
+                -- Сносим старый дом ТОЛЬКО если в нем что-то есть
+                if placed > 0 then
+                    Library:Notify("Storing", "Clearing old house to prevent overlap...", 3, "rbxassetid://91727514118912", "rbxassetid://72958619361915")
                     
-                    if sellRemote then
-                        local chunk = {}
-                        for i, uId in ipairs(uniques) do
-                            table.insert(chunk, uId)
-                            if #chunk >= 50 or i == #uniques then
-                                pcall(function() sellRemote:FireServer(true, chunk, "store") end)
-                                chunk = {}
-                                task.wait(0.05)
+                    local uniques = {}
+                    pcall(function()
+                        local houseInterior = ClientData.get("house_interior")
+                        if houseInterior and type(houseInterior.furniture) == "table" then
+                            for uniqueId, _ in pairs(houseInterior.furniture) do
+                                table.insert(uniques, uniqueId)
                             end
                         end
-                        task.wait(1) -- Ждем 1 секунду, чтобы сервер точно всё убрал до начала стройки
+                    end)
+
+                    if #uniques > 0 then
+                        local API_Folder = ReplicatedStorage:WaitForChild("API", 5)
+                        local sellRemote = (getgenv().DuskCore and getgenv().DuskCore.API and getgenv().DuskCore.API.SellFurniture)
+                            or (API_Folder and API_Folder:FindFirstChild("HousingAPI/SellFurniture"))
+                        
+                        if sellRemote then
+                            local chunk = {}
+                            for i, uId in ipairs(uniques) do
+                                table.insert(chunk, uId)
+                                if #chunk >= 50 or i == #uniques then
+                                    pcall(function() sellRemote:FireServer(true, chunk, "store") end)
+                                    chunk = {}
+                                    task.wait(0.05)
+                                end
+                            end
+                            task.wait(1)
+                        end
                     end
+                else
+                    -- Если дом был пустой, но юзер просто подтвердил стройку без денег
+                    Library:Notify("Builder", "Starting build with low bucks! Free inventory items will be used.", 4, "rbxassetid://91727514118912", "rbxassetid://72958619361915")
                 end
             end
             
