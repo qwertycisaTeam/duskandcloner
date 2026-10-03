@@ -27,6 +27,30 @@ function Module:Init(Library, Window, Tab)
     local CopyTextures = true
     local HouseDropdown 
 
+    -- Подключаем нативные модули Adopt Me один раз при инициализации
+    local Fsys = require(ReplicatedStorage:WaitForChild("Fsys")).load
+    local ClientData = Fsys("ClientData")
+    local SharedConstants = Fsys("SharedConstants")
+
+    -- Чистая функция получения статуса лимита мебели: (сколько стоит, максимум, сколько свободно)
+    local function GetHouseFurnitureStatus()
+        local houseInterior = ClientData.get("house_interior")
+        local placedCount = 0
+
+        if houseInterior and type(houseInterior.furniture) == "table" then
+            for _ in pairs(houseInterior.furniture) do
+                placedCount = placedCount + 1
+            end
+        end
+
+        local maxLimit = (SharedConstants.housing_editor and SharedConstants.housing_editor.max_furniture) 
+            or SharedConstants.max_furniture_per_house 
+            or 4000
+
+        local canPlace = math.max(0, maxLimit - placedCount)
+        return placedCount, maxLimit, canPlace
+    end
+
     -- ==========================================
     -- 1. АДАПТИВНАЯ ШАПКА И РЕФРЕШ
     -- ==========================================
@@ -95,6 +119,7 @@ function Module:Init(Library, Window, Tab)
         end
         Library:Notify("Builder", "House list successfully refreshed!", 3, "rbxassetid://91727514118912", "rbxassetid://72958619361915")
     end)
+    
     -- Глобальная функция для связи с File Manager (Manager -> Main)
     getgenv().AutoSelectNewHouse = function(newFileName)
         if HouseDropdown and type(HouseDropdown.Refresh) == "function" then
@@ -106,6 +131,7 @@ function Module:Init(Library, Window, Tab)
             end
         end
     end
+    
     local TopDivider = Library.Utils.Make("Frame", {
         Size = UDim2.new(1, 0, 0, 1),
         BorderSizePixel = 0,
@@ -222,6 +248,7 @@ function Module:Init(Library, Window, Tab)
 
     local BuildScale = Instance.new("UIScale", BuildContainer)
     local forceBuildMode = false -- Флаг для второго нажатия
+    
     Library:Connect(BuildBtn.MouseEnter, function() 
         Library.Utils.TBT(BuildBtn, 0.3, {BackgroundTransparency = 0.3}) 
         Library.Utils.TBT(EdgeStroke, 0.3, {Transparency = 0}) 
@@ -239,12 +266,16 @@ function Module:Init(Library, Window, Tab)
         local t = Library.Utils.TBT(BuildScale, 0.1, {Scale = 0.95})
         t.Completed:Connect(function() Library.Utils.TBT(BuildScale, 0.2, {Scale = 1}, Enum.EasingStyle.Bounce) end)
             
+        -- Anti-Void: Жесткая проверка загрузки дома
+        local isHouseLoaded = workspace:FindFirstChild("HouseInteriors") 
+            and workspace.HouseInteriors:FindFirstChild("blueprint") 
+            and #workspace.HouseInteriors.blueprint:GetChildren() > 0
+
         local camY = workspace.CurrentCamera.CFrame.Position.Y
-        local blueprint = workspace:FindFirstChild("HouseInteriors") and workspace.HouseInteriors:FindFirstChild("blueprint")
-        
-        if camY < 500 or camY > 8500 or not blueprint or #blueprint:GetChildren() == 0 then
-            return Library:Notify("Error", "You can only build while inside a house!", 3, "rbxassetid://73186275216515", "rbxassetid://72958619361915")
+        if camY < 500 or camY > 8500 or not isHouseLoaded then
+            return Library:Notify("Error", "House is not fully loaded or you are outside! Wait a moment.", 4, "rbxassetid://73186275216515", "rbxassetid://72958619361915")
         end
+        
         if not SelectedHouse or SelectedHouse == "" or SelectedHouse == "Select..." then
             return Library:Notify("Error", "Select a house schematic first!", 3, "rbxassetid://73186275216515", "rbxassetid://72958619361915")
         end
@@ -284,7 +315,6 @@ function Module:Init(Library, Window, Tab)
                 local bKind = (type(ambianceData) == "table" and ambianceData.base_kind) or "day"
                 local kKind = (type(ambianceData) == "table" and ambianceData.kind) or "day"
 
-                -- Принудительно выключаем все эффекты по умолчанию, если их нет в JSON
                 local customParticles = { Rain = false, CherryBlossoms = false, Leaves = false, Snow = false }
                 if type(particleData) == "table" then
                     for k, v in pairs(particleData) do customParticles[k] = v end
@@ -319,11 +349,11 @@ function Module:Init(Library, Window, Tab)
                 local API_Folder = ReplicatedStorage:WaitForChild("API", 5)
                 if API_Folder then
                     local ambianceRemote = API_Folder:FindFirstChild("AmbianceAPI/UpdateAmbiance")
-                    if ambianceRemote then pcall(function() ambianceRemote:FireServer(unpack(args)) end) end
+                    -- ИСПОЛЬЗУЕМ table.unpack ВМЕСТО unpack
+                    if ambianceRemote then pcall(function() ambianceRemote:FireServer(table.unpack(args)) end) end
                 end
             end
             
-            -- Вызываем атмосферу ВСЕГДА, чтобы гарантировать сброс старой погоды
             loadAmbiance(savedHouse.ambiance, savedHouse.particles)
 
             if CopyTextures and savedHouse.textures then
@@ -359,7 +389,7 @@ function Module:Init(Library, Window, Tab)
 
             if freeSlots < neededSlots and not forceBuildMode then
                 forceBuildMode = true
-                -- Меняем текст на кнопке, чтобы юзер понимал, что сейчас произойдет
+                -- Меняем текст на кнопке
                 BuildText.Text = "STORE OLD HOUSE & BUILD"
                 
                 -- Кидаем нотифай
@@ -385,8 +415,7 @@ function Module:Init(Library, Window, Tab)
                 
                 local uniques = {}
                 pcall(function()
-                    local Fsys = require(ReplicatedStorage:WaitForChild("Fsys")).load
-                    local houseInterior = Fsys("ClientData").get("house_interior")
+                    local houseInterior = ClientData.get("house_interior")
                     if houseInterior and type(houseInterior.furniture) == "table" then
                         for uniqueId, _ in pairs(houseInterior.furniture) do
                             table.insert(uniques, uniqueId)
@@ -453,7 +482,14 @@ function Module:Init(Library, Window, Tab)
                 local itemId = item.id or item.name or item.kind
                 if not itemId then continue end
 
-                local baseCFrame = CFrame.new(unpack(item.cframe))
+                local cData = item.cframe
+                -- ЗАЩИТА ОТ КРАША (Пропуск битых JSON-файлов)
+                if type(cData) ~= "table" or #cData ~= 12 then
+                    continue
+                end
+
+                -- ИСПОЛЬЗУЕМ table.unpack ВМЕСТО unpack
+                local baseCFrame = CFrame.new(table.unpack(cData))
                 local localCFrame = baseCFrame + Vector3.new(0, MICRO_SHIFT_Y, 0)
                 
                 local buyProps = {cframe = localCFrame}
@@ -496,7 +532,6 @@ function Module:Init(Library, Window, Tab)
                         end
                     until successPurchase or attempts >= maxAttempts
 
-                    -- ИСПРАВЛЕНИЕ: Fallback-система. Если пачка не купилась (из-за туториальной ванны и т.д.), покупаем их поштучно!
                     if not successPurchase and #currentBatch > 0 then
                         for bIndex, singleItemReq in ipairs(currentBatch) do
                             local sBuildSuccess, sResponse = pcall(function() return buyFurnituresRemote:InvokeServer({singleItemReq}) end)
@@ -511,7 +546,6 @@ function Module:Init(Library, Window, Tab)
                                     end
                                 end
                             end
-                            -- Микро-задержка, чтобы не спамить сервер при поштучной покупке
                             task.wait(0.02)
                         end
                     end
@@ -534,7 +568,8 @@ function Module:Init(Library, Window, Tab)
                     if #chunk >= 50 or i == #pendingChanges then
                         pcall(function() pushFurnitureEvent:FireServer(chunk) end)
                         chunk = {}
-                        task.wait(0.5) 
+                        -- ЗАЩИТА ОТ КИКА СЕРВЕРА (Rate Limit Bypass)
+                        task.wait(math.max(0.1, getgenv().CurrentBuildDelay or 0.1)) 
                     end
                 end
             end
@@ -559,142 +594,136 @@ function Module:Init(Library, Window, Tab)
     })
 
     local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
+    local TweenService = game:GetService("TweenService")
 
-local SliderContainer = Library.Utils.Make("Frame", { Size = UDim2.new(1, 0, 0, 70), Parent = Tab.Page }, { BackgroundColor3 = "Section" })
-Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 10), Parent = SliderContainer })
-local containerStroke = Library.Utils.Make("UIStroke", { Thickness = 1, Parent = SliderContainer }, { Color = "Stroke" })
+    local SliderContainer = Library.Utils.Make("Frame", { Size = UDim2.new(1, 0, 0, 70), Parent = Tab.Page }, { BackgroundColor3 = "Section" })
+    Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 10), Parent = SliderContainer })
+    local containerStroke = Library.Utils.Make("UIStroke", { Thickness = 1, Parent = SliderContainer }, { Color = "Stroke" })
 
-Library.Utils.Make("TextLabel", { Text = "Build Speed", Size = UDim2.new(1, -100, 0, 20), Position = UDim2.new(0, 20, 0, 10), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 16, TextXAlignment = Enum.TextXAlignment.Left, Parent = SliderContainer }, { TextColor3 = "Text" })
-Library.Utils.Make("TextLabel", { Text = "Drag left for Instant, right for Slow build.", Size = UDim2.new(1, -100, 0, 15), Position = UDim2.new(0, 20, 0, 30), BackgroundTransparency = 1, Font = Enum.Font.Gotham, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left, Parent = SliderContainer }, { TextColor3 = "SubText" })
+    Library.Utils.Make("TextLabel", { Text = "Build Speed", Size = UDim2.new(1, -100, 0, 20), Position = UDim2.new(0, 20, 0, 10), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 16, TextXAlignment = Enum.TextXAlignment.Left, Parent = SliderContainer }, { TextColor3 = "Text" })
+    Library.Utils.Make("TextLabel", { Text = "Drag left for Instant, right for Slow build.", Size = UDim2.new(1, -100, 0, 15), Position = UDim2.new(0, 20, 0, 30), BackgroundTransparency = 1, Font = Enum.Font.Gotham, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left, Parent = SliderContainer }, { TextColor3 = "SubText" })
 
-local PillFrame = Library.Utils.Make("Frame", { Size = UDim2.new(0, 76, 0, 24), AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -20, 0, 9), Parent = SliderContainer }, { BackgroundColor3 = "Sidebar" }) 
-Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 6), Parent = PillFrame })
-local pillStroke = Library.Utils.Make("UIStroke", { Thickness = 1, Parent = PillFrame }, { Color = "Stroke" })
+    local PillFrame = Library.Utils.Make("Frame", { Size = UDim2.new(0, 76, 0, 24), AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -20, 0, 9), Parent = SliderContainer }, { BackgroundColor3 = "Sidebar" }) 
+    Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 6), Parent = PillFrame })
+    local pillStroke = Library.Utils.Make("UIStroke", { Thickness = 1, Parent = PillFrame }, { Color = "Stroke" })
 
--- Заменили TextBox на TextLabel, чтобы нельзя было вписывать цифры
-local ValueText = Library.Utils.Make("TextLabel", { Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Font = Enum.Font.GothamMedium, TextSize = 13, ZIndex = 2, Parent = PillFrame }, { TextColor3 = "Text" })
-local PillScale = Instance.new("UIScale", PillFrame)
+    local ValueText = Library.Utils.Make("TextLabel", { Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Font = Enum.Font.GothamMedium, TextSize = 13, ZIndex = 2, Parent = PillFrame }, { TextColor3 = "Text" })
+    local PillScale = Instance.new("UIScale", PillFrame)
 
-local Track = Library.Utils.Make("TextButton", { Size = UDim2.new(1, -40, 0, 4), Position = UDim2.new(0, 20, 1, -12), AnchorPoint = Vector2.new(0, 1), Text = "", AutoButtonColor = false, Parent = SliderContainer }, { BackgroundColor3 = "Sidebar" })
-Library.Utils.Make("UICorner", { CornerRadius = UDim.new(1, 0), Parent = Track })
+    local Track = Library.Utils.Make("TextButton", { Size = UDim2.new(1, -40, 0, 4), Position = UDim2.new(0, 20, 1, -12), AnchorPoint = Vector2.new(0, 1), Text = "", AutoButtonColor = false, Parent = SliderContainer }, { BackgroundColor3 = "Sidebar" })
+    Library.Utils.Make("UICorner", { CornerRadius = UDim.new(1, 0), Parent = Track })
 
-local Fill = Library.Utils.Make("Frame", { Size = UDim2.new(0, 0, 1, 0), Parent = Track }, { BackgroundColor3 = "Accent" })
-Library.Utils.Make("UICorner", { CornerRadius = UDim.new(1, 0), Parent = Fill })
+    local Fill = Library.Utils.Make("Frame", { Size = UDim2.new(0, 0, 1, 0), Parent = Track }, { BackgroundColor3 = "Accent" })
+    Library.Utils.Make("UICorner", { CornerRadius = UDim.new(1, 0), Parent = Fill })
 
-local Knob = Library.Utils.Make("Frame", { Size = UDim2.new(0, 12, 0, 12), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(1, 0, 0.5, 0), Parent = Fill }, { BackgroundColor3 = "Text" })
-Library.Utils.Make("UICorner", { CornerRadius = UDim.new(1, 0), Parent = Knob })
-local KnobScale = Instance.new("UIScale", Knob)
+    local Knob = Library.Utils.Make("Frame", { Size = UDim2.new(0, 12, 0, 12), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(1, 0, 0.5, 0), Parent = Fill }, { BackgroundColor3 = "Text" })
+    Library.Utils.Make("UICorner", { CornerRadius = UDim.new(1, 0), Parent = Knob })
+    local KnobScale = Instance.new("UIScale", Knob)
 
-local minSpeed, maxSpeed = 0, 200
-local currentVisualSpeed = 0 
-local isDragging = false
-local currentMode = ""
-local speedFlag = "Main_BuildSpeed"
--- Привязка к переменным билдера
-getgenv().CurrentBatchSize = 15
-getgenv().CurrentBuildDelay = 0
-
-local function updateBuildSettings(val)
-    if val == 0 then
-        getgenv().CurrentBatchSize = 15
-        getgenv().CurrentBuildDelay = 0
-    elseif val <= 80 then
-        local progress = val / 80
-        getgenv().CurrentBatchSize = math.clamp(math.floor(15 - (progress * 14)), 1, 14)
-        getgenv().CurrentBuildDelay = 0
-    elseif val <= 120 then
-        getgenv().CurrentBatchSize = 1
-        getgenv().CurrentBuildDelay = 0.02 -- Минимальная плавная задержка
-    else
-        getgenv().CurrentBatchSize = 1
-        local slowProgress = (val - 120) / 80
-        getgenv().CurrentBuildDelay = 0.05 + (slowProgress * 0.45)
-    end
-end
-
-local function updateVisuals(val)
-    local pct = math.clamp((val - minSpeed) / (maxSpeed - minSpeed), 0, 1)
-    TweenService:Create(Fill, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(pct, 0, 1, 0)}):Play()
+    local minSpeed, maxSpeed = 0, 200
+    local currentVisualSpeed = 0 
+    local isDragging = false
+    local currentMode = ""
+    local speedFlag = "Main_BuildSpeed"
     
-    local newMode = ""
-    if val == 0 then newMode = "Instant"
-    elseif val <= 80 then newMode = "Fast"
-    elseif val <= 120 then newMode = "Normal"
-    else newMode = "Slow" end
+    getgenv().CurrentBatchSize = 15
+    getgenv().CurrentBuildDelay = 0
 
-    ValueText.Text = newMode
-
-    -- Анимация при смене режима (Цвет текста и обводки)
-    if newMode ~= currentMode then
-        currentMode = newMode
-        local targetColor = (newMode == "Instant") and Library.CurrentTheme.Accent or Library.CurrentTheme.Text
-        local targetStroke = (newMode == "Instant") and Library.CurrentTheme.Accent or Library.CurrentTheme.Stroke
-        
-        if Library.ThemeObjects[ValueText] then Library.ThemeObjects[ValueText] = { TextColor3 = (newMode == "Instant") and "Accent" or "Text" } end
-        if Library.ThemeObjects[pillStroke] then Library.ThemeObjects[pillStroke] = { Color = (newMode == "Instant") and "Accent" or "Stroke" } end
-        
-        TweenService:Create(ValueText, TweenInfo.new(0.2), {TextColor3 = targetColor}):Play()
-        TweenService:Create(pillStroke, TweenInfo.new(0.2), {Color = targetStroke}):Play()
-        
-        PillScale.Scale = 0.85
-        TweenService:Create(PillScale, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1}):Play()
+    local function updateBuildSettings(val)
+        if val == 0 then
+            getgenv().CurrentBatchSize = 15
+            getgenv().CurrentBuildDelay = 0
+        elseif val <= 80 then
+            local progress = val / 80
+            getgenv().CurrentBatchSize = math.clamp(math.floor(15 - (progress * 14)), 1, 14)
+            getgenv().CurrentBuildDelay = 0
+        elseif val <= 120 then
+            getgenv().CurrentBatchSize = 1
+            getgenv().CurrentBuildDelay = 0.02 
+        else
+            getgenv().CurrentBatchSize = 1
+            local slowProgress = (val - 120) / 80
+            getgenv().CurrentBuildDelay = 0.05 + (slowProgress * 0.45)
+        end
     end
-end
 
-local function updateDrag(input)
-    local absolutePos = Track.AbsolutePosition.X
-    local absoluteSize = Track.AbsoluteSize.X
-    local pct = math.clamp((input.Position.X - absolutePos) / absoluteSize, 0, 1)
-    local snappedValue = math.floor(minSpeed + (maxSpeed - minSpeed) * pct)
+    local function updateVisuals(val)
+        local pct = math.clamp((val - minSpeed) / (maxSpeed - minSpeed), 0, 1)
+        TweenService:Create(Fill, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(pct, 0, 1, 0)}):Play()
+        
+        local newMode = ""
+        if val == 0 then newMode = "Instant"
+        elseif val <= 80 then newMode = "Fast"
+        elseif val <= 120 then newMode = "Normal"
+        else newMode = "Slow" end
+
+        ValueText.Text = newMode
+
+        if newMode ~= currentMode then
+            currentMode = newMode
+            local targetColor = (newMode == "Instant") and Library.CurrentTheme.Accent or Library.CurrentTheme.Text
+            local targetStroke = (newMode == "Instant") and Library.CurrentTheme.Accent or Library.CurrentTheme.Stroke
+            
+            if Library.ThemeObjects[ValueText] then Library.ThemeObjects[ValueText] = { TextColor3 = (newMode == "Instant") and "Accent" or "Text" } end
+            if Library.ThemeObjects[pillStroke] then Library.ThemeObjects[pillStroke] = { Color = (newMode == "Instant") and "Accent" or "Stroke" } end
+            
+            TweenService:Create(ValueText, TweenInfo.new(0.2), {TextColor3 = targetColor}):Play()
+            TweenService:Create(pillStroke, TweenInfo.new(0.2), {Color = targetStroke}):Play()
+            
+            PillScale.Scale = 0.85
+            TweenService:Create(PillScale, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1}):Play()
+        end
+    end
+
+    local function updateDrag(input)
+        local absolutePos = Track.AbsolutePosition.X
+        local absoluteSize = Track.AbsoluteSize.X
+        local pct = math.clamp((input.Position.X - absolutePos) / absoluteSize, 0, 1)
+        local snappedValue = math.floor(minSpeed + (maxSpeed - minSpeed) * pct)
+        
+        if currentVisualSpeed ~= snappedValue then
+            currentVisualSpeed = snappedValue
+            updateVisuals(currentVisualSpeed)
+            updateBuildSettings(currentVisualSpeed)
+            Library.Flags[speedFlag] = currentVisualSpeed
+        end
+    end
     
-    if currentVisualSpeed ~= snappedValue then
-        currentVisualSpeed = snappedValue
+    updateVisuals(currentVisualSpeed)
+    updateBuildSettings(currentVisualSpeed)
+
+    Library:Connect(Track.InputBegan, function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            isDragging = true
+            TweenService:Create(KnobScale, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1.35}):Play()
+            updateDrag(input)
+        end
+    end)
+
+    Library:Connect(UserInputService.InputEnded, function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            isDragging = false
+            TweenService:Create(KnobScale, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Scale = 1}):Play()
+        end
+    end)
+
+    Library:Connect(UserInputService.InputChanged, function(input)
+        if isDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then updateDrag(input) end
+    end)
+
+    Library:Connect(SliderContainer.MouseEnter, function() TweenService:Create(containerStroke, TweenInfo.new(0.3), {Transparency = 0.5}):Play() end)
+    Library:Connect(SliderContainer.MouseLeave, function() TweenService:Create(containerStroke, TweenInfo.new(0.3), {Transparency = 0}):Play() end)
+
+    Library.ConfigUpdaters[speedFlag] = function(val)
+        currentVisualSpeed = math.clamp(tonumber(val) or 0, minSpeed, maxSpeed)
         updateVisuals(currentVisualSpeed)
         updateBuildSettings(currentVisualSpeed)
         
-        -- СИНХРОНИЗИРУЕМ С СИСТЕМОЙ ФЛАГОВ БИБЛИОТЕКИ
-        Library.Flags[speedFlag] = currentVisualSpeed
+        local pct = math.clamp((currentVisualSpeed - minSpeed) / (maxSpeed - minSpeed), 0, 1)
+        Fill.Size = UDim2.new(pct, 0, 1, 0)
     end
-end
--- Инициализация первого кадра
-updateVisuals(currentVisualSpeed)
-updateBuildSettings(currentVisualSpeed)
-
-Library:Connect(Track.InputBegan, function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        isDragging = true
-        TweenService:Create(KnobScale, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1.35}):Play()
-        updateDrag(input)
-    end
-end)
-
-Library:Connect(UserInputService.InputEnded, function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        isDragging = false
-        TweenService:Create(KnobScale, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Scale = 1}):Play()
-    end
-end)
-
-Library:Connect(UserInputService.InputChanged, function(input)
-    if isDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then updateDrag(input) end
-end)
-
-Library:Connect(SliderContainer.MouseEnter, function() TweenService:Create(containerStroke, TweenInfo.new(0.3), {Transparency = 0.5}):Play() end)
-Library:Connect(SliderContainer.MouseLeave, function() TweenService:Create(containerStroke, TweenInfo.new(0.3), {Transparency = 0}):Play() end)
-
--- === РЕГИСТРАЦИЯ КАСТОМНОГО СЛАЙДЕРА ДЛЯ АВТОСОХРАНЕНИЯ ===
-
-Library.ConfigUpdaters[speedFlag] = function(val)
-    currentVisualSpeed = math.clamp(tonumber(val) or 0, minSpeed, maxSpeed)
-    updateVisuals(currentVisualSpeed)
-    updateBuildSettings(currentVisualSpeed)
     
-    -- Просчитываем позицию ползунка визуально при загрузке конфига
-    local pct = math.clamp((currentVisualSpeed - minSpeed) / (maxSpeed - minSpeed), 0, 1)
-    Fill.Size = UDim2.new(pct, 0, 1, 0)
-end
--- ==========================================
+    -- ==========================================
     -- 5. AUTO-DOOR BYPASS (OPTIMIZED & FIXED)
     -- ==========================================
     Tab:CreateDivider({ Text = "Exploits" })
@@ -705,18 +734,14 @@ end
 
     local AutoDoorToggle = false
     local lastTouchedDoor = nil
-    
-    -- === НАДЕЖНАЯ СИСТЕМА КЭШИРОВАНИЯ ===
     local CachedDoors = {}
 
     local function checkAndCache(obj)
-        -- Быстрая проверка, чтобы не грузить игру
         if obj.Name == "TouchToEnter" and obj.Parent and obj.Parent.Name == "WorkingParts" then
             CachedDoors[obj] = obj.Parent.Parent 
         end
     end
 
-    -- 1. Единоразово собираем двери, которые УЖЕ есть на карте
     task.spawn(function()
         local foldersToSearch = {"Interiors", "HouseExteriors", "Properties"}
         for _, folderName in ipairs(foldersToSearch) do
@@ -729,7 +754,6 @@ end
         end
     end)
 
-    -- 2. Глобальный слушатель: автоматически ловит новые дома
     local foldersToSearch = {"Interiors", "HouseExteriors", "Properties"}
     for _, folderName in ipairs(foldersToSearch) do
         local folder = workspace:FindFirstChild(folderName)
@@ -740,7 +764,7 @@ end
         end
     end
 
-Tab:CreateToggle({
+    Tab:CreateToggle({
         Name = "Auto Bypass Doors",
         Description = "Instant activation. Unlocks doors and does not drop FPS.",
         Default = false,
@@ -751,7 +775,6 @@ Tab:CreateToggle({
             if AutoDoorToggle then
                 task.spawn(function()
                     while AutoDoorToggle do
-                        -- ЖЕЛЕЗОБЕТОННАЯ ПРОВЕРКА: Если ядра скрипта больше нет в памяти — убиваем цикл
                         if not getgenv().DuskShine_Core or getgenv().DS_StopExecution then 
                             AutoDoorToggle = false
                             break 
@@ -765,7 +788,6 @@ Tab:CreateToggle({
                             local touchPart = nil
                             local shortestDist = 5
                             
-                            -- Перебираем только кэш (очень быстро)
                             for tp, doorModel in pairs(CachedDoors) do
                                 if tp and tp.Parent and tp:IsDescendantOf(workspace) then 
                                     local dist = (hrp.Position - tp.Position).Magnitude
@@ -779,7 +801,6 @@ Tab:CreateToggle({
                                 end
                             end
 
-                            -- Взлом и вход
                             if closestDoor and touchPart then
                                 if closestDoor ~= lastTouchedDoor then
                                     if successDoors and DoorsM then
