@@ -383,19 +383,22 @@ function Module:Init(Library, Window, Tab)
             local rawFurniture = savedHouse.furniture or savedHouse
             local pendingChanges = {}
 
-            -- === ПРОВЕРКА ЛИМИТА И СМЕНА КНОПКИ (УМНАЯ АВТООЧИСТКА) ===
+            -- === УМНАЯ АВТООЧИСТКА (ЗАЩИТА ОТ НАСЛАИВАНИЯ ДОМОВ) ===
             local placed, maxLimit, freeSlots = GetHouseFurnitureStatus()
             local neededSlots = #rawFurniture
 
-            if freeSlots < neededSlots and not forceBuildMode then
+            -- 1. Если схема физически больше лимита дома (например 4500 > 4000) - блокируем
+            if neededSlots > maxLimit then
+                return Library:Notify("Error", string.format("Schematic is too big! Needs %d slots, your max is %d.", neededSlots, maxLimit), 5, "rbxassetid://73186275216515", "rbxassetid://72958619361915")
+            end
+
+            -- 2. Если в доме есть ХОТЯ БЫ 1 предмет, мы ОБЯЗАНЫ спросить подтверждение на очистку
+            if placed > 0 and not forceBuildMode then
                 forceBuildMode = true
-                -- Меняем текст на кнопке
                 BuildText.Text = "STORE OLD HOUSE & BUILD"
                 
-                -- Кидаем нотифай
-                Library:Notify("Limit Warning", string.format("Need %d slots, %d free. CLICK AGAIN to auto-store old house and build!", neededSlots, freeSlots), 6, "rbxassetid://73186275216515", "rbxassetid://72958619361915")
+                Library:Notify("Warning", string.format("House has %d items! CLICK AGAIN to store them and build cleanly.", placed), 6, "rbxassetid://73186275216515", "rbxassetid://72958619361915")
                 
-                -- Таймер сброса кнопки через 6 секунд
                 task.delay(6, function()
                     if forceBuildMode then
                         forceBuildMode = false
@@ -406,12 +409,12 @@ function Module:Init(Library, Window, Tab)
                 return -- Ждем второго клика!
             end
 
-            -- === ЕСЛИ ЮЗЕР НАЖАЛ ВТОРОЙ РАЗ (Срабатывает Автоочистка) ===
-            if forceBuildMode then
+            -- 3. Если юзер нажал второй раз (Очищаем дом на склад)
+            if forceBuildMode and placed > 0 then
                 forceBuildMode = false
                 BuildText.Text = "BUILD SELECTED HOUSE"
 
-                Library:Notify("Storing", "Auto-storing current house to inventory...", 3, "rbxassetid://91727514118912", "rbxassetid://72958619361915")
+                Library:Notify("Storing", "Clearing old house to prevent overlap...", 3, "rbxassetid://91727514118912", "rbxassetid://72958619361915")
                 
                 local uniques = {}
                 pcall(function()
@@ -438,7 +441,7 @@ function Module:Init(Library, Window, Tab)
                                 task.wait(0.05)
                             end
                         end
-                        task.wait(0.8) -- Даем серверу долю секунды переварить перенос на склад
+                        task.wait(1) -- Ждем 1 секунду, чтобы сервер точно всё убрал до начала стройки
                     end
                 end
             end
