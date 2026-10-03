@@ -442,9 +442,9 @@ function Module:Init(Library, Window, Tab)
                 
                 if isPoor then
                     warnTitle = "Low Bucks!"
-                    warnText = warnText .. string.format("Cost: $%d, but you have $%d! ", totalCost, currentBucks)
+                    warnText = warnText .. string.format("Cost: $%d! ", totalCost)
                 end
-                
+                        
                 warnText = warnText .. "CLICK AGAIN to force build."
                 
                 Library:Notify(warnTitle, warnText, 6, "rbxassetid://73186275216515", "rbxassetid://72958619361915")
