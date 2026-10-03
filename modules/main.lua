@@ -45,7 +45,7 @@ function Module:Init(Library, Window, Tab)
 
         local maxLimit = (SharedConstants.housing_editor and SharedConstants.housing_editor.max_furniture) 
             or SharedConstants.max_furniture_per_house 
-            or 50
+            or 4000
 
         local canPlace = math.max(0, maxLimit - placedCount)
         return placedCount, maxLimit, canPlace
