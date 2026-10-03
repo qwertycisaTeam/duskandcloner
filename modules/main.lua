@@ -162,7 +162,111 @@ function Module:Init(Library, Window, Tab)
         NumberSequenceKeypoint.new(0.5, 0.8),
         NumberSequenceKeypoint.new(1, 1)
     })
+    -- ==========================================
+    -- 1.5. LIVE HOUSE STATS (ПАНЕЛЬ ИНФОРМАЦИИ О ДОМЕ)
+    -- ==========================================
+    local StatsContainer = Library.Utils.Make("Frame", {
+        Size = UDim2.new(1, 0, 0, 36),
+        BackgroundTransparency = 0,
+        Parent = Tab.Page
+    }, { BackgroundColor3 = "Section" })
+    Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 6), Parent = StatsContainer })
+    Library.Utils.Make("UIStroke", { Thickness = 1, Transparency = 0.5, Parent = StatsContainer }, { Color = "Stroke" })
 
+    -- Иконка и текст мебели (Слева)
+    local FurnIcon = Library.Utils.Make("ImageLabel", {
+        Size = UDim2.new(0, 16, 0, 16),
+        Position = UDim2.new(0, 12, 0.5, -8),
+        BackgroundTransparency = 1,
+        Image = "rbxassetid://10828062100", -- Иконка стула/мебели
+        Parent = StatsContainer
+    }, { ImageColor3 = "SubText" })
+
+    local FurnLabel = Library.Utils.Make("TextLabel", {
+        Text = "0 / 4000",
+        Size = UDim2.new(0.5, -35, 1, 0),
+        Position = UDim2.new(0, 34, 0, 0),
+        BackgroundTransparency = 1,
+        Font = Enum.Font.GothamMedium,
+        TextSize = 13,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Parent = StatsContainer
+    }, { TextColor3 = "Text" })
+
+    -- Иконка и текст цены (Справа)
+    local PriceIcon = Library.Utils.Make("ImageLabel", {
+        Size = UDim2.new(0, 16, 0, 16),
+        Position = UDim2.new(0.5, 12, 0.5, -8),
+        BackgroundTransparency = 1,
+        Image = "rbxassetid://126904798120349", -- Иконка цены/доллара
+        Parent = StatsContainer
+    }, { ImageColor3 = "SubText" })
+
+    local PriceLabel = Library.Utils.Make("TextLabel", {
+        Text = "$0",
+        Size = UDim2.new(0.5, -35, 1, 0),
+        Position = UDim2.new(0.5, 34, 0, 0),
+        BackgroundTransparency = 1,
+        Font = Enum.Font.GothamMedium,
+        TextSize = 13,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Parent = StatsContainer
+    }, { TextColor3 = "Text" })
+
+    -- Разделитель по центру панели
+    Library.Utils.Make("Frame", {
+        Size = UDim2.new(0, 1, 1, -12),
+        Position = UDim2.new(0.5, 0, 0, 6),
+        BorderSizePixel = 0,
+        Parent = StatsContainer
+    }, { BackgroundColor3 = "Stroke" })
+
+    -- === ЛОГИКА ОБНОВЛЕНИЯ ДАННЫХ ===
+    task.spawn(function()
+        local Fsys = require(ReplicatedStorage:WaitForChild("Fsys")).load
+        local ClientData = Fsys("ClientData")
+        
+        while task.wait(1.5) do -- Обновляем панель каждые 1.5 секунды
+            if not getgenv().DuskShine_Core then break end -- Защита при закрытии скрипта
+            
+            pcall(function()
+                local houseInterior = ClientData.get("house_interior")
+                local placedCount = 0
+                local totalValue = 0
+                
+                if houseInterior and type(houseInterior.furniture) == "table" then
+                    for _, item in pairs(houseInterior.furniture) do
+                        placedCount += 1
+                        
+                        -- Считаем стоимость через кэш базы данных
+                        if CachedFurnitureDB then
+                            local dbInfo = CachedFurnitureDB[item.id or item.name]
+                            if dbInfo and dbInfo.cost and not dbInfo.is_limited and not dbInfo.is_event then
+                                totalValue += dbInfo.cost
+                            end
+                        end
+                    end
+                end
+                
+                local maxLimit = 4000
+                local SharedConstants = Fsys("SharedConstants")
+                if SharedConstants then
+                    maxLimit = (SharedConstants.housing_editor and SharedConstants.housing_editor.max_furniture) 
+                        or SharedConstants.max_furniture_per_house or 4000
+                end
+                
+                -- Если лимит близок к фуллу, красим текст в красный
+                local isFull = placedCount >= maxLimit
+                FurnLabel.Text = string.format("%d / %d", placedCount, maxLimit)
+                PriceLabel.Text = string.format("$%d", totalValue)
+                
+                if Library.ThemeObjects[FurnLabel] then
+                    Library.ThemeObjects[FurnLabel] = { TextColor3 = isFull and "Red" or "Text" }
+                    FurnLabel.TextColor3 = isFull and Library.CurrentTheme.Red or Library.CurrentTheme.Text
+                end
+            end)
+        end
+    end)
     -- ==========================================
     -- 2. ДРОПДАУН ВЫБОРА ДОМА
     -- ==========================================
