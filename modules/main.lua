@@ -221,18 +221,40 @@ function Module:Init(Library, Window, Tab)
         Parent = StatsContainer
     }, { TextColor3 = "Text" })
 
-    -- === ЛОГИКА: ЧИТАЕМ ФАЙЛ ПРИ ВЫБОРЕ ===
+    -- === УМНАЯ ЛОГИКА: СТАТУС ТЕКУЩЕГО ДОМА ИЛИ ВЫБРАННОГО ФАЙЛА ===
     local function UpdateSchematicStats(fileName)
+        -- 1. ЕСЛИ НИЧЕГО НЕ ВЫБРАНО — ПОКАЗЫВАЕМ ТЕКУЩИЙ ДОМ ИГРОКА
         if not fileName or fileName == "Select..." then
-            FurnLabel.Text = "0 / 4000 Items"
-            PriceLabel.Text = "Cost: $0"
+            pcall(function()
+                local houseInterior = ClientData.get("house_interior")
+                local placedCount = 0
+                local totalValue = 0
+                
+                if houseInterior and type(houseInterior.furniture) == "table" then
+                    for _, item in pairs(houseInterior.furniture) do
+                        placedCount = placedCount + 1
+                        if CachedFurnitureDB then
+                            local dbInfo = CachedFurnitureDB[item.id or item.name]
+                            if dbInfo and dbInfo.cost and not dbInfo.is_limited and not dbInfo.is_event then
+                                totalValue = totalValue + dbInfo.cost
+                            end
+                        end
+                    end
+                end
+                
+                FurnLabel.Text = string.format("%d / 4000 Items", placedCount)
+                PriceLabel.Text = string.format("Cost: $%d", totalValue)
+                
+                if Library.ThemeObjects[FurnLabel] then Library.ThemeObjects[FurnLabel] = { TextColor3 = "Text" } end
+                FurnLabel.TextColor3 = Library.CurrentTheme.Text
+            end)
             return
         end
 
+        -- 2. ЕСЛИ ФАЙЛ ВЫБРАН — ЧИТАЕМ ИНФОРМАЦИЮ ИЗ JSON
         local filePath = FolderName .. "/" .. fileName .. ".json"
         if not isfile(filePath) then return end
 
-        -- Запускаем в отдельном потоке, чтобы меню не фризило при чтении
         task.spawn(function()
             local success, fileData = pcall(function() return readfile(filePath) end)
             if not success then return end
@@ -246,7 +268,6 @@ function Module:Init(Library, Window, Tab)
             local neededSlots = #rawFurniture
             local totalCost = 0
             
-            -- Считаем баксы через кэш
             if type(CachedFurnitureDB) == "table" then
                 for _, item in ipairs(rawFurniture) do
                     local dbInfo = CachedFurnitureDB[item.id or item.name or item.kind]
@@ -256,11 +277,9 @@ function Module:Init(Library, Window, Tab)
                 end
             end
 
-            -- Обновляем текст на панели
             FurnLabel.Text = string.format("%d / 4000 Items", neededSlots)
             PriceLabel.Text = string.format("Cost: $%d", totalCost)
 
-            -- Если схема больше 4000, текст краснеет
             if neededSlots > 4000 then
                 if Library.ThemeObjects[FurnLabel] then Library.ThemeObjects[FurnLabel] = { TextColor3 = "Red" } end
                 FurnLabel.TextColor3 = Library.CurrentTheme.Red
@@ -270,7 +289,6 @@ function Module:Init(Library, Window, Tab)
             end
         end)
     end
-
     -- ==========================================
     -- 2. ДРОПДАУН ВЫБОРА ДОМА (С ТРИГГЕРОМ ИНФО-ПАНЕЛИ)
     -- ==========================================
