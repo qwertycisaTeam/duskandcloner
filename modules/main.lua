@@ -352,6 +352,75 @@ function Module:Init(Library, Window, Tab)
             
             local rawFurniture = savedHouse.furniture or savedHouse
             local pendingChanges = {}
+
+            -- === ПРОВЕРКА ЛИМИТА И ВОПРОС ИГРОКУ (ВАРНИНГ) ===
+            local placed, maxLimit, freeSlots = GetHouseFurnitureStatus()
+            local neededSlots = #rawFurniture
+
+            if true or freeSlots < neededSlots then -- ВРЕМЕННО ДЛЯ ТЕСТА
+                local choice = nil
+                local bindable = Instance.new("BindableFunction")
+                bindable.OnInvoke = function(btn) choice = btn end
+                
+                -- Вызываем стандартное окошко Roblox с кнопками выбора
+                pcall(function()
+                    game:GetService("StarterGui"):SetCore("SendNotification", {
+                        Title = "Build Warning",
+                        Text = string.format("Need %d slots, %d free. Store old house to save space/bucks?", neededSlots, freeSlots),
+                        Duration = 30,
+                        Button1 = "Store & Build",
+                        Button2 = "Build Anyway",
+                        Callback = bindable
+                    })
+                end)
+
+                Library:Notify("Warning", "Please answer the notification in the bottom right corner!", 5, "rbxassetid://73186275216515")
+
+                -- Ждем ответа от игрока (таймаут 30 секунд)
+                local timeout = 0
+                while choice == nil and timeout < 300 do
+                    task.wait(0.1)
+                    timeout = timeout + 1
+                end
+
+                if choice == "Store & Build" then
+                    Library:Notify("Storing", "Auto-storing current house...", 3)
+                    local uniques = {}
+                    pcall(function()
+                        local Fsys = require(ReplicatedStorage:WaitForChild("Fsys")).load
+                        local houseInterior = Fsys("ClientData").get("house_interior")
+                        if houseInterior and type(houseInterior.furniture) == "table" then
+                            for uniqueId, _ in pairs(houseInterior.furniture) do
+                                table.insert(uniques, uniqueId)
+                            end
+                        end
+                    end)
+
+                    if #uniques > 0 then
+                        local API_Folder = ReplicatedStorage:WaitForChild("API", 5)
+                        local sellRemote = (getgenv().DuskCore and getgenv().DuskCore.API and getgenv().DuskCore.API.SellFurniture)
+                            or (API_Folder and API_Folder:FindFirstChild("HousingAPI/SellFurniture"))
+                        
+                        if sellRemote then
+                            local chunk = {}
+                            for i, uId in ipairs(uniques) do
+                                table.insert(chunk, uId)
+                                if #chunk >= 50 or i == #uniques then
+                                    pcall(function() sellRemote:FireServer(true, chunk, "store") end)
+                                    chunk = {}
+                                    task.wait(0.05)
+                                end
+                            end
+                            task.wait(0.8) -- Ждем, пока сервер обновит данные склада
+                        end
+                    end
+                elseif choice == "Build Anyway" then
+                    Library:Notify("Builder", "Building anyway! It will stop if limit/bucks run out.", 4)
+                else
+                    -- Если игрок ничего не нажал за 30 секунд
+                    return Library:Notify("Cancelled", "Build cancelled (No answer).", 3)
+                end
+            end
             
             table.sort(rawFurniture, function(a, b)
                 local yA = (type(a.cframe) == "table" and a.cframe[2]) or 0
