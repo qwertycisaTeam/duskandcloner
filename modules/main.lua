@@ -221,7 +221,7 @@ function Module:Init(Library, Window, Tab)
     }, { Color = "Accent" })
 
     local BuildScale = Instance.new("UIScale", BuildContainer)
-
+    local forceBuildMode = false -- Флаг для второго нажатия
     Library:Connect(BuildBtn.MouseEnter, function() 
         Library.Utils.TBT(BuildBtn, 0.3, {BackgroundTransparency = 0.3}) 
         Library.Utils.TBT(EdgeStroke, 0.3, {Transparency = 0}) 
@@ -353,72 +353,64 @@ function Module:Init(Library, Window, Tab)
             local rawFurniture = savedHouse.furniture or savedHouse
             local pendingChanges = {}
 
-            -- === ПРОВЕРКА ЛИМИТА И ВОПРОС ИГРОКУ (ВАРНИНГ) ===
+            -- === ПРОВЕРКА ЛИМИТА И СМЕНА КНОПКИ (УМНАЯ АВТООЧИСТКА) ===
             local placed, maxLimit, freeSlots = GetHouseFurnitureStatus()
             local neededSlots = #rawFurniture
 
-            if true or freeSlots < neededSlots then -- ВРЕМЕННО ДЛЯ ТЕСТА
-                local choice = nil
-                local bindable = Instance.new("BindableFunction")
-                bindable.OnInvoke = function(btn) choice = btn end
+            if freeSlots < neededSlots and not forceBuildMode then
+                forceBuildMode = true
+                -- Меняем текст на кнопке, чтобы юзер понимал, что сейчас произойдет
+                BuildText.Text = "STORE OLD HOUSE & BUILD"
                 
-                -- Вызываем стандартное окошко Roblox с кнопками выбора
-                pcall(function()
-                    game:GetService("StarterGui"):SetCore("SendNotification", {
-                        Title = "Build Warning",
-                        Text = string.format("Need %d slots, %d free. Store old house to save space/bucks?", neededSlots, freeSlots),
-                        Duration = 30,
-                        Button1 = "Store & Build",
-                        Button2 = "Build Anyway",
-                        Callback = bindable
-                    })
+                -- Кидаем нотифай
+                Library:Notify("Limit Warning", string.format("Need %d slots, %d free. CLICK AGAIN to auto-store old house and build!", neededSlots, freeSlots), 6, "rbxassetid://73186275216515", "rbxassetid://72958619361915")
+                
+                -- Таймер сброса кнопки через 6 секунд
+                task.delay(6, function()
+                    if forceBuildMode then
+                        forceBuildMode = false
+                        BuildText.Text = "BUILD SELECTED HOUSE"
+                    end
                 end)
+                
+                return -- Ждем второго клика!
+            end
 
-                Library:Notify("Warning", "Please answer the notification in the bottom right corner!", 5, "rbxassetid://73186275216515")
+            -- === ЕСЛИ ЮЗЕР НАЖАЛ ВТОРОЙ РАЗ (Срабатывает Автоочистка) ===
+            if forceBuildMode then
+                forceBuildMode = false
+                BuildText.Text = "BUILD SELECTED HOUSE"
 
-                -- Ждем ответа от игрока (таймаут 30 секунд)
-                local timeout = 0
-                while choice == nil and timeout < 300 do
-                    task.wait(0.1)
-                    timeout = timeout + 1
-                end
-
-                if choice == "Store & Build" then
-                    Library:Notify("Storing", "Auto-storing current house...", 3)
-                    local uniques = {}
-                    pcall(function()
-                        local Fsys = require(ReplicatedStorage:WaitForChild("Fsys")).load
-                        local houseInterior = Fsys("ClientData").get("house_interior")
-                        if houseInterior and type(houseInterior.furniture) == "table" then
-                            for uniqueId, _ in pairs(houseInterior.furniture) do
-                                table.insert(uniques, uniqueId)
-                            end
-                        end
-                    end)
-
-                    if #uniques > 0 then
-                        local API_Folder = ReplicatedStorage:WaitForChild("API", 5)
-                        local sellRemote = (getgenv().DuskCore and getgenv().DuskCore.API and getgenv().DuskCore.API.SellFurniture)
-                            or (API_Folder and API_Folder:FindFirstChild("HousingAPI/SellFurniture"))
-                        
-                        if sellRemote then
-                            local chunk = {}
-                            for i, uId in ipairs(uniques) do
-                                table.insert(chunk, uId)
-                                if #chunk >= 50 or i == #uniques then
-                                    pcall(function() sellRemote:FireServer(true, chunk, "store") end)
-                                    chunk = {}
-                                    task.wait(0.05)
-                                end
-                            end
-                            task.wait(0.8) -- Ждем, пока сервер обновит данные склада
+                Library:Notify("Storing", "Auto-storing current house to inventory...", 3, "rbxassetid://91727514118912", "rbxassetid://72958619361915")
+                
+                local uniques = {}
+                pcall(function()
+                    local Fsys = require(ReplicatedStorage:WaitForChild("Fsys")).load
+                    local houseInterior = Fsys("ClientData").get("house_interior")
+                    if houseInterior and type(houseInterior.furniture) == "table" then
+                        for uniqueId, _ in pairs(houseInterior.furniture) do
+                            table.insert(uniques, uniqueId)
                         end
                     end
-                elseif choice == "Build Anyway" then
-                    Library:Notify("Builder", "Building anyway! It will stop if limit/bucks run out.", 4)
-                else
-                    -- Если игрок ничего не нажал за 30 секунд
-                    return Library:Notify("Cancelled", "Build cancelled (No answer).", 3)
+                end)
+
+                if #uniques > 0 then
+                    local API_Folder = ReplicatedStorage:WaitForChild("API", 5)
+                    local sellRemote = (getgenv().DuskCore and getgenv().DuskCore.API and getgenv().DuskCore.API.SellFurniture)
+                        or (API_Folder and API_Folder:FindFirstChild("HousingAPI/SellFurniture"))
+                    
+                    if sellRemote then
+                        local chunk = {}
+                        for i, uId in ipairs(uniques) do
+                            table.insert(chunk, uId)
+                            if #chunk >= 50 or i == #uniques then
+                                pcall(function() sellRemote:FireServer(true, chunk, "store") end)
+                                chunk = {}
+                                task.wait(0.05)
+                            end
+                        end
+                        task.wait(0.8) -- Даем серверу долю секунды переварить перенос на склад
+                    end
                 end
             end
             
