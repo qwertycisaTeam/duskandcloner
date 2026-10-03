@@ -291,25 +291,6 @@ function Module:Init(Library, Window, Tab)
         end
         SelectedHouse = nil
     end)
-    -- ==========================================
-    -- 2. ДРОПДАУН ВЫБОРА ДОМА
-    -- ==========================================
-    HouseDropdown = Tab:CreateDropdown({
-        Name = "Select House Schematic",
-        Options = GetSavedHouses(),
-        CurrentOption = "Select...",
-        Callback = function(Option)
-            SelectedHouse = Option
-        end
-    })
-
-    -- Принудительно сбрасываем кэш UI-библиотеки, чтобы не вылезали удаленные файлы
-    task.spawn(function()
-        if HouseDropdown and type(HouseDropdown.SetValue) == "function" then
-            HouseDropdown.SetValue("Select...")
-        end
-        SelectedHouse = nil
-    end)
 
     -- Улучшенный хак: фиксим шрифты и добавляем объем (убираем плоскость)
     task.spawn(function()
