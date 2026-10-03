@@ -178,7 +178,7 @@ function Module:Init(Library, Window, Tab)
         Size = UDim2.new(0, 18, 0, 18),
         Position = UDim2.new(0, 12, 0.5, -9),
         BackgroundTransparency = 1,
-        Image = "rbxassetid://8535411391", -- ТВОЯ НОВАЯ ИКОНКА
+        Image = "rbxassetid://124023920104939", -- ТВОЯ НОВАЯ ИКОНКА
         Parent = StatsContainer
     }, { ImageColor3 = "Accent" }) -- Красим иконку в зеленый (Accent)
 
