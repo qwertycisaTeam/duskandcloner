@@ -648,10 +648,9 @@ function Module:Init(Library, Window, Tab)
                 local ReplicatedStorage = game:GetService("ReplicatedStorage")
                 local API = ReplicatedStorage:WaitForChild("API", 5)
                 local buyRemote = API:FindFirstChild("HousingAPI/BuyHouseWithAddons")
-                local enterRemote = API:FindFirstChild("AdoptAPI/SendPassiveDoorEnter")
                 local renameRemote = API:FindFirstChild("HousingAPI/SetHouseName")
                 
-                if not buyRemote or not enterRemote then return Library:Notify("Error", "API Remotes missing!", 3, "rbxassetid://73186275216515", "rbxassetid://72958619361915") end
+                if not buyRemote then return Library:Notify("Error", "API Remotes missing!", 3, "rbxassetid://73186275216515", "rbxassetid://72958619361915") end
 
                 Library:Notify("Farm Started", "Check F9 Console for logs...", 4, "rbxassetid://91727514118912", "rbxassetid://72958619361915")
                 local defaultColor = Color3.new(0.768627, 0.156863, 0.109804)
@@ -682,16 +681,28 @@ function Module:Init(Library, Window, Tab)
                     end
                     print("🏠 Новый дом успешно экипирован! ID: " .. tostring(newHousingId))
                     
+                    -- ПЕРЕИМЕНОВАНИЕ В НАЗВАНИЕ JSON
                     if renameRemote then
                         pcall(function() renameRemote:InvokeServer(SelectedHouse) end)
                         print("🏷 Дому присвоено имя: " .. SelectedHouse)
                     end
                     
                     task.wait(1)
-                    print("🚪 Заходим в дверь...")
+                    print("🚪 Телепортируемся внутрь (родной метод)...")
+                    
+                    -- ТОТ САМЫЙ ТЕЛЕПОРТ ИЗ ТВОЕГО МОДУЛЯ
+                    local set_identity = (syn and syn.set_thread_identity) or setthreadidentity or setidentity
+                    local get_identity = (syn and syn.get_thread_identity) or getthreadidentity or getidentity
+                    local current_id = get_identity and get_identity() or 7
+
                     pcall(function()
-                        enterRemote:FireServer("housing", "MainDoor", { skip_set_player_collisions = true, skip_send_passive_door_request = true, house_owner = game:GetService("Players").LocalPlayer.Name, exiting_door = "MainDoor" })
+                        if set_identity then pcall(set_identity, 2) end
+                        local InteriorsM = require(ReplicatedStorage.ClientModules.Core.InteriorsM.InteriorsM)
+                        InteriorsM.enter_smooth("housing", "MainDoor", {
+                            ["house_owner"] = game:GetService("Players").LocalPlayer
+                        }) 
                     end)
+                    if set_identity then pcall(set_identity, current_id) end
                     
                     print("⏳ Ждем загрузки интерьера...")
                     local isLoaded = false
