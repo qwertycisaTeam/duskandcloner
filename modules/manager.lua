@@ -325,8 +325,9 @@ function Module:Init(Library, Window, Tab)
                 end
             end
             
-            -- 💾 СОХРАНЕНИЕ
+            -- 💾 СОХРАНЕНИЕ (ТЕПЕРЬ С ТИПОМ ДОМА)
             local saveData = {
+                house_type = targetData.house_interior.building_type,
                 furniture = parsedFurniture,
                 textures = parsedTextures,  
                 ambiance = parsedAmbiance,
