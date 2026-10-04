@@ -163,10 +163,36 @@ function Module:Init(Library, Window, Tab)
         NumberSequenceKeypoint.new(1, 1)
     })
     -- ==========================================
-    -- 1.5. SCHEMATIC STATS PANEL (ИНФО О ВЫБРАННОМ ФАЙЛЕ)
+    -- 1.5 ДРОПДАУН И ПАНЕЛЬ (ИСПРАВЛЕННАЯ ЛОГИКА)
     -- ==========================================
+    
+    -- 1. ЗАРАНЕЕ объявляем функцию, чтобы дропдаун её видел
+    local UpdateSchematicStats 
+
+    -- 2. Создаем Дропдаун (он будет сверху)
+    HouseDropdown = Tab:CreateDropdown({
+        Name = "Select House Schematic",
+        Options = GetSavedHouses(),
+        CurrentOption = "Select...",
+        Callback = function(Option)
+            SelectedHouse = Option
+            if UpdateSchematicStats then
+                UpdateSchematicStats(Option)
+            end
+        end
+    })
+
+    -- Принудительно сбрасываем при запуске
+    task.spawn(function()
+        if HouseDropdown and type(HouseDropdown.SetValue) == "function" then
+            HouseDropdown.SetValue("Select...")
+        end
+        SelectedHouse = nil
+    end)
+
+    -- 3. Создаем Панель (она будет снизу под дропдауном)
     local StatsContainer = Library.Utils.Make("Frame", {
-        Size = UDim2.new(1, 0, 0, 38), -- Сделали чуть выше для красоты
+        Size = UDim2.new(1, 0, 0, 38),
         BackgroundTransparency = 0,
         Parent = Tab.Page
     }, { BackgroundColor3 = "Section" })
@@ -178,9 +204,9 @@ function Module:Init(Library, Window, Tab)
         Size = UDim2.new(0, 18, 0, 18),
         Position = UDim2.new(0, 12, 0.5, -9),
         BackgroundTransparency = 1,
-        Image = "rbxassetid://124023920104939", -- ТВОЯ НОВАЯ ИКОНКА
+        Image = "rbxassetid://10828062100", 
         Parent = StatsContainer
-    }, { ImageColor3 = "Accent" }) -- Красим иконку в зеленый (Accent)
+    }, { ImageColor3 = "Accent" })
 
     local FurnLabel = Library.Utils.Make("TextLabel", {
         Text = "0 / 4000 Items",
@@ -193,7 +219,7 @@ function Module:Init(Library, Window, Tab)
         Parent = StatsContainer
     }, { TextColor3 = "Text" })
 
-    -- Центральный разделитель
+    -- Разделитель
     Library.Utils.Make("Frame", {
         Size = UDim2.new(0, 1, 1, -14),
         Position = UDim2.new(0.5, 0, 0, 7),
@@ -208,7 +234,7 @@ function Module:Init(Library, Window, Tab)
         BackgroundTransparency = 1,
         Image = "rbxassetid://126904798120349", 
         Parent = StatsContainer
-    }, { ImageColor3 = "Accent" }) -- Тоже красим в Accent
+    }, { ImageColor3 = "Accent" })
 
     local PriceLabel = Library.Utils.Make("TextLabel", {
         Text = "Cost: $0",
@@ -221,74 +247,96 @@ function Module:Init(Library, Window, Tab)
         Parent = StatsContainer
     }, { TextColor3 = "Text" })
 
-    -- === УМНАЯ ЛОГИКА: СТАТУС ТЕКУЩЕГО ДОМА ИЛИ ВЫБРАННОГО ФАЙЛА ===
-    local function UpdateSchematicStats(fileName)
-        -- 1. ЕСЛИ НИЧЕГО НЕ ВЫБРАНО — ПОКАЗЫВАЕМ ТЕКУЩИЙ ДОМ ИГРОКА
-        if not fileName or fileName == "Select..." then
-            pcall(function()
-                local houseInterior = ClientData.get("house_interior")
-                local placedCount = 0
-                local totalValue = 0
+    -- 4. ПИШЕМ ФУНКЦИЮ (Теперь она обновляет цифры из JSON)
+    UpdateSchematicStats = function(fileName)
+        if fileName and fileName ~= "Select..." and fileName ~= "" then
+            local filePath = FolderName .. "/" .. fileName .. ".json"
+            if not isfile(filePath) then return end
+
+            task.spawn(function()
+                local success, fileData = pcall(function() return readfile(filePath) end)
+                if not success then return end
                 
-                if houseInterior and type(houseInterior.furniture) == "table" then
-                    for _, item in pairs(houseInterior.furniture) do
-                        placedCount = placedCount + 1
-                        if CachedFurnitureDB then
-                            local dbInfo = CachedFurnitureDB[item.id or item.name]
-                            if dbInfo and dbInfo.cost and not dbInfo.is_limited and not dbInfo.is_event then
-                                totalValue = totalValue + dbInfo.cost
-                            end
+                local decodeSuccess, savedHouse = pcall(function() return HttpService:JSONDecode(fileData) end)
+                if not decodeSuccess then return end
+
+                local rawFurniture = savedHouse.furniture or savedHouse
+                if type(rawFurniture) ~= "table" then return end
+
+                local neededSlots = #rawFurniture
+                local totalCost = 0
+                
+                if type(CachedFurnitureDB) == "table" then
+                    for _, item in ipairs(rawFurniture) do
+                        local dbInfo = CachedFurnitureDB[item.id or item.name or item.kind]
+                        if dbInfo and dbInfo.cost and not dbInfo.is_limited and not dbInfo.is_event then
+                            totalCost = totalCost + dbInfo.cost
                         end
                     end
                 end
-                
-                FurnLabel.Text = string.format("%d / 4000 Items", placedCount)
-                PriceLabel.Text = string.format("Cost: $%d", totalValue)
-                
-                if Library.ThemeObjects[FurnLabel] then Library.ThemeObjects[FurnLabel] = { TextColor3 = "Text" } end
-                FurnLabel.TextColor3 = Library.CurrentTheme.Text
+
+                FurnLabel.Text = string.format("%d / 4000 Items", neededSlots)
+                PriceLabel.Text = string.format("Cost: $%d", totalCost)
+
+                if neededSlots > 4000 then
+                    if Library.ThemeObjects[FurnLabel] then Library.ThemeObjects[FurnLabel] = { TextColor3 = "Red" } end
+                    FurnLabel.TextColor3 = Library.CurrentTheme.Red
+                else
+                    if Library.ThemeObjects[FurnLabel] then Library.ThemeObjects[FurnLabel] = { TextColor3 = "Text" } end
+                    FurnLabel.TextColor3 = Library.CurrentTheme.Text
+                end
             end)
-            return
         end
+    end
 
-        -- 2. ЕСЛИ ФАЙЛ ВЫБРАН — ЧИТАЕМ ИНФОРМАЦИЮ ИЗ JSON
-        local filePath = FolderName .. "/" .. fileName .. ".json"
-        if not isfile(filePath) then return end
+    -- 5. ЖИВОЙ ЦИКЛ (Следит за домом, если файл НЕ выбран)
+    task.spawn(function()
+        local Fsys = require(ReplicatedStorage:WaitForChild("Fsys")).load
+        local ClientData = Fsys("ClientData")
 
-        task.spawn(function()
-            local success, fileData = pcall(function() return readfile(filePath) end)
-            if not success then return end
-            
-            local decodeSuccess, savedHouse = pcall(function() return HttpService:JSONDecode(fileData) end)
-            if not decodeSuccess then return end
+        while task.wait(1.5) do
+            if not getgenv().DuskShine_Core then break end
 
-            local rawFurniture = savedHouse.furniture or savedHouse
-            if type(rawFurniture) ~= "table" then return end
+            -- Обновляем панель ТОЛЬКО если юзер сбросил выбор до "Select..."
+            if not SelectedHouse or SelectedHouse == "Select..." or SelectedHouse == "" then
+                local camY = workspace.CurrentCamera.CFrame.Position.Y
+                local isHouseLoaded = workspace:FindFirstChild("HouseInteriors") 
+                    and workspace.HouseInteriors:FindFirstChild("blueprint") 
+                    and #workspace.HouseInteriors.blueprint:GetChildren() > 0
 
-            local neededSlots = #rawFurniture
-            local totalCost = 0
-            
-            if type(CachedFurnitureDB) == "table" then
-                for _, item in ipairs(rawFurniture) do
-                    local dbInfo = CachedFurnitureDB[item.id or item.name or item.kind]
-                    if dbInfo and dbInfo.cost and not dbInfo.is_limited and not dbInfo.is_event then
-                        totalCost = totalCost + dbInfo.cost
-                    end
+                -- Жесткая проверка: на улице мы или в доме?
+                local isOutside = (camY < 500 or camY > 8500 or not isHouseLoaded)
+
+                if isOutside then
+                    FurnLabel.Text = "0 / 4000 Items"
+                    PriceLabel.Text = "Cost: $0"
+                    if Library.ThemeObjects[FurnLabel] then Library.ThemeObjects[FurnLabel] = { TextColor3 = "Text" } end
+                    FurnLabel.TextColor3 = Library.CurrentTheme.Text
+                else
+                    pcall(function()
+                        local houseInterior = ClientData.get("house_interior")
+                        local placedCount = 0
+                        local totalValue = 0
+                        
+                        if houseInterior and type(houseInterior.furniture) == "table" then
+                            for _, item in pairs(houseInterior.furniture) do
+                                placedCount = placedCount + 1
+                                if CachedFurnitureDB then
+                                    local dbInfo = CachedFurnitureDB[item.id or item.name]
+                                    if dbInfo and dbInfo.cost and not dbInfo.is_limited and not dbInfo.is_event then
+                                        totalValue = totalValue + dbInfo.cost
+                                    end
+                                end
+                            end
+                        end
+                        
+                        FurnLabel.Text = string.format("%d / 4000 Items", placedCount)
+                        PriceLabel.Text = string.format("Cost: $%d", totalValue)
+                    end)
                 end
             end
-
-            FurnLabel.Text = string.format("%d / 4000 Items", neededSlots)
-            PriceLabel.Text = string.format("Cost: $%d", totalCost)
-
-            if neededSlots > 4000 then
-                if Library.ThemeObjects[FurnLabel] then Library.ThemeObjects[FurnLabel] = { TextColor3 = "Red" } end
-                FurnLabel.TextColor3 = Library.CurrentTheme.Red
-            else
-                if Library.ThemeObjects[FurnLabel] then Library.ThemeObjects[FurnLabel] = { TextColor3 = "Text" } end
-                FurnLabel.TextColor3 = Library.CurrentTheme.Text
-            end
-        end)
-    end
+        end
+    end)
     -- ==========================================
     -- 2. ДРОПДАУН ВЫБОРА ДОМА (С ТРИГГЕРОМ ИНФО-ПАНЕЛИ)
     -- ==========================================
