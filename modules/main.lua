@@ -62,9 +62,24 @@ function Module:Init(Library, Window, Tab)
     local function GetPlayerBucks()
         local bucks = 0
         pcall(function()
-            local allData = ClientData.get_data()
-            if allData and allData[LocalPlayer.Name] then
-                bucks = allData[LocalPlayer.Name].bucks or 0
+            local Fsys = require(game:GetService("ReplicatedStorage"):WaitForChild("Fsys")).load
+            local ClientData = Fsys("ClientData")
+            
+            -- Способ 1: Прямой запрос (самый частый вариант)
+            bucks = ClientData.get("bucks") or 0
+            
+            -- Способ 2: Запасной, если первый вернул 0
+            if bucks == 0 then
+                local pName = game:GetService("Players").LocalPlayer.Name
+                local allData = ClientData.get_data()
+                
+                if allData and allData[pName] then
+                    if type(allData[pName].bucks) == "number" then
+                        bucks = allData[pName].bucks
+                    elseif allData[pName].inventory and type(allData[pName].inventory.bucks) == "number" then
+                        bucks = allData[pName].inventory.bucks
+                    end
+                end
             end
         end)
         return bucks
