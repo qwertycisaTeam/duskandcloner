@@ -359,29 +359,35 @@ function Module:Init(Library, Window, Tab)
     local function GetPlayerBucks()
         local bucks = 0
         pcall(function()
-            local Fsys = require(game:GetService("ReplicatedStorage"):WaitForChild("Fsys")).load
-            local ClientData = Fsys("ClientData")
-            bucks = ClientData.get("bucks") or 0
+            -- Берем ClientData напрямую из твоего ядра, это самый надежный метод
+            local clientDataModule = (getgenv().DuskCore and getgenv().DuskCore.M and getgenv().DuskCore.M.ClientData)
+            if not clientDataModule then
+                clientDataModule = require(game:GetService("ReplicatedStorage"):WaitForChild("Fsys")).load("ClientData")
+            end
+            
+            local pName = game:GetService("Players").LocalPlayer.Name
+            local allData = clientDataModule.get_data()
+            
+            if allData and allData[pName] then
+                bucks = allData[pName].bucks or (allData[pName].inventory and allData[pName].inventory.bucks) or 0
+            end
+            
             if bucks == 0 then
-                local pName = game:GetService("Players").LocalPlayer.Name
-                local allData = ClientData.get_data()
-                if allData and allData[pName] then
-                    if type(allData[pName].bucks) == "number" then bucks = allData[pName].bucks
-                    elseif allData[pName].inventory and type(allData[pName].inventory.bucks) == "number" then bucks = allData[pName].inventory.bucks end
-                end
+                bucks = clientDataModule.get("bucks") or 0
             end
         end)
-        return bucks
+        return tonumber(bucks) or 0
     end
 
     local function GetHouseFurnitureStatus()
         local placedCount, maxLimit = 0, 4000
         pcall(function()
-            local Fsys = require(game:GetService("ReplicatedStorage"):WaitForChild("Fsys")).load
-            local houseInterior = Fsys("ClientData").get("house_interior")
+            local clientDataModule = (getgenv().DuskCore and getgenv().DuskCore.M and getgenv().DuskCore.M.ClientData) or require(game:GetService("ReplicatedStorage"):WaitForChild("Fsys")).load("ClientData")
+            local houseInterior = clientDataModule.get("house_interior")
             if houseInterior and type(houseInterior.furniture) == "table" then
                 for _ in pairs(houseInterior.furniture) do placedCount = placedCount + 1 end
             end
+            local Fsys = require(game:GetService("ReplicatedStorage"):WaitForChild("Fsys")).load
             local SharedConstants = Fsys("SharedConstants")
             maxLimit = (SharedConstants.housing_editor and SharedConstants.housing_editor.max_furniture) or SharedConstants.max_furniture_per_house or 4000
         end)
@@ -389,7 +395,7 @@ function Module:Init(Library, Window, Tab)
     end
 
     -- ==========================================
-    -- УНИВЕРСАЛЬНАЯ ФУНКЦИЯ СТРОЙКИ (ДЛЯ КНОПКИ И ФЕРМЫ)
+    -- УНИВЕРСАЛЬНАЯ ФУНКЦИЯ СТРОЙКИ
     -- ==========================================
     local function ExecuteBuild(savedHouse, forceClearOld)
         local rawFurniture = savedHouse.furniture or savedHouse
@@ -397,11 +403,10 @@ function Module:Init(Library, Window, Tab)
         local RunService = game:GetService("RunService")
         
         if forceClearOld then
-            local Fsys = require(ReplicatedStorage:WaitForChild("Fsys")).load
-            local ClientData = Fsys("ClientData")
+            local clientDataModule = (getgenv().DuskCore and getgenv().DuskCore.M and getgenv().DuskCore.M.ClientData) or require(ReplicatedStorage:WaitForChild("Fsys")).load("ClientData")
             local uniques = {}
             pcall(function()
-                local houseInterior = ClientData.get("house_interior")
+                local houseInterior = clientDataModule.get("house_interior")
                 if houseInterior and type(houseInterior.furniture) == "table" then
                     for uniqueId, _ in pairs(houseInterior.furniture) do table.insert(uniques, uniqueId) end
                 end
@@ -637,14 +642,32 @@ function Module:Init(Library, Window, Tab)
 
             local houseType = savedHouse.house_type
 
+            -- Общий подсчет стоимости для защиты (используем и для фермы, и для соло)
+            local totalCost = 0
+            local rawFurniture = savedHouse.furniture or savedHouse
+            local neededSlots = #rawFurniture
+            if type(CachedFurnitureDB) == "table" then
+                for _, item in ipairs(rawFurniture) do
+                    local dbInfo = CachedFurnitureDB[item.id or item.name or item.kind]
+                    if dbInfo and dbInfo.cost and not dbInfo.is_limited and not dbInfo.is_event then totalCost = totalCost + dbInfo.cost end
+                end
+            end
+
+            local currentBucks = GetPlayerBucks()
+            local placed, maxLimit, freeSlots = GetHouseFurnitureStatus()
+
             -- ============================================
             -- РЕЖИМ МУЛЬТИ-ФЕРМЫ
             -- ============================================
             if FarmAmount > 1 then
-                if not houseType then
-                    return Library:Notify("Farm Error", "No house_type in JSON! Re-export the house first.", 5, "rbxassetid://73186275216515", "rbxassetid://72958619361915")
-                end
+                if not houseType then return Library:Notify("Farm Error", "No house_type in JSON! Re-export the house first.", 5, "rbxassetid://73186275216515", "rbxassetid://72958619361915") end
                 
+                -- ЗАЩИТА: Проверяем, хватит ли денег на ВСЮ ферму (учитывая стоимость постройки)
+                -- Мы пока не знаем стоимость самой пустой коробки, поэтому проверяем только мебель * FarmAmount
+                if currentBucks < (totalCost * FarmAmount) then
+                    return Library:Notify("Low Bucks!", string.format("Need at least $%d for %d houses.", totalCost * FarmAmount, FarmAmount), 5, "rbxassetid://73186275216515", "rbxassetid://72958619361915")
+                end
+
                 local ReplicatedStorage = game:GetService("ReplicatedStorage")
                 local API = ReplicatedStorage:WaitForChild("API", 5)
                 local buyRemote = API:FindFirstChild("HousingAPI/BuyHouseWithAddons")
@@ -655,42 +678,43 @@ function Module:Init(Library, Window, Tab)
                 Library:Notify("Farm Started", "Check F9 Console for logs...", 4, "rbxassetid://91727514118912", "rbxassetid://72958619361915")
                 local defaultColor = Color3.new(0.768627, 0.156863, 0.109804)
                 
-                local Fsys = require(ReplicatedStorage:WaitForChild("Fsys")).load
-                local ClientData = Fsys("ClientData")
+                local clientDataModule = (getgenv().DuskCore and getgenv().DuskCore.M and getgenv().DuskCore.M.ClientData) or require(ReplicatedStorage:WaitForChild("Fsys")).load("ClientData")
+                
+                -- Проверяем, в каком доме мы сейчас стоим
+                local currentHouseExterior = clientDataModule.get("house_exterior_model")
+                local buildFirstInCurrent = (currentHouseExterior == houseType)
                 
                 for i = 1, FarmAmount do
                     print("=======================================")
-                    print("🏗 [ФЕРМА] Итерация: " .. tostring(i) .. " | Дом: " .. tostring(houseType))
+                    print(string.format("🏗 [ФЕРМА] Итерация %d из %d | Тип: %s", i, FarmAmount, houseType))
                     
-                    local startHousingId = ClientData.get("housing") 
+                    local activeHousingId = clientDataModule.get("housing") 
                     
-                    pcall(function() buyRemote:InvokeServer(houseType, {}, defaultColor) end)
-                    print("✅ Запрос на покупку ушел. Ждем выдачи дома сервером...")
-                    
-                    local newHousingId = startHousingId
-                    local waitEquip = 0
-                    repeat
-                        task.wait(0.5)
-                        waitEquip = waitEquip + 0.5
-                        newHousingId = ClientData.get("housing")
-                    until newHousingId ~= startHousingId or waitEquip > 15
-                    
-                    if newHousingId == startHousingId then
-                        warn("❌ Сервер тупит и не выдал новый дом за 15 сек! Прерываем итерацию.")
-                        continue
+                    if i == 1 and buildFirstInCurrent then
+                        print("🏠 Итерация 1: Используем ТЕКУЩИЙ дом, так как тип совпадает! Покупка пропущена.")
+                    else
+                        pcall(function() buyRemote:InvokeServer(houseType, {}, defaultColor) end)
+                        print("✅ Запрос на покупку ушел. Ждем выдачи дома...")
+                        
+                        local newHousingId = activeHousingId
+                        local waitEquip = 0
+                        repeat
+                            task.wait(0.5)
+                            waitEquip = waitEquip + 0.5
+                            newHousingId = clientDataModule.get("housing")
+                        until newHousingId ~= activeHousingId or waitEquip > 15
+                        
+                        if newHousingId == activeHousingId then
+                            warn("❌ Сервер не выдал новый дом (возможно лимит или нет денег на коробку)! Прерываем.")
+                            break
+                        end
+                        activeHousingId = newHousingId
+                        print("🏠 Новый дом успешно куплен! ID: " .. tostring(activeHousingId))
                     end
-                    print("🏠 Новый дом успешно экипирован! ID: " .. tostring(newHousingId))
                     
-                    -- ПЕРЕИМЕНОВАНИЕ В НАЗВАНИЕ JSON
-                    if renameRemote then
-                        pcall(function() renameRemote:InvokeServer(SelectedHouse) end)
-                        print("🏷 Дому присвоено имя: " .. SelectedHouse)
-                    end
+                    if renameRemote then pcall(function() renameRemote:InvokeServer(SelectedHouse) end) end
                     
-                    task.wait(1)
-                    print("🚪 Телепортируемся внутрь (родной метод)...")
-                    
-                    -- ТОТ САМЫЙ ТЕЛЕПОРТ ИЗ ТВОЕГО МОДУЛЯ
+                    print("🚪 Телепортируемся внутрь...")
                     local set_identity = (syn and syn.set_thread_identity) or setthreadidentity or setidentity
                     local get_identity = (syn and syn.get_thread_identity) or getthreadidentity or getidentity
                     local current_id = get_identity and get_identity() or 7
@@ -698,9 +722,7 @@ function Module:Init(Library, Window, Tab)
                     pcall(function()
                         if set_identity then pcall(set_identity, 2) end
                         local InteriorsM = require(ReplicatedStorage.ClientModules.Core.InteriorsM.InteriorsM)
-                        InteriorsM.enter_smooth("housing", "MainDoor", {
-                            ["house_owner"] = game:GetService("Players").LocalPlayer
-                        }) 
+                        InteriorsM.enter_smooth("housing", "MainDoor", { ["house_owner"] = game:GetService("Players").LocalPlayer }) 
                     end)
                     if set_identity then pcall(set_identity, current_id) end
                     
@@ -710,30 +732,28 @@ function Module:Init(Library, Window, Tab)
                     repeat
                         task.wait(0.5)
                         waitTime = waitTime + 0.5
-                        
-                        local currentInterior = ClientData.get("house_interior")
-                        local isCorrectInterior = currentInterior and currentInterior.unique == newHousingId
-                        
+                        local currentInterior = clientDataModule.get("house_interior")
+                        local isCorrectInterior = currentInterior and currentInterior.unique == activeHousingId
                         local camY = workspace.CurrentCamera.CFrame.Position.Y
                         local blueprint = workspace:FindFirstChild("HouseInteriors") and workspace.HouseInteriors:FindFirstChild("blueprint")
                         
-                        if isCorrectInterior and camY > 500 and camY < 8500 and blueprint and #blueprint:GetChildren() > 0 then 
-                            isLoaded = true 
-                        end
+                        if isCorrectInterior and camY > 500 and camY < 8500 and blueprint and #blueprint:GetChildren() > 0 then isLoaded = true end
                         if waitTime > 20 then break end 
                     until isLoaded
                     
                     if not isLoaded then 
-                        warn("❌ Интерьер нового дома не прогрузился за 20 секунд! Пропускаем.")
+                        warn("❌ Интерьер не прогрузился! Пропускаем.")
                         continue 
                     end
                     
-                    print("🔨 Дом прогружен! Строим...")
-                    ExecuteBuild(savedHouse, false)
+                    print("🔨 Строим...")
+                    -- Если это первый дом и мы его не покупали - нужно очистить старую мебель (forceClear = true)
+                    local needsClear = (i == 1 and buildFirstInCurrent and placed > 0)
+                    ExecuteBuild(savedHouse, needsClear)
                     task.wait(2)
                 end
                 
-                print("🏁 Ферма завершила цикл!")
+                print("🏁 Ферма завершила работу!")
                 Library:Notify("Farm Finished", "All tasks completed.", 5, "rbxassetid://18926561608", "rbxassetid://72958619361915")
             
             -- ============================================
@@ -744,19 +764,6 @@ function Module:Init(Library, Window, Tab)
                 local camY = workspace.CurrentCamera.CFrame.Position.Y
                 if camY < 500 or camY > 8500 or not isHouseLoaded then return Library:Notify("Error", "House is not fully loaded or you are outside!", 4, "rbxassetid://73186275216515", "rbxassetid://72958619361915") end
                 
-                local rawFurniture = savedHouse.furniture or savedHouse
-                local placed, maxLimit, freeSlots = GetHouseFurnitureStatus()
-                local neededSlots = #rawFurniture
-                
-                local totalCost = 0
-                if type(CachedFurnitureDB) == "table" then
-                    for _, item in ipairs(rawFurniture) do
-                        local dbInfo = CachedFurnitureDB[item.id or item.name or item.kind]
-                        if dbInfo and dbInfo.cost and not dbInfo.is_limited and not dbInfo.is_event then totalCost = totalCost + dbInfo.cost end
-                    end
-                end
-                
-                local currentBucks = GetPlayerBucks()
                 if neededSlots > maxLimit then return Library:Notify("Error", string.format("Needs %d slots, max is %d.", neededSlots, maxLimit), 5, "rbxassetid://73186275216515", "rbxassetid://72958619361915") end
 
                 local hasOverlap = (placed > 0)
@@ -767,7 +774,7 @@ function Module:Init(Library, Window, Tab)
                     local warnTitle = "Warning"
                     local warnText = ""
                     if hasOverlap then BuildText.Text = "STORE OLD & BUILD"; warnText = string.format("House has %d items! ", placed) else BuildText.Text = "BUILD ANYWAY" end
-                    if isPoor then warnTitle = "Low Bucks!"; warnText = warnText .. string.format("Cost: $%d! ", totalCost) end
+                    if isPoor then warnTitle = "Low Bucks!"; warnText = warnText .. string.format("Cost: $%d (You have $%d)! ", totalCost, currentBucks) end
                     warnText = warnText .. "CLICK AGAIN to force build."
                     
                     Library:Notify(warnTitle, warnText, 6, "rbxassetid://73186275216515", "rbxassetid://72958619361915")
