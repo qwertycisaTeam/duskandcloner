@@ -339,429 +339,417 @@ function Module:Init(Library, Window, Tab)
     end)
 
     -- ==========================================
-    -- 3. ПРЕМИУМ КНОПКА BUILD (НЕОНОВАЯ)
+    -- ВСПКМОГАТЕЛЬНЫЕ ФУНКЦИИ ДЛЯ ПРОВЕРОК
     -- ==========================================
-    local BuildContainer = Library.Utils.Make("Frame", {
-        Size = UDim2.new(1, -8, 0, 38), -- Запас места для Scale = 1.05
-        Position = UDim2.new(0.5, 0, 0, 0), -- Ставим ровно по центру
-        AnchorPoint = Vector2.new(0.5, 0), -- Центр масс
-        BackgroundTransparency = 1,
-        Parent = Tab.Page
-    })
-    local Glow = Library.Utils.Make("Frame", { 
-        Size = UDim2.new(1, 0, 1, 0), 
-        Position = UDim2.new(0.5, 0, 0.5, 0),
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        BackgroundTransparency = 1, 
-        ZIndex = 1, 
-        Parent = BuildContainer 
-    })
+    local function GetPlayerBucks()
+        local bucks = 0
+        pcall(function()
+            local Fsys = require(game:GetService("ReplicatedStorage"):WaitForChild("Fsys")).load
+            local allData = Fsys("ClientData").get_data()
+            if allData and allData[game:GetService("Players").LocalPlayer.Name] then
+                bucks = allData[game:GetService("Players").LocalPlayer.Name].bucks or 0
+            end
+        end)
+        return bucks
+    end
+
+    local function GetHouseFurnitureStatus()
+        local placedCount, maxLimit = 0, 4000
+        pcall(function()
+            local Fsys = require(game:GetService("ReplicatedStorage"):WaitForChild("Fsys")).load
+            local houseInterior = Fsys("ClientData").get("house_interior")
+            if houseInterior and type(houseInterior.furniture) == "table" then
+                for _ in pairs(houseInterior.furniture) do placedCount = placedCount + 1 end
+            end
+            local SharedConstants = Fsys("SharedConstants")
+            maxLimit = (SharedConstants.housing_editor and SharedConstants.housing_editor.max_furniture) 
+                or SharedConstants.max_furniture_per_house or 4000
+        end)
+        return placedCount, maxLimit, math.max(0, maxLimit - placedCount)
+    end
+
+    -- ==========================================
+    -- УНИВЕРСАЛЬНАЯ ФУНКЦИЯ СТРОЙКИ (ДЛЯ КНОПКИ И ФЕРМЫ)
+    -- ==========================================
+    local function ExecuteBuild(savedHouse, forceClearOld)
+        local rawFurniture = savedHouse.furniture or savedHouse
+        local ReplicatedStorage = game:GetService("ReplicatedStorage")
+        local RunService = game:GetService("RunService")
+        
+        -- ОЧИСТКА СТАРОГО ДОМА
+        if forceClearOld then
+            local Fsys = require(ReplicatedStorage:WaitForChild("Fsys")).load
+            local ClientData = Fsys("ClientData")
+            local uniques = {}
+            pcall(function()
+                local houseInterior = ClientData.get("house_interior")
+                if houseInterior and type(houseInterior.furniture) == "table" then
+                    for uniqueId, _ in pairs(houseInterior.furniture) do
+                        table.insert(uniques, uniqueId)
+                    end
+                end
+            end)
+
+            if #uniques > 0 then
+                Library:Notify("Storing", "Auto-storing old furniture...", 3, "rbxassetid://91727514118912", "rbxassetid://72958619361915")
+                local API_Folder = ReplicatedStorage:WaitForChild("API", 5)
+                local sellRemote = (getgenv().DuskCore and getgenv().DuskCore.API and getgenv().DuskCore.API.SellFurniture)
+                    or (API_Folder and API_Folder:FindFirstChild("HousingAPI/SellFurniture"))
+                
+                if sellRemote then
+                    local chunk = {}
+                    for i, uId in ipairs(uniques) do
+                        table.insert(chunk, uId)
+                        if #chunk >= 50 or i == #uniques then
+                            pcall(function() sellRemote:FireServer(true, chunk, "store") end)
+                            chunk = {}
+                            task.wait(0.05)
+                        end
+                    end
+                    task.wait(1)
+                end
+            end
+        end
+
+        local MICRO_SHIFT_Y = 0 
+        
+        -- АТМОСФЕРА
+        local function loadAmbiance(ambianceData, particleData)
+            local function toColor3(rgbArray)
+                if type(rgbArray) ~= "table" or #rgbArray < 3 then return Color3.new(1, 1, 1) end
+                return Color3.new(rgbArray[1], rgbArray[2], rgbArray[3])
+            end
+            
+            local cProps = (type(ambianceData) == "table" and ambianceData.custom_props) or {}
+            local lData = cProps.Lighting or {}
+            local ccData = cProps.ColorCorrectionEffect or {}
+            local srData = cProps.SunRaysEffect or {}
+            local atmData = cProps.Atmosphere or {}
+            local bKind = (type(ambianceData) == "table" and ambianceData.base_kind) or "day"
+            local kKind = (type(ambianceData) == "table" and ambianceData.kind) or "day"
+
+            local customParticles = { Rain = false, CherryBlossoms = false, Leaves = false, Snow = false }
+            if type(particleData) == "table" then
+                for k, v in pairs(particleData) do customParticles[k] = v end
+            end
+
+            local args = {{
+                base_kind = bKind, kind = kKind, priority = 3,
+                custom_props = {
+                    Lighting = { ClockTime = lData.ClockTime or 14, ExposureCompensation = lData.ExposureCompensation ~= nil and lData.ExposureCompensation or 0, Ambient = toColor3(lData.Ambient), OutdoorAmbient = toColor3(lData.OutdoorAmbient), ColorShift_Top = toColor3(lData.ColorShift_Top) },
+                    ColorCorrectionEffect = { TintColor = toColor3(ccData.TintColor), Saturation = ccData.Saturation or 0, Contrast = ccData.Contrast or 0 },
+                    SunRaysEffect = { Intensity = srData.Intensity or 0 },
+                    Atmosphere = { Density = atmData.Density or 0.3, Glare = atmData.Glare or 0, Haze = atmData.Haze or 0, Color = toColor3(atmData.Color) },
+                    Custom = customParticles
+                }
+            }}
+            
+            local API_Folder = ReplicatedStorage:WaitForChild("API", 5)
+            if API_Folder then
+                local ambianceRemote = API_Folder:FindFirstChild("AmbianceAPI/UpdateAmbiance")
+                if ambianceRemote then pcall(function() ambianceRemote:FireServer(table.unpack(args)) end) end
+            end
+        end
+        
+        loadAmbiance(savedHouse.ambiance, savedHouse.particles)
+
+        -- ТЕКСТУРЫ
+        if CopyTextures and savedHouse.textures then
+            local API_Folder = ReplicatedStorage:WaitForChild("API", 5)
+            if API_Folder then
+                local BuyTextureRemote = API_Folder:FindFirstChild("HousingAPI/BuyTexture")
+                if BuyTextureRemote then
+                    for roomName, texData in pairs(savedHouse.textures) do
+                        if texData.walls and texData.walls ~= "" then
+                            pcall(function() BuyTextureRemote:FireServer(roomName, "walls", texData.walls) end)
+                            task.wait(getgenv().CurrentBuildDelay or 0)
+                        end
+                        if texData.floors and texData.floors ~= "" then
+                            pcall(function() BuyTextureRemote:FireServer(roomName, "floors", texData.floors) end)
+                            task.wait(getgenv().CurrentBuildDelay or 0)
+                        end
+                    end
+                end
+            end
+        end
+
+        -- МЕБЕЛЬ
+        local API_Folder = ReplicatedStorage:WaitForChild("API", 5)
+        if not API_Folder then return false end
+
+        local downloadApi = API_Folder:FindFirstChild("DownloadsAPI/Download")
+        local buyFurnituresRemote = getgenv().DuskCore and getgenv().DuskCore.API and getgenv().DuskCore.API.BuyFurnitures or API_Folder:FindFirstChild("HousingAPI/BuyFurnitures")
+        local pushFurnitureEvent = API_Folder:FindFirstChild("HousingAPI/PushFurnitureChanges")
+
+        if not buyFurnituresRemote then return false end
+
+        if downloadApi then
+            local uniqueIDs = {}
+            for _, item in ipairs(rawFurniture) do 
+                local itemId = item.id or item.name or item.kind
+                if itemId then uniqueIDs[itemId] = true end 
+            end
+            for id, _ in pairs(uniqueIDs) do
+                task.spawn(function() pcall(function() downloadApi:InvokeServer("Furniture", id) end) end)
+            end
+            task.wait(0.5)
+        end
+
+        table.sort(rawFurniture, function(a, b)
+            local yA = (type(a.cframe) == "table" and a.cframe[2]) or 0
+            local yB = (type(b.cframe) == "table" and b.cframe[2]) or 0
+            return yA < yB
+        end)
+
+        local pendingChanges = {}
+        local currentBatch = {}
+        local batchOriginalItems = {}
+
+        for i, item in ipairs(rawFurniture) do
+            local itemId = item.id or item.name or item.kind
+            if not itemId then continue end
+
+            local cData = item.cframe
+            if type(cData) ~= "table" or #cData ~= 12 then continue end
+
+            local baseCFrame = CFrame.new(table.unpack(cData))
+            local localCFrame = baseCFrame + Vector3.new(0, MICRO_SHIFT_Y, 0)
+            
+            local buyProps = {cframe = localCFrame}
+            if item.colors and #item.colors > 0 then
+                local c3table = {}
+                for _, c in ipairs(item.colors) do table.insert(c3table, Color3.new(c[1], c[2], c[3])) end
+                buyProps.colors = c3table
+            end
+            
+            table.insert(currentBatch, { kind = itemId, properties = buyProps })
+            table.insert(batchOriginalItems, { item = item, localCFrame = localCFrame, buyProps = buyProps })
+            
+            local batchLimit = getgenv().CurrentBatchSize or 15
+            local buildDelay = getgenv().CurrentBuildDelay or 0
+
+            if #currentBatch >= batchLimit or i == #rawFurniture then
+                local successPurchase = false
+                local attempts = 0
+                
+                repeat
+                    attempts = attempts + 1
+                    local buildSuccess, response = pcall(function() return buyFurnituresRemote:InvokeServer(currentBatch) end)
+                    if buildSuccess and type(response) == "table" and response.success then
+                        successPurchase = true
+                        if response.results then
+                            for resultIndex, result in ipairs(response.results) do
+                                if result.unique then
+                                    local orig = batchOriginalItems[resultIndex]
+                                    local changeArgs = { unique = result.unique, cframe = orig.localCFrame }
+                                    if orig.item.scale and orig.item.scale ~= 1 then changeArgs.scale = orig.item.scale end
+                                    if orig.buyProps.colors then changeArgs.colors = orig.buyProps.colors end
+                                    table.insert(pendingChanges, changeArgs)
+                                end
+                            end
+                        end
+                    else
+                        task.wait(0.5)
+                    end
+                until successPurchase or attempts >= 2
+
+                if not successPurchase and #currentBatch > 0 then
+                    for bIndex, singleItemReq in ipairs(currentBatch) do
+                        local sBuildSuccess, sResponse = pcall(function() return buyFurnituresRemote:InvokeServer({singleItemReq}) end)
+                        if sBuildSuccess and type(sResponse) == "table" and sResponse.success and sResponse.results then
+                            local orig = batchOriginalItems[bIndex]
+                            for _, result in ipairs(sResponse.results) do
+                                if result.unique then
+                                    local changeArgs = { unique = result.unique, cframe = orig.localCFrame }
+                                    if orig.item.scale and orig.item.scale ~= 1 then changeArgs.scale = orig.item.scale end
+                                    if orig.buyProps.colors then changeArgs.colors = orig.buyProps.colors end
+                                    table.insert(pendingChanges, changeArgs)
+                                end
+                            end
+                        end
+                        task.wait(0.02)
+                    end
+                end
+                
+                currentBatch = {}; batchOriginalItems = {}
+                if buildDelay > 0 then task.wait(buildDelay) else RunService.Heartbeat:Wait() end
+            end
+        end
+        
+        if pushFurnitureEvent and #pendingChanges > 0 then
+            local chunk = {}
+            for i, change in ipairs(pendingChanges) do
+                table.insert(chunk, change)
+                if #chunk >= 50 or i == #pendingChanges then
+                    pcall(function() pushFurnitureEvent:FireServer(chunk) end)
+                    chunk = {}
+                    task.wait(math.max(0.1, getgenv().CurrentBuildDelay or 0.1)) 
+                end
+            end
+        end
+        return true
+    end
+
+    -- ==========================================
+    -- 4. ГЛАВНАЯ КНОПКА СТРОЙКИ (MANUAL)
+    -- ==========================================
+    local BuildContainer = Library.Utils.Make("Frame", { Size = UDim2.new(1, -8, 0, 38), Position = UDim2.new(0.5, 0, 0, 0), AnchorPoint = Vector2.new(0.5, 0), BackgroundTransparency = 1, Parent = Tab.Page })
+    local Glow = Library.Utils.Make("Frame", { Size = UDim2.new(1, 0, 1, 0), Position = UDim2.new(0.5, 0, 0.5, 0), AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1, ZIndex = 1, Parent = BuildContainer })
     Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 8), Parent = Glow })
-    local GlowStroke = Library.Utils.Make("UIStroke", { 
-        Thickness = 4, 
-        Transparency = 0.85,
-        Parent = Glow 
-    }, { Color = "Accent" })
+    local GlowStroke = Library.Utils.Make("UIStroke", { Thickness = 4, Transparency = 0.85, Parent = Glow }, { Color = "Accent" })
 
-    local BuildBtn = Library.Utils.Make("TextButton", {
-        Text = "", 
-        Size = UDim2.new(1, 0, 1, 0),
-        AutoButtonColor = false,
-        ZIndex = 5,
-        Parent = BuildContainer 
-    }, { BackgroundColor3 = "Section" }) 
+    local BuildBtn = Library.Utils.Make("TextButton", { Text = "", Size = UDim2.new(1, 0, 1, 0), AutoButtonColor = false, ZIndex = 5, Parent = BuildContainer }, { BackgroundColor3 = "Section" }) 
     Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 8), Parent = BuildBtn })
-
-    local BuildText = Library.Utils.Make("TextLabel", {
-        Text = "BUILD SELECTED HOUSE",
-        Size = UDim2.new(1, 0, 1, 0),
-        BackgroundTransparency = 1,
-        Font = Enum.Font.GothamBold,
-        TextSize = 13,
-        ZIndex = 6,
-        Parent = BuildBtn
-    }, { TextColor3 = "Accent" }) 
-
-    local EdgeStroke = Library.Utils.Make("UIStroke", { 
-        Thickness = 1.5, 
-        Transparency = 0.2, 
-        ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-        Parent = BuildBtn 
-    }, { Color = "Accent" })
-
+    local BuildText = Library.Utils.Make("TextLabel", { Text = "BUILD SELECTED HOUSE", Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 13, ZIndex = 6, Parent = BuildBtn }, { TextColor3 = "Accent" }) 
+    local EdgeStroke = Library.Utils.Make("UIStroke", { Thickness = 1.5, Transparency = 0.2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Parent = BuildBtn }, { Color = "Accent" })
     local BuildScale = Instance.new("UIScale", BuildContainer)
-    local forceBuildMode = false -- Флаг для второго нажатия
     
-    Library:Connect(BuildBtn.MouseEnter, function() 
-        Library.Utils.TBT(BuildBtn, 0.3, {BackgroundTransparency = 0.3}) 
-        Library.Utils.TBT(EdgeStroke, 0.3, {Transparency = 0}) 
-        Library.Utils.TBT(GlowStroke, 0.4, {Thickness = 12, Transparency = 0.6}, Enum.EasingStyle.Quint) 
-        Library.Utils.TBT(BuildScale, 0.3, {Scale = 1.05}, Enum.EasingStyle.Back, Enum.EasingDirection.Out) 
-    end)
-    Library:Connect(BuildBtn.MouseLeave, function() 
-        Library.Utils.TBT(BuildBtn, 0.3, {BackgroundTransparency = 0}) 
-        Library.Utils.TBT(EdgeStroke, 0.3, {Transparency = 0.2})
-        Library.Utils.TBT(GlowStroke, 0.4, {Thickness = 4, Transparency = 0.85}, Enum.EasingStyle.Quint)
-        Library.Utils.TBT(BuildScale, 0.3, {Scale = 1}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-    end)
+    local forceBuildMode = false 
+    
+    Library:Connect(BuildBtn.MouseEnter, function() Library.Utils.TBT(BuildBtn, 0.3, {BackgroundTransparency = 0.3}); Library.Utils.TBT(EdgeStroke, 0.3, {Transparency = 0}); Library.Utils.TBT(GlowStroke, 0.4, {Thickness = 12, Transparency = 0.6}, Enum.EasingStyle.Quint); Library.Utils.TBT(BuildScale, 0.3, {Scale = 1.05}, Enum.EasingStyle.Back, Enum.EasingDirection.Out) end)
+    Library:Connect(BuildBtn.MouseLeave, function() Library.Utils.TBT(BuildBtn, 0.3, {BackgroundTransparency = 0}); Library.Utils.TBT(EdgeStroke, 0.3, {Transparency = 0.2}); Library.Utils.TBT(GlowStroke, 0.4, {Thickness = 4, Transparency = 0.85}, Enum.EasingStyle.Quint); Library.Utils.TBT(BuildScale, 0.3, {Scale = 1}, Enum.EasingStyle.Back, Enum.EasingDirection.Out) end)
     
     Library:Connect(BuildBtn.MouseButton1Click, function()
         local t = Library.Utils.TBT(BuildScale, 0.1, {Scale = 0.95})
         t.Completed:Connect(function() Library.Utils.TBT(BuildScale, 0.2, {Scale = 1}, Enum.EasingStyle.Bounce) end)
             
-        -- Anti-Void: Жесткая проверка загрузки дома
-        local isHouseLoaded = workspace:FindFirstChild("HouseInteriors") 
-            and workspace.HouseInteriors:FindFirstChild("blueprint") 
-            and #workspace.HouseInteriors.blueprint:GetChildren() > 0
-
+        local isHouseLoaded = workspace:FindFirstChild("HouseInteriors") and workspace.HouseInteriors:FindFirstChild("blueprint") and #workspace.HouseInteriors.blueprint:GetChildren() > 0
         local camY = workspace.CurrentCamera.CFrame.Position.Y
-        if camY < 500 or camY > 8500 or not isHouseLoaded then
-            return Library:Notify("Error", "House is not fully loaded or you are outside! Wait a moment.", 4, "rbxassetid://73186275216515", "rbxassetid://72958619361915")
-        end
+        if camY < 500 or camY > 8500 or not isHouseLoaded then return Library:Notify("Error", "House is not fully loaded or you are outside!", 4, "rbxassetid://73186275216515", "rbxassetid://72958619361915") end
         
-        if not SelectedHouse or SelectedHouse == "" or SelectedHouse == "Select..." then
-            return Library:Notify("Error", "Select a house schematic first!", 3, "rbxassetid://73186275216515", "rbxassetid://72958619361915")
-        end
+        if not SelectedHouse or SelectedHouse == "" or SelectedHouse == "Select..." then return Library:Notify("Error", "Select a house schematic first!", 3, "rbxassetid://73186275216515", "rbxassetid://72958619361915") end
         
         local filePath = FolderName .. "/" .. SelectedHouse .. ".json"
-        if not isfile(filePath) then
-            return Library:Notify("Error", "File not found on disk!", 3, "rbxassetid://73186275216515", "rbxassetid://72958619361915")
-        end
+        if not isfile(filePath) then return Library:Notify("Error", "File not found on disk!", 3, "rbxassetid://73186275216515", "rbxassetid://72958619361915") end
 
         task.spawn(function()
-            Library:Notify("Builder", "Reading file: " .. SelectedHouse, 3, "rbxassetid://91727514118912", "rbxassetid://72958619361915")
-            
             local success, fileData = pcall(function() return readfile(filePath) end)
-            if not success then return Library:Notify("Error", "Failed to read file!", 3, "rbxassetid://73186275216515", "rbxassetid://72958619361915") end
-            
+            if not success then return end
+            local HttpService = game:GetService("HttpService")
             local decodeSuccess, savedHouse = pcall(function() return HttpService:JSONDecode(fileData) end)
-            if not decodeSuccess or not savedHouse.furniture then
-                return Library:Notify("Error", "File corrupted or invalid format!", 3, "rbxassetid://73186275216515", "rbxassetid://72958619361915")
-            end
+            if not decodeSuccess or not savedHouse.furniture then return Library:Notify("Error", "File corrupted!", 3, "rbxassetid://73186275216515", "rbxassetid://72958619361915") end
 
-            local ACTUALLY_BUILD = true
-            local MICRO_SHIFT_Y = 0 
-            
-            -- ИСПРАВЛЕННАЯ ФУНКЦИЯ АТМОСФЕРЫ (Жесткий сброс)
-            local function loadAmbiance(ambianceData, particleData)
-                local function toColor3(rgbArray)
-                    if type(rgbArray) ~= "table" or #rgbArray < 3 then return Color3.new(1, 1, 1) end
-                    return Color3.new(rgbArray[1], rgbArray[2], rgbArray[3])
-                end
-                
-                local cProps = (type(ambianceData) == "table" and ambianceData.custom_props) or {}
-                local lData = cProps.Lighting or {}
-                local ccData = cProps.ColorCorrectionEffect or {}
-                local srData = cProps.SunRaysEffect or {}
-                local atmData = cProps.Atmosphere or {}
-            
-                local bKind = (type(ambianceData) == "table" and ambianceData.base_kind) or "day"
-                local kKind = (type(ambianceData) == "table" and ambianceData.kind) or "day"
-
-                local customParticles = { Rain = false, CherryBlossoms = false, Leaves = false, Snow = false }
-                if type(particleData) == "table" then
-                    for k, v in pairs(particleData) do customParticles[k] = v end
-                end
-
-                local args = {{
-                    base_kind = bKind, kind = kKind, priority = 3,
-                    custom_props = {
-                        Lighting = {
-                            ClockTime = lData.ClockTime or 14,
-                            ExposureCompensation = lData.ExposureCompensation ~= nil and lData.ExposureCompensation or 0,
-                            Ambient = toColor3(lData.Ambient),
-                            OutdoorAmbient = toColor3(lData.OutdoorAmbient),
-                            ColorShift_Top = toColor3(lData.ColorShift_Top)
-                        },
-                        ColorCorrectionEffect = {
-                            TintColor = toColor3(ccData.TintColor),
-                            Saturation = ccData.Saturation or 0,
-                            Contrast = ccData.Contrast or 0
-                        },
-                        SunRaysEffect = { Intensity = srData.Intensity or 0 },
-                        Atmosphere = {
-                            Density = atmData.Density or 0.3, 
-                            Glare = atmData.Glare or 0,
-                            Haze = atmData.Haze or 0, 
-                            Color = toColor3(atmData.Color)
-                        },
-                        Custom = customParticles
-                    }
-                }}
-                
-                local API_Folder = ReplicatedStorage:WaitForChild("API", 5)
-                if API_Folder then
-                    local ambianceRemote = API_Folder:FindFirstChild("AmbianceAPI/UpdateAmbiance")
-                    -- ИСПОЛЬЗУЕМ table.unpack ВМЕСТО unpack
-                    if ambianceRemote then pcall(function() ambianceRemote:FireServer(table.unpack(args)) end) end
-                end
-            end
-            
-            loadAmbiance(savedHouse.ambiance, savedHouse.particles)
-
-            if CopyTextures and savedHouse.textures then
-                Library:Notify("Builder", "Applying wallpapers and floors...", 3, "rbxassetid://91727514118912", "rbxassetid://72958619361915")
-                local API_Folder = ReplicatedStorage:WaitForChild("API", 5)
-                if API_Folder then
-                    local BuyTextureRemote = API_Folder:FindFirstChild("HousingAPI/BuyTexture")
-                    if BuyTextureRemote then
-                        for roomName, texData in pairs(savedHouse.textures) do
-                            if texData.walls and texData.walls ~= "" then
-                                pcall(function() BuyTextureRemote:FireServer(roomName, "walls", texData.walls) end)
-                                task.wait(getgenv().CurrentBuildDelay or 0)
-                            end
-                            if texData.floors and texData.floors ~= "" then
-                                pcall(function() BuyTextureRemote:FireServer(roomName, "floors", texData.floors) end)
-                                task.wait(getgenv().CurrentBuildDelay or 0)
-                            end
-                        end
-                    end
-                end
-            end
-
-            if not ACTUALLY_BUILD then return end
-            
-            Library:Notify("Builder", "Starting furniture purchase...", 3, "rbxassetid://91727514118912", "rbxassetid://72958619361915")
-            
             local rawFurniture = savedHouse.furniture or savedHouse
-            local pendingChanges = {}
-
-            -- === УМНАЯ ЗАЩИТА: ЛИМИТ, НАСЛОЕНИЕ И ДЕНЬГИ ===
             local placed, maxLimit, freeSlots = GetHouseFurnitureStatus()
             local neededSlots = #rawFurniture
-
-            -- 1. Считаем стоимость дома
+            
             local totalCost = 0
             if type(CachedFurnitureDB) == "table" then
                 for _, item in ipairs(rawFurniture) do
                     local dbInfo = CachedFurnitureDB[item.id or item.name or item.kind]
-                    if dbInfo and dbInfo.cost and not dbInfo.is_limited and not dbInfo.is_event then
-                        totalCost = totalCost + dbInfo.cost
-                    end
+                    if dbInfo and dbInfo.cost and not dbInfo.is_limited and not dbInfo.is_event then totalCost = totalCost + dbInfo.cost end
                 end
             end
             
             local currentBucks = GetPlayerBucks()
+            if neededSlots > maxLimit then return Library:Notify("Error", string.format("Needs %d slots, max is %d.", neededSlots, maxLimit), 5, "rbxassetid://73186275216515", "rbxassetid://72958619361915") end
 
-            -- 2. Если схема физически больше лимита (4500 > 4000) - жестко блокируем
-            if neededSlots > maxLimit then
-                return Library:Notify("Error", string.format("Schematic is too big! Needs %d slots, your max is %d.", neededSlots, maxLimit), 5, "rbxassetid://73186275216515", "rbxassetid://72958619361915")
-            end
-
-            -- 3. Выявляем проблемы (мусор в доме или нет денег)
             local hasOverlap = (placed > 0)
             local isPoor = (currentBucks < totalCost)
 
             if (hasOverlap or isPoor) and not forceBuildMode then
                 forceBuildMode = true
-                
                 local warnTitle = "Warning"
                 local warnText = ""
-                
-                if hasOverlap then
-                    BuildText.Text = "STORE OLD & BUILD"
-                    warnText = string.format("House has %d items! ", placed)
-                else
-                    BuildText.Text = "BUILD ANYWAY"
-                end
-                
-                if isPoor then
-                    warnTitle = "Low Bucks!"
-                    warnText = warnText .. string.format("Cost: $%d! ", totalCost)
-                end
-                        
+                if hasOverlap then BuildText.Text = "STORE OLD & BUILD"; warnText = string.format("House has %d items! ", placed) else BuildText.Text = "BUILD ANYWAY" end
+                if isPoor then warnTitle = "Low Bucks!"; warnText = warnText .. string.format("Cost: $%d! ", totalCost) end
                 warnText = warnText .. "CLICK AGAIN to force build."
                 
                 Library:Notify(warnTitle, warnText, 6, "rbxassetid://73186275216515", "rbxassetid://72958619361915")
-                
-                task.delay(6, function()
-                    if forceBuildMode then
-                        forceBuildMode = false
-                        BuildText.Text = "BUILD SELECTED HOUSE"
-                    end
-                end)
-                
-                return -- Ждем второго клика!
+                task.delay(6, function() if forceBuildMode then forceBuildMode = false; BuildText.Text = "BUILD SELECTED HOUSE" end end)
+                return 
             end
 
-            -- 4. Если юзер подтвердил стройку (второй клик)
             if forceBuildMode then
                 forceBuildMode = false
                 BuildText.Text = "BUILD SELECTED HOUSE"
-
-                -- Сносим старый дом ТОЛЬКО если в нем что-то есть
-                if placed > 0 then
-                    Library:Notify("Storing", "Clearing old house to prevent overlap...", 3, "rbxassetid://91727514118912", "rbxassetid://72958619361915")
-                    
-                    local uniques = {}
-                    pcall(function()
-                        local houseInterior = ClientData.get("house_interior")
-                        if houseInterior and type(houseInterior.furniture) == "table" then
-                            for uniqueId, _ in pairs(houseInterior.furniture) do
-                                table.insert(uniques, uniqueId)
-                            end
-                        end
-                    end)
-
-                    if #uniques > 0 then
-                        local API_Folder = ReplicatedStorage:WaitForChild("API", 5)
-                        local sellRemote = (getgenv().DuskCore and getgenv().DuskCore.API and getgenv().DuskCore.API.SellFurniture)
-                            or (API_Folder and API_Folder:FindFirstChild("HousingAPI/SellFurniture"))
-                        
-                        if sellRemote then
-                            local chunk = {}
-                            for i, uId in ipairs(uniques) do
-                                table.insert(chunk, uId)
-                                if #chunk >= 50 or i == #uniques then
-                                    pcall(function() sellRemote:FireServer(true, chunk, "store") end)
-                                    chunk = {}
-                                    task.wait(0.05)
-                                end
-                            end
-                            task.wait(1)
-                        end
-                    end
-                else
-                    -- Если дом был пустой, но юзер просто подтвердил стройку без денег
-                    Library:Notify("Builder", "Starting build with low bucks! Free inventory items will be used.", 4, "rbxassetid://91727514118912", "rbxassetid://72958619361915")
-                end
             end
             
-            table.sort(rawFurniture, function(a, b)
-                local yA = (type(a.cframe) == "table" and a.cframe[2]) or 0
-                local yB = (type(b.cframe) == "table" and b.cframe[2]) or 0
-                return yA < yB
-            end)
-            
-            local API_Folder = ReplicatedStorage:WaitForChild("API", 5)
-            if not API_Folder then 
-                return Library:Notify("Error", "API folder not found!", 3, "rbxassetid://73186275216515", "rbxassetid://72958619361915")
-            end
-
-            local downloadApi = API_Folder:FindFirstChild("DownloadsAPI/Download")
-            local buyFurnituresRemote = getgenv().DuskCore.API.BuyFurnitures or API_Folder:FindFirstChild("HousingAPI/BuyFurnitures")
-            local pushFurnitureEvent = API_Folder:FindFirstChild("HousingAPI/PushFurnitureChanges")
-
-            if not buyFurnituresRemote then
-                return Library:Notify("Error", "BuyFurnitures remote missing!", 3, "rbxassetid://73186275216515", "rbxassetid://72958619361915")
-            end
-
-            if downloadApi then
-                local uniqueIDs = {}
-                for _, item in ipairs(rawFurniture) do 
-                    local itemId = item.id or item.name or item.kind
-                    if itemId then uniqueIDs[itemId] = true end 
-                end
-                for id, _ in pairs(uniqueIDs) do
-                    task.spawn(function() pcall(function() downloadApi:InvokeServer("Furniture", id) end) end)
-                end
-                task.wait(0.5)
-            end
-
-            local RunService = game:GetService("RunService")
-            local currentBatch = {}
-            local batchOriginalItems = {}
-
-            for i, item in ipairs(rawFurniture) do
-                local itemId = item.id or item.name or item.kind
-                if not itemId then continue end
-
-                local cData = item.cframe
-                -- ЗАЩИТА ОТ КРАША (Пропуск битых JSON-файлов)
-                if type(cData) ~= "table" or #cData ~= 12 then
-                    continue
-                end
-
-                -- ИСПОЛЬЗУЕМ table.unpack ВМЕСТО unpack
-                local baseCFrame = CFrame.new(table.unpack(cData))
-                local localCFrame = baseCFrame + Vector3.new(0, MICRO_SHIFT_Y, 0)
-                
-                local buyProps = {cframe = localCFrame}
-                if item.colors and #item.colors > 0 then
-                    local c3table = {}
-                    for _, c in ipairs(item.colors) do table.insert(c3table, Color3.new(c[1], c[2], c[3])) end
-                    buyProps.colors = c3table
-                end
-                
-                table.insert(currentBatch, { kind = itemId, properties = buyProps })
-                table.insert(batchOriginalItems, { item = item, localCFrame = localCFrame, buyProps = buyProps })
-                
-                local batchLimit = getgenv().CurrentBatchSize or 15
-                local buildDelay = getgenv().CurrentBuildDelay or 0
-
-                if #currentBatch >= batchLimit or i == #rawFurniture then
-                    local successPurchase = false
-                    local attempts = 0
-                    local maxAttempts = 2 
-
-                    repeat
-                        attempts = attempts + 1
-                        local buildSuccess, response = pcall(function() return buyFurnituresRemote:InvokeServer(currentBatch) end)
-                        
-                        if buildSuccess and type(response) == "table" and response.success then
-                            successPurchase = true
-                            if response.results then
-                                for resultIndex, result in ipairs(response.results) do
-                                    if result.unique then
-                                        local orig = batchOriginalItems[resultIndex]
-                                        local changeArgs = { unique = result.unique, cframe = orig.localCFrame }
-                                        if orig.item.scale and orig.item.scale ~= 1 then changeArgs.scale = orig.item.scale end
-                                        if orig.buyProps.colors then changeArgs.colors = orig.buyProps.colors end
-                                        table.insert(pendingChanges, changeArgs)
-                                    end
-                                end
-                            end
-                        else
-                            task.wait(0.5)
-                        end
-                    until successPurchase or attempts >= maxAttempts
-
-                    if not successPurchase and #currentBatch > 0 then
-                        for bIndex, singleItemReq in ipairs(currentBatch) do
-                            local sBuildSuccess, sResponse = pcall(function() return buyFurnituresRemote:InvokeServer({singleItemReq}) end)
-                            if sBuildSuccess and type(sResponse) == "table" and sResponse.success and sResponse.results then
-                                local orig = batchOriginalItems[bIndex]
-                                for _, result in ipairs(sResponse.results) do
-                                    if result.unique then
-                                        local changeArgs = { unique = result.unique, cframe = orig.localCFrame }
-                                        if orig.item.scale and orig.item.scale ~= 1 then changeArgs.scale = orig.item.scale end
-                                        if orig.buyProps.colors then changeArgs.colors = orig.buyProps.colors end
-                                        table.insert(pendingChanges, changeArgs)
-                                    end
-                                end
-                            end
-                            task.wait(0.02)
-                        end
-                    end
-
-                    currentBatch = {}
-                    batchOriginalItems = {}
-                    
-                    if buildDelay > 0 then 
-                        task.wait(buildDelay) 
-                    else
-                        RunService.Heartbeat:Wait() 
-                    end
-                end
-            end
-            
-            if pushFurnitureEvent then
-                local chunk = {}
-                for i, change in ipairs(pendingChanges) do
-                    table.insert(chunk, change)
-                    if #chunk >= 50 or i == #pendingChanges then
-                        pcall(function() pushFurnitureEvent:FireServer(chunk) end)
-                        chunk = {}
-                        -- ЗАЩИТА ОТ КИКА СЕРВЕРА (Rate Limit Bypass)
-                        task.wait(math.max(0.1, getgenv().CurrentBuildDelay or 0.1)) 
-                    end
-                end
-            end
-            
-            Library:Notify("Success", "House successfully built!", 3, "rbxassetid://18926561608", "rbxassetid://72958619361915")
+            Library:Notify("Builder", "Building " .. SelectedHouse .. "...", 3, "rbxassetid://91727514118912", "rbxassetid://72958619361915")
+            local buildDone = ExecuteBuild(savedHouse, hasOverlap)
+            if buildDone then Library:Notify("Success", "House successfully built!", 3, "rbxassetid://18926561608", "rbxassetid://72958619361915") end
         end)
     end)
 
+    -- ==========================================
+    -- 5. MULTI-FARM УПРАВЛЕНИЕ
+    -- ==========================================
+    Tab:CreateDivider({ Text = "Automation (Multi-Farm)" })
+    
+    local FarmAmount = 1
+    Tab:CreateSlider({
+        Name = "Houses to Buy & Build",
+        Min = 1, Max = 10, Default = 1, Flag = "Farm_Amount",
+        Callback = function(val) FarmAmount = val end
+    })
+    
+    Tab:CreateButton({
+        Name = "START MULTI-FARM",
+        Callback = function()
+            if not SelectedHouse or SelectedHouse == "" or SelectedHouse == "Select..." then 
+                return Library:Notify("Farm Error", "Select a schematic first!", 3, "rbxassetid://73186275216515", "rbxassetid://72958619361915") 
+            end
+            
+            local filePath = FolderName .. "/" .. SelectedHouse .. ".json"
+            if not isfile(filePath) then return end
+            
+            local HttpService = game:GetService("HttpService")
+            local fileData = HttpService:JSONDecode(readfile(filePath))
+            local houseType = fileData.house_type
+            
+            if not houseType then
+                return Library:Notify("Farm Error", "No house_type in JSON! Re-export the house first.", 5, "rbxassetid://73186275216515", "rbxassetid://72958619361915")
+            end
+
+            local ReplicatedStorage = game:GetService("ReplicatedStorage")
+            local API = ReplicatedStorage:WaitForChild("API", 5)
+            local buyRemote = API:FindFirstChild("HousingAPI/BuyHouseWithAddons")
+            local enterRemote = API:FindFirstChild("AdoptAPI/SendPassiveDoorEnter")
+            
+            if not buyRemote or not enterRemote then return Library:Notify("Error", "API Remotes missing!", 3, "rbxassetid://73186275216515", "rbxassetid://72958619361915") end
+
+            task.spawn(function()
+                Library:Notify("Farm Started", "Buying and building " .. FarmAmount .. " houses...", 4, "rbxassetid://91727514118912", "rbxassetid://72958619361915")
+                local defaultColor = Color3.new(0.768627, 0.156863, 0.109804)
+                
+                for i = 1, FarmAmount do
+                    -- 1. ПОКУПКА И ЭКИПИРОВКА
+                    local buySuccess, buyResponse = pcall(function() return buyRemote:InvokeServer(houseType, {}, defaultColor) end)
+                    if not buySuccess or not buyResponse then
+                        Library:Notify("Farm Stopped", "Buy failed (No bucks/Limit reached).", 5, "rbxassetid://73186275216515", "rbxassetid://72958619361915")
+                        break
+                    end
+                    
+                    task.wait(1.5)
+                    
+                    -- 2. ВХОД В НОВЫЙ ДОМ
+                    pcall(function()
+                        enterRemote:FireServer("housing", "MainDoor", { skip_set_player_collisions = true, skip_send_passive_door_request = true, house_owner = game:GetService("Players").LocalPlayer.Name, exiting_door = "MainDoor" })
+                    end)
+                    
+                    -- 3. ОЖИДАНИЕ ПРОГРУЗКИ (Anti-Void)
+                    local isLoaded = false
+                    local waitTime = 0
+                    repeat
+                        task.wait(0.5)
+                        waitTime = waitTime + 0.5
+                        local camY = workspace.CurrentCamera.CFrame.Position.Y
+                        local blueprint = workspace:FindFirstChild("HouseInteriors") and workspace.HouseInteriors:FindFirstChild("blueprint")
+                        if camY > 500 and camY < 8500 and blueprint and #blueprint:GetChildren() > 0 then isLoaded = true end
+                        if waitTime > 15 then break end 
+                    until isLoaded
+                    
+                    if not isLoaded then continue end
+                    
+                    -- 4. ЗАПУСК СТРОЙКИ (Дом новый, поэтому forceClearOld = false)
+                    ExecuteBuild(fileData, false)
+                    task.wait(2)
+                end
+                
+                Library:Notify("Farm Finished", "All " .. FarmAmount .. " tasks completed!", 5, "rbxassetid://18926561608", "rbxassetid://72958619361915")
+            end)
+        end
+    })
     -- ==========================================
     -- 4. РЕПЛИКАТОР (НАСТРОЙКИ)
     -- ==========================================
