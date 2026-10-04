@@ -591,8 +591,11 @@ function Module:Init(Library, Window, Tab)
     end
 
     -- ==========================================
-    -- 4. ГЛАВНАЯ КНОПКА СТРОЙКИ (MANUAL)
+    -- 3.5 ГЛАВНАЯ КНОПКА (УМНАЯ) + СЛАЙДЕР
     -- ==========================================
+    local FarmAmount = 1
+    local forceBuildMode = false 
+    
     local BuildContainer = Library.Utils.Make("Frame", { Size = UDim2.new(1, -8, 0, 38), Position = UDim2.new(0.5, 0, 0, 0), AnchorPoint = Vector2.new(0.5, 0), BackgroundTransparency = 1, Parent = Tab.Page })
     local Glow = Library.Utils.Make("Frame", { Size = UDim2.new(1, 0, 1, 0), Position = UDim2.new(0.5, 0, 0.5, 0), AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1, ZIndex = 1, Parent = BuildContainer })
     Library.Utils.Make("UICorner", { CornerRadius = UDim.new(0, 8), Parent = Glow })
@@ -604,21 +607,33 @@ function Module:Init(Library, Window, Tab)
     local EdgeStroke = Library.Utils.Make("UIStroke", { Thickness = 1.5, Transparency = 0.2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Parent = BuildBtn }, { Color = "Accent" })
     local BuildScale = Instance.new("UIScale", BuildContainer)
     
-    local forceBuildMode = false 
-    
     Library:Connect(BuildBtn.MouseEnter, function() Library.Utils.TBT(BuildBtn, 0.3, {BackgroundTransparency = 0.3}); Library.Utils.TBT(EdgeStroke, 0.3, {Transparency = 0}); Library.Utils.TBT(GlowStroke, 0.4, {Thickness = 12, Transparency = 0.6}, Enum.EasingStyle.Quint); Library.Utils.TBT(BuildScale, 0.3, {Scale = 1.05}, Enum.EasingStyle.Back, Enum.EasingDirection.Out) end)
     Library:Connect(BuildBtn.MouseLeave, function() Library.Utils.TBT(BuildBtn, 0.3, {BackgroundTransparency = 0}); Library.Utils.TBT(EdgeStroke, 0.3, {Transparency = 0.2}); Library.Utils.TBT(GlowStroke, 0.4, {Thickness = 4, Transparency = 0.85}, Enum.EasingStyle.Quint); Library.Utils.TBT(BuildScale, 0.3, {Scale = 1}, Enum.EasingStyle.Back, Enum.EasingDirection.Out) end)
-    
+
+    Tab:CreateSlider({
+        Name = "Farm Target (Houses)",
+        Min = 1, Max = 10, Default = 1, Flag = "Farm_Amount",
+        Callback = function(val) 
+            FarmAmount = val 
+            forceBuildMode = false -- сбрасываем принудительную постройку, если юзер дернул ползунок
+            
+            if val > 1 then
+                BuildText.Text = "START MULTI-FARM (" .. val .. ")"
+                BuildText.TextColor3 = Color3.fromRGB(255, 150, 50) -- Делаем текст оранжевым/золотым для привлечения внимания
+            else
+                BuildText.Text = "BUILD SELECTED HOUSE"
+                if Library.ThemeObjects[BuildText] then Library.ThemeObjects[BuildText] = { TextColor3 = "Accent" } end
+                BuildText.TextColor3 = Library.CurrentTheme.Accent
+            end
+        end
+    })
+
+    -- ЕДИНАЯ ЛОГИКА КЛИКА
     Library:Connect(BuildBtn.MouseButton1Click, function()
         local t = Library.Utils.TBT(BuildScale, 0.1, {Scale = 0.95})
         t.Completed:Connect(function() Library.Utils.TBT(BuildScale, 0.2, {Scale = 1}, Enum.EasingStyle.Bounce) end)
             
-        local isHouseLoaded = workspace:FindFirstChild("HouseInteriors") and workspace.HouseInteriors:FindFirstChild("blueprint") and #workspace.HouseInteriors.blueprint:GetChildren() > 0
-        local camY = workspace.CurrentCamera.CFrame.Position.Y
-        if camY < 500 or camY > 8500 or not isHouseLoaded then return Library:Notify("Error", "House is not fully loaded or you are outside!", 4, "rbxassetid://73186275216515", "rbxassetid://72958619361915") end
-        
         if not SelectedHouse or SelectedHouse == "" or SelectedHouse == "Select..." then return Library:Notify("Error", "Select a house schematic first!", 3, "rbxassetid://73186275216515", "rbxassetid://72958619361915") end
-        
         local filePath = FolderName .. "/" .. SelectedHouse .. ".json"
         if not isfile(filePath) then return Library:Notify("Error", "File not found on disk!", 3, "rbxassetid://73186275216515", "rbxassetid://72958619361915") end
 
@@ -629,105 +644,41 @@ function Module:Init(Library, Window, Tab)
             local decodeSuccess, savedHouse = pcall(function() return HttpService:JSONDecode(fileData) end)
             if not decodeSuccess or not savedHouse.furniture then return Library:Notify("Error", "File corrupted!", 3, "rbxassetid://73186275216515", "rbxassetid://72958619361915") end
 
-            local rawFurniture = savedHouse.furniture or savedHouse
-            local placed, maxLimit, freeSlots = GetHouseFurnitureStatus()
-            local neededSlots = #rawFurniture
-            
-            local totalCost = 0
-            if type(CachedFurnitureDB) == "table" then
-                for _, item in ipairs(rawFurniture) do
-                    local dbInfo = CachedFurnitureDB[item.id or item.name or item.kind]
-                    if dbInfo and dbInfo.cost and not dbInfo.is_limited and not dbInfo.is_event then totalCost = totalCost + dbInfo.cost end
+            local houseType = savedHouse.house_type
+
+            -- ============================================
+            -- РЕЖИМ МУЛЬТИ-ФЕРМЫ (FarmAmount > 1)
+            -- ============================================
+            if FarmAmount > 1 then
+                if not houseType then
+                    return Library:Notify("Farm Error", "No house_type in JSON! Re-export the house first.", 5, "rbxassetid://73186275216515", "rbxassetid://72958619361915")
                 end
-            end
-            
-            local currentBucks = GetPlayerBucks()
-            if neededSlots > maxLimit then return Library:Notify("Error", string.format("Needs %d slots, max is %d.", neededSlots, maxLimit), 5, "rbxassetid://73186275216515", "rbxassetid://72958619361915") end
-
-            local hasOverlap = (placed > 0)
-            local isPoor = (currentBucks < totalCost)
-
-            if (hasOverlap or isPoor) and not forceBuildMode then
-                forceBuildMode = true
-                local warnTitle = "Warning"
-                local warnText = ""
-                if hasOverlap then BuildText.Text = "STORE OLD & BUILD"; warnText = string.format("House has %d items! ", placed) else BuildText.Text = "BUILD ANYWAY" end
-                if isPoor then warnTitle = "Low Bucks!"; warnText = warnText .. string.format("Cost: $%d! ", totalCost) end
-                warnText = warnText .. "CLICK AGAIN to force build."
                 
-                Library:Notify(warnTitle, warnText, 6, "rbxassetid://73186275216515", "rbxassetid://72958619361915")
-                task.delay(6, function() if forceBuildMode then forceBuildMode = false; BuildText.Text = "BUILD SELECTED HOUSE" end end)
-                return 
-            end
+                local ReplicatedStorage = game:GetService("ReplicatedStorage")
+                local API = ReplicatedStorage:WaitForChild("API", 5)
+                local buyRemote = API:FindFirstChild("HousingAPI/BuyHouseWithAddons")
+                local enterRemote = API:FindFirstChild("AdoptAPI/SendPassiveDoorEnter")
+                
+                if not buyRemote or not enterRemote then return Library:Notify("Error", "API Remotes missing!", 3, "rbxassetid://73186275216515", "rbxassetid://72958619361915") end
 
-            if forceBuildMode then
-                forceBuildMode = false
-                BuildText.Text = "BUILD SELECTED HOUSE"
-            end
-            
-            Library:Notify("Builder", "Building " .. SelectedHouse .. "...", 3, "rbxassetid://91727514118912", "rbxassetid://72958619361915")
-            local buildDone = ExecuteBuild(savedHouse, hasOverlap)
-            if buildDone then Library:Notify("Success", "House successfully built!", 3, "rbxassetid://18926561608", "rbxassetid://72958619361915") end
-        end)
-    end)
-
-    -- ==========================================
-    -- 5. MULTI-FARM УПРАВЛЕНИЕ
-    -- ==========================================
-    Tab:CreateDivider({ Text = "Automation (Multi-Farm)" })
-    
-    local FarmAmount = 1
-    Tab:CreateSlider({
-        Name = "Houses to Buy & Build",
-        Min = 1, Max = 10, Default = 1, Flag = "Farm_Amount",
-        Callback = function(val) FarmAmount = val end
-    })
-    
-    Tab:CreateButton({
-        Name = "START MULTI-FARM",
-        Callback = function()
-            if not SelectedHouse or SelectedHouse == "" or SelectedHouse == "Select..." then 
-                return Library:Notify("Farm Error", "Select a schematic first!", 3, "rbxassetid://73186275216515", "rbxassetid://72958619361915") 
-            end
-            
-            local filePath = FolderName .. "/" .. SelectedHouse .. ".json"
-            if not isfile(filePath) then return end
-            
-            local HttpService = game:GetService("HttpService")
-            local fileData = HttpService:JSONDecode(readfile(filePath))
-            local houseType = fileData.house_type
-            
-            if not houseType then
-                return Library:Notify("Farm Error", "No house_type in JSON! Re-export the house first.", 5, "rbxassetid://73186275216515", "rbxassetid://72958619361915")
-            end
-
-            local ReplicatedStorage = game:GetService("ReplicatedStorage")
-            local API = ReplicatedStorage:WaitForChild("API", 5)
-            local buyRemote = API:FindFirstChild("HousingAPI/BuyHouseWithAddons")
-            local enterRemote = API:FindFirstChild("AdoptAPI/SendPassiveDoorEnter")
-            
-            if not buyRemote or not enterRemote then return Library:Notify("Error", "API Remotes missing!", 3, "rbxassetid://73186275216515", "rbxassetid://72958619361915") end
-
-            task.spawn(function()
-                Library:Notify("Farm Started", "Buying and building " .. FarmAmount .. " houses...", 4, "rbxassetid://91727514118912", "rbxassetid://72958619361915")
+                Library:Notify("Farm Started", "Check F9 Console for logs...", 4, "rbxassetid://91727514118912", "rbxassetid://72958619361915")
                 local defaultColor = Color3.new(0.768627, 0.156863, 0.109804)
                 
                 for i = 1, FarmAmount do
-                    -- 1. ПОКУПКА И ЭКИПИРОВКА
-                    local buySuccess, buyResponse = pcall(function() return buyRemote:InvokeServer(houseType, {}, defaultColor) end)
-                    if not buySuccess or not buyResponse then
-                        Library:Notify("Farm Stopped", "Buy failed (No bucks/Limit reached).", 5, "rbxassetid://73186275216515", "rbxassetid://72958619361915")
-                        break
-                    end
+                    print("=======================================")
+                    print("🏗 [ФЕРМА] Итерация: " .. tostring(i) .. " | Дом: " .. tostring(houseType))
                     
+                    pcall(function() buyRemote:InvokeServer(houseType, {}, defaultColor) end)
+                    
+                    print("✅ Запрос на покупку ушел. Ждем 1.5 сек...")
                     task.wait(1.5)
                     
-                    -- 2. ВХОД В НОВЫЙ ДОМ
+                    print("🚪 Заходим в дверь...")
                     pcall(function()
                         enterRemote:FireServer("housing", "MainDoor", { skip_set_player_collisions = true, skip_send_passive_door_request = true, house_owner = game:GetService("Players").LocalPlayer.Name, exiting_door = "MainDoor" })
                     end)
                     
-                    -- 3. ОЖИДАНИЕ ПРОГРУЗКИ (Anti-Void)
+                    print("⏳ Ждем загрузки интерьера...")
                     local isLoaded = false
                     local waitTime = 0
                     repeat
@@ -739,17 +690,70 @@ function Module:Init(Library, Window, Tab)
                         if waitTime > 15 then break end 
                     until isLoaded
                     
-                    if not isLoaded then continue end
+                    if not isLoaded then 
+                        warn("❌ Дом не прогрузился за 15 секунд! Пропускаем.")
+                        continue 
+                    end
                     
-                    -- 4. ЗАПУСК СТРОЙКИ (Дом новый, поэтому forceClearOld = false)
-                    ExecuteBuild(fileData, false)
+                    print("🔨 Дом прогружен! Строим...")
+                    ExecuteBuild(savedHouse, false)
                     task.wait(2)
                 end
                 
-                Library:Notify("Farm Finished", "All " .. FarmAmount .. " tasks completed!", 5, "rbxassetid://18926561608", "rbxassetid://72958619361915")
-            end)
-        end
-    })
+                print("🏁 Ферма завершила цикл!")
+                Library:Notify("Farm Finished", "All tasks completed.", 5, "rbxassetid://18926561608", "rbxassetid://72958619361915")
+            
+            -- ============================================
+            -- РЕЖИМ ОДИНОЧНОЙ ПОСТРОЙКИ (FarmAmount = 1)
+            -- ============================================
+            else
+                local isHouseLoaded = workspace:FindFirstChild("HouseInteriors") and workspace.HouseInteriors:FindFirstChild("blueprint") and #workspace.HouseInteriors.blueprint:GetChildren() > 0
+                local camY = workspace.CurrentCamera.CFrame.Position.Y
+                if camY < 500 or camY > 8500 or not isHouseLoaded then return Library:Notify("Error", "House is not fully loaded or you are outside!", 4, "rbxassetid://73186275216515", "rbxassetid://72958619361915") end
+                
+                local rawFurniture = savedHouse.furniture or savedHouse
+                local placed, maxLimit, freeSlots = GetHouseFurnitureStatus()
+                local neededSlots = #rawFurniture
+                
+                local totalCost = 0
+                if type(CachedFurnitureDB) == "table" then
+                    for _, item in ipairs(rawFurniture) do
+                        local dbInfo = CachedFurnitureDB[item.id or item.name or item.kind]
+                        if dbInfo and dbInfo.cost and not dbInfo.is_limited and not dbInfo.is_event then totalCost = totalCost + dbInfo.cost end
+                    end
+                end
+                
+                local currentBucks = GetPlayerBucks()
+                if neededSlots > maxLimit then return Library:Notify("Error", string.format("Needs %d slots, max is %d.", neededSlots, maxLimit), 5, "rbxassetid://73186275216515", "rbxassetid://72958619361915") end
+
+                local hasOverlap = (placed > 0)
+                local isPoor = (currentBucks < totalCost)
+
+                if (hasOverlap or isPoor) and not forceBuildMode then
+                    forceBuildMode = true
+                    local warnTitle = "Warning"
+                    local warnText = ""
+                    if hasOverlap then BuildText.Text = "STORE OLD & BUILD"; warnText = string.format("House has %d items! ", placed) else BuildText.Text = "BUILD ANYWAY" end
+                    if isPoor then warnTitle = "Low Bucks!"; warnText = warnText .. string.format("Cost: $%d! ", totalCost) end
+                    warnText = warnText .. "CLICK AGAIN to force build."
+                    
+                    Library:Notify(warnTitle, warnText, 6, "rbxassetid://73186275216515", "rbxassetid://72958619361915")
+                    task.delay(6, function() if forceBuildMode then forceBuildMode = false; BuildText.Text = "BUILD SELECTED HOUSE" end end)
+                    return 
+                end
+
+                if forceBuildMode then
+                    forceBuildMode = false
+                    BuildText.Text = "BUILD SELECTED HOUSE"
+                end
+                
+                Library:Notify("Builder", "Building " .. SelectedHouse .. "...", 3, "rbxassetid://91727514118912", "rbxassetid://72958619361915")
+                local buildDone = ExecuteBuild(savedHouse, hasOverlap)
+                if buildDone then Library:Notify("Success", "House successfully built!", 3, "rbxassetid://18926561608", "rbxassetid://72958619361915") end
+            end
+        end)
+    end)
+    
     -- ==========================================
     -- 4. РЕПЛИКАТОР (НАСТРОЙКИ)
     -- ==========================================
