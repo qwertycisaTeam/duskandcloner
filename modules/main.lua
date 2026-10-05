@@ -681,7 +681,7 @@ function Module:Init(Library, Window, Tab)
             local placed, maxLimit, freeSlots = GetHouseFurnitureStatus()
 
             -- ============================================
-            -- РЕЖИМ МУЛЬТИ-ФЕРМЫ (УПРОЩЕННЫЙ И БРОНЕБОЙНЫЙ)
+            -- РЕЖИМ МУЛЬТИ-ФЕРМЫ (ФИНАЛ: АВТО-ПРОДАЖА + УМНОЕ НАЗВАНИЕ)
             -- ============================================
             if FarmAmount > 1 then
                 if not houseType then return Library:Notify("Farm Error", "No house_type in JSON! Re-export the house first.", 5) end
@@ -693,8 +693,6 @@ function Module:Init(Library, Window, Tab)
                 local ReplicatedStorage = game:GetService("ReplicatedStorage")
                 local API = ReplicatedStorage:WaitForChild("API", 5)
                 local buyRemote = API:FindFirstChild("HousingAPI/BuyHouseWithAddons")
-                
-                -- НОВЫЙ РЕМУТ ДЛЯ ПЕРЕИМЕНОВАНИЯ ИЗ СНИФФЕРА
                 local renameRemote = API:FindFirstChild("HousingAPI/RenameHouse")
                 
                 if not buyRemote then return Library:Notify("Error", "API Remotes missing!", 3) end
@@ -755,27 +753,36 @@ function Module:Init(Library, Window, Tab)
                         continue 
                     end
                     
-                    -- НОВАЯ ЛОГИКА ПЕРЕИМЕНОВАНИЯ (ПО РЕЗУЛЬТАТАМ СНИФФЕРА)
+                    -- ==========================================
+                    -- УМНОЕ ПЕРЕИМЕНОВАНИЕ
+                    -- ==========================================
+                    local safeName = ""
+                    if string.match(SelectedHouse, "^AdoptMeHouse_") then
+                        -- Если это автосгенерированное название (начинается с AdoptMeHouse_)
+                        safeName = "DuskMultiCloner"
+                    else
+                        -- Если это кастомное название от юзера, чистим его от цифр
+                        safeName = SelectedHouse:gsub("%d", ""):gsub("_", " ")
+                        -- Если юзер назвал файл одними цифрами (и после очистки стало пусто)
+                        if safeName:match("^%s*$") then safeName = "Dusk Custom House" end
+                    end
+                    
                     if renameRemote then 
-                        print("🏷 Переименовываем дом в " .. SelectedHouse .. "...")
+                        print("🏷 Переименовываем дом в '" .. safeName .. "'...")
                         pcall(function() 
-                            -- Пробуем на всякий случай отправить строковый ID
-                            if activeHouseId then renameRemote:FireServer(activeHouseId, SelectedHouse) end
+                            if activeHouseId then renameRemote:FireServer(activeHouseId, safeName) end
                             
-                            -- Умный брутфорс: ищем ту самую цифру 21 среди данных интерьера и отправляем всё
                             local cInt = clientDataModule.get("house_interior")
                             if cInt then
                                 for _, val in pairs(cInt) do
-                                    if type(val) == "number" then
-                                        renameRemote:FireServer(val, SelectedHouse)
-                                    end
+                                    if type(val) == "number" then renameRemote:FireServer(val, safeName) end
                                 end
                             end
                         end) 
                     end
                     
-                    print("🔨 Строим мебель...")
-                    ExecuteBuild(savedHouse, false)
+                    print("🧹 Продаем дефолтную мебель и строим новую...")
+                    ExecuteBuild(savedHouse, true)
                     task.wait(2)
                 end
                 
