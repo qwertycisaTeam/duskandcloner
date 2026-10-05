@@ -419,7 +419,7 @@ function Module:Init(Library, Window, Tab)
     end
 
     -- ==========================================
-    -- УНИВЕРСАЛЬНАЯ ФУНКЦИЯ СТРОЙКИ
+    -- УНИВЕРСАЛЬНАЯ ФУНКЦИЯ СТРОЙКИ (ТЕПЕРЬ С ПРОДАЖЕЙ)
     -- ==========================================
     local function ExecuteBuild(savedHouse, forceClearOld)
         local rawFurniture = savedHouse.furniture or savedHouse
@@ -437,7 +437,7 @@ function Module:Init(Library, Window, Tab)
             end)
 
             if #uniques > 0 then
-                Library:Notify("Storing", "Auto-storing old furniture...", 3, "rbxassetid://91727514118912", "rbxassetid://72958619361915")
+                Library:Notify("Selling", "Selling default furniture...", 3)
                 local API_Folder = ReplicatedStorage:WaitForChild("API", 5)
                 local sellRemote = (getgenv().DuskCore and getgenv().DuskCore.API and getgenv().DuskCore.API.SellFurniture) or (API_Folder and API_Folder:FindFirstChild("HousingAPI/SellFurniture"))
                 
@@ -446,7 +446,8 @@ function Module:Init(Library, Window, Tab)
                     for i, uId in ipairs(uniques) do
                         table.insert(chunk, uId)
                         if #chunk >= 50 or i == #uniques then
-                            pcall(function() sellRemote:FireServer(true, chunk, "store") end)
+                            -- ИЗМЕНЕНО: Теперь мы передаем "sell" вместо "store", чтобы предметы продавались за баксы!
+                            pcall(function() sellRemote:FireServer(true, chunk, "sell") end)
                             chunk = {}
                             task.wait(0.05)
                         end
