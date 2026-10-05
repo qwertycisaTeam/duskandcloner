@@ -358,24 +358,48 @@ function Module:Init(Library, Window, Tab)
     -- ==========================================
     local function GetPlayerBucks()
         local bucks = 0
+        
+        -- СПОСОБ 1: Читаем прямо с экрана (из интерфейса Adopt Me) - 100% защита от обфускации
         pcall(function()
-            -- Берем ClientData напрямую из твоего ядра, это самый надежный метод
-            local clientDataModule = (getgenv().DuskCore and getgenv().DuskCore.M and getgenv().DuskCore.M.ClientData)
-            if not clientDataModule then
-                clientDataModule = require(game:GetService("ReplicatedStorage"):WaitForChild("Fsys")).load("ClientData")
-            end
-            
-            local pName = game:GetService("Players").LocalPlayer.Name
-            local allData = clientDataModule.get_data()
-            
-            if allData and allData[pName] then
-                bucks = allData[pName].bucks or (allData[pName].inventory and allData[pName].inventory.bucks) or 0
-            end
-            
-            if bucks == 0 then
-                bucks = clientDataModule.get("bucks") or 0
+            local PlayerGui = game:GetService("Players").LocalPlayer:FindFirstChild("PlayerGui")
+            if PlayerGui then
+                local bucksApp = PlayerGui:FindFirstChild("BucksIndicatorApp")
+                if bucksApp then
+                    for _, elem in ipairs(bucksApp:GetDescendants()) do
+                        if elem:IsA("TextLabel") and elem.Text ~= "" then
+                            -- Очищаем текст от пробелов, знаков $ и запятых (например "$277,559" -> "277559")
+                            local cleanText = elem.Text:gsub("%D", "")
+                            local num = tonumber(cleanText)
+                            
+                            -- Если нашли нормальное число, сохраняем и выходим
+                            if num and num > 0 then
+                                bucks = num
+                                return 
+                            end
+                        end
+                    end
+                end
             end
         end)
+
+        -- СПОСОБ 2: Классический метод через память (на случай, если интерфейс еще не прогрузился)
+        if bucks == 0 then
+            pcall(function()
+                local clientDataModule = (getgenv().DuskCore and getgenv().DuskCore.M and getgenv().DuskCore.M.ClientData) 
+                    or require(game:GetService("ReplicatedStorage"):WaitForChild("Fsys")).load("ClientData")
+                local pName = game:GetService("Players").LocalPlayer.Name
+                local allData = clientDataModule.get_data()
+                
+                if allData and allData[pName] then
+                    bucks = allData[pName].bucks or (allData[pName].inventory and allData[pName].inventory.bucks) or 0
+                end
+                
+                if bucks == 0 then
+                    bucks = clientDataModule.get("bucks") or 0
+                end
+            end)
+        end
+        
         return tonumber(bucks) or 0
     end
 
@@ -660,12 +684,10 @@ function Module:Init(Library, Window, Tab)
             -- РЕЖИМ МУЛЬТИ-ФЕРМЫ
             -- ============================================
             if FarmAmount > 1 then
-                if not houseType then return Library:Notify("Farm Error", "No house_type in JSON! Re-export the house first.", 5, "rbxassetid://73186275216515", "rbxassetid://72958619361915") end
+                if not houseType then return Library:Notify("Farm Error", "No house_type in JSON! Re-export the house first.", 5) end
                 
-                -- ЗАЩИТА: Проверяем, хватит ли денег на ВСЮ ферму (учитывая стоимость постройки)
-                -- Мы пока не знаем стоимость самой пустой коробки, поэтому проверяем только мебель * FarmAmount
                 if currentBucks < (totalCost * FarmAmount) then
-                    return Library:Notify("Low Bucks!", string.format("Need at least $%d for %d houses.", totalCost * FarmAmount, FarmAmount), 5, "rbxassetid://73186275216515", "rbxassetid://72958619361915")
+                    return Library:Notify("Low Bucks!", string.format("Need at least $%d for %d houses.", totalCost * FarmAmount, FarmAmount), 5)
                 end
 
                 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -673,29 +695,53 @@ function Module:Init(Library, Window, Tab)
                 local buyRemote = API:FindFirstChild("HousingAPI/BuyHouseWithAddons")
                 local renameRemote = API:FindFirstChild("HousingAPI/SetHouseName")
                 
-                if not buyRemote then return Library:Notify("Error", "API Remotes missing!", 3, "rbxassetid://73186275216515", "rbxassetid://72958619361915") end
-
-                Library:Notify("Farm Started", "Check F9 Console for logs...", 4, "rbxassetid://91727514118912", "rbxassetid://72958619361915")
-                local defaultColor = Color3.new(0.768627, 0.156863, 0.109804)
+                if not buyRemote then return Library:Notify("Error", "API Remotes missing!", 3) end
+                Library:Notify("Farm Started", "Check F9 Console for logs...", 4)
                 
                 local clientDataModule = (getgenv().DuskCore and getgenv().DuskCore.M and getgenv().DuskCore.M.ClientData) or require(ReplicatedStorage:WaitForChild("Fsys")).load("ClientData")
-                
-                -- Проверяем, в каком доме мы сейчас стоим
-                local currentHouseExterior = clientDataModule.get("house_exterior_model")
-                local buildFirstInCurrent = (currentHouseExterior == houseType)
+                local LocalPlayer = game:GetService("Players").LocalPlayer
                 
                 for i = 1, FarmAmount do
                     print("=======================================")
                     print(string.format("🏗 [ФЕРМА] Итерация %d из %d | Тип: %s", i, FarmAmount, houseType))
                     
                     local activeHousingId = clientDataModule.get("housing") 
+                    local skipBuy = false
+                    local skipTeleport = false
                     
-                    if i == 1 and buildFirstInCurrent then
-                        print("🏠 Итерация 1: Используем ТЕКУЩИЙ дом, так как тип совпадает! Покупка пропущена.")
-                    else
-                        pcall(function() buyRemote:InvokeServer(houseType, {}, defaultColor) end)
-                        print("✅ Запрос на покупку ушел. Ждем выдачи дома...")
+                    -- УМНАЯ ПРОВЕРКА 1 ИТЕРАЦИИ: Нужна ли покупка?
+                    if i == 1 then
+                        local allData = clientDataModule.get_data()
+                        local currentExterior = allData and allData[LocalPlayer.Name] and allData[LocalPlayer.Name].house_exterior_model
                         
+                        if currentExterior == houseType then
+                            print("🏠 Итерация 1: Нужный тип дома УЖЕ экипирован. Пропуск покупки.")
+                            skipBuy = true
+                            
+                            -- Проверяем, находимся ли мы уже внутри этого дома
+                            local currentInterior = clientDataModule.get("house_interior")
+                            local camY = workspace.CurrentCamera.CFrame.Position.Y
+                            local blueprint = workspace:FindFirstChild("HouseInteriors") and workspace.HouseInteriors:FindFirstChild("blueprint")
+                            
+                            if currentInterior and currentInterior.unique == activeHousingId and camY > 500 and camY < 8500 and blueprint and #blueprint:GetChildren() > 0 then
+                                print("✅ Мы уже внутри нужного дома! Пропуск телепортации.")
+                                skipTeleport = true
+                            end
+                        end
+                    end
+                    
+                    -- ЭТАП ПОКУПКИ (Если не пропущен)
+                    if not skipBuy then
+                        print("🛒 Покупаем новую коробку...")
+                        local buySuccess, buyResponse = pcall(function() return buyRemote:InvokeServer(houseType, {}, Color3.new(0.768, 0.156, 0.109)) end)
+                        
+                        if not buySuccess or (type(buyResponse) == "table" and buyResponse.success == false) then
+                            warn("❌ Ошибка покупки: " .. tostring(type(buyResponse) == "table" and buyResponse.reason or "Отклонено сервером"))
+                            Library:Notify("Farm Stopped", "Buy failed.", 5)
+                            break
+                        end
+                        
+                        print("✅ Запрос на покупку ушел. Ждем выдачи дома...")
                         local newHousingId = activeHousingId
                         local waitEquip = 0
                         repeat
@@ -705,56 +751,78 @@ function Module:Init(Library, Window, Tab)
                         until newHousingId ~= activeHousingId or waitEquip > 15
                         
                         if newHousingId == activeHousingId then
-                            warn("❌ Сервер не выдал новый дом (возможно лимит или нет денег на коробку)! Прерываем.")
+                            warn("❌ Сервер не выдал новый дом (Лимит?). Прерываем.")
                             break
                         end
                         activeHousingId = newHousingId
                         print("🏠 Новый дом успешно куплен! ID: " .. tostring(activeHousingId))
                     end
                     
+                    -- ПЕРЕИМЕНОВАНИЕ
                     if renameRemote then pcall(function() renameRemote:InvokeServer(SelectedHouse) end) end
                     
-                    print("🚪 Телепортируемся внутрь...")
-                    local set_identity = (syn and syn.set_thread_identity) or setthreadidentity or setidentity
-                    local get_identity = (syn and syn.get_thread_identity) or getthreadidentity or getidentity
-                    local current_id = get_identity and get_identity() or 7
-
-                    pcall(function()
-                        if set_identity then pcall(set_identity, 2) end
-                        local InteriorsM = require(ReplicatedStorage.ClientModules.Core.InteriorsM.InteriorsM)
-                        InteriorsM.enter_smooth("housing", "MainDoor", { ["house_owner"] = game:GetService("Players").LocalPlayer }) 
-                    end)
-                    if set_identity then pcall(set_identity, current_id) end
-                    
-                    print("⏳ Ждем загрузки интерьера...")
-                    local isLoaded = false
-                    local waitTime = 0
-                    repeat
-                        task.wait(0.5)
-                        waitTime = waitTime + 0.5
-                        local currentInterior = clientDataModule.get("house_interior")
-                        local isCorrectInterior = currentInterior and currentInterior.unique == activeHousingId
-                        local camY = workspace.CurrentCamera.CFrame.Position.Y
-                        local blueprint = workspace:FindFirstChild("HouseInteriors") and workspace.HouseInteriors:FindFirstChild("blueprint")
+                    -- ЭТАП ТЕЛЕПОРТА (Если не пропущен)
+                    if not skipTeleport then
+                        print("🚪 Телепортируемся внутрь...")
                         
-                        if isCorrectInterior and camY > 500 and camY < 8500 and blueprint and #blueprint:GetChildren() > 0 then isLoaded = true end
-                        if waitTime > 20 then break end 
-                    until isLoaded
-                    
-                    if not isLoaded then 
-                        warn("❌ Интерьер не прогрузился! Пропускаем.")
-                        continue 
+                        -- Если мы были в другом доме и купили новый, сначала выходим на улицу, чтобы не забаговать игру
+                        local currentLoc = clientDataModule.get("location_id")
+                        if currentLoc == "housing" and not skipBuy then
+                            pcall(function() API:FindFirstChild("LocationAPI/SetLocation"):FireServer("Neighborhood") end)
+                            task.wait(1)
+                        end
+                        
+                        local set_identity = (syn and syn.set_thread_identity) or setthreadidentity or setidentity
+                        local get_identity = (syn and syn.get_thread_identity) or getthreadidentity or getidentity
+                        local current_id = get_identity and get_identity() or 7
+
+                        pcall(function()
+                            if set_identity then pcall(set_identity, 2) end
+                            local InteriorsM = require(ReplicatedStorage.ClientModules.Core.InteriorsM.InteriorsM)
+                            InteriorsM.enter_smooth("housing", "MainDoor", { ["house_owner"] = LocalPlayer }) 
+                        end)
+                        if set_identity then pcall(set_identity, current_id) end
+                        
+                        print("⏳ Ждем загрузки интерьера...")
+                        local isLoaded = false
+                        local waitTime = 0
+                        repeat
+                            task.wait(0.5)
+                            waitTime = waitTime + 0.5
+                            local currentInterior = clientDataModule.get("house_interior")
+                            local isCorrectInterior = currentInterior and currentInterior.unique == activeHousingId
+                            local camY = workspace.CurrentCamera.CFrame.Position.Y
+                            local blueprint = workspace:FindFirstChild("HouseInteriors") and workspace.HouseInteriors:FindFirstChild("blueprint")
+                            
+                            if isCorrectInterior and camY > 500 and camY < 8500 and blueprint and #blueprint:GetChildren() > 0 then isLoaded = true end
+                            if waitTime > 20 then break end 
+                        until isLoaded
+                        
+                        if not isLoaded then 
+                            warn("❌ Интерьер не прогрузился! Пропускаем итерацию.")
+                            continue 
+                        end
                     end
                     
                     print("🔨 Строим...")
-                    -- Если это первый дом и мы его не покупали - нужно очистить старую мебель (forceClear = true)
-                    local needsClear = (i == 1 and buildFirstInCurrent and placed > 0)
+                    
+                    -- Определяем, нужно ли чистить старую мебель (если мы используем текущий дом, в котором уже что-то есть)
+                    local needsClear = false
+                    if skipBuy then
+                        local cInterior = clientDataModule.get("house_interior")
+                        if cInterior and type(cInterior.furniture) == "table" then
+                            local c = 0
+                            for _ in pairs(cInterior.furniture) do c = c + 1 end
+                            if c > 0 then needsClear = true end
+                        end
+                    end
+                    
                     ExecuteBuild(savedHouse, needsClear)
                     task.wait(2)
                 end
                 
                 print("🏁 Ферма завершила работу!")
-                Library:Notify("Farm Finished", "All tasks completed.", 5, "rbxassetid://18926561608", "rbxassetid://72958619361915")
+                Library:Notify("Farm Finished", "All tasks completed.", 5)
             
             -- ============================================
             -- РЕЖИМ ОДИНОЧНОЙ ПОСТРОЙКИ
