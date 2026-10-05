@@ -219,7 +219,7 @@ function Module:Init(Library, Window, Tab)
         Size = UDim2.new(0, 18, 0, 18),
         Position = UDim2.new(0, 12, 0.5, -9),
         BackgroundTransparency = 1,
-        Image = "rbxassetid://10828062100", 
+        Image = "rbxassetid://124023920104939", 
         Parent = StatsContainer
     }, { ImageColor3 = "Accent" })
 
