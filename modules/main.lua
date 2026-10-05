@@ -639,8 +639,7 @@ function Module:Init(Library, Window, Tab)
             FarmAmount = val 
             forceBuildMode = false
             if val > 1 then
-                BuildText.Text = "START MULTI-FARM (" .. val .. ")"
-                BuildText.TextColor3 = Color3.fromRGB(255, 150, 50)
+                BuildText.Text = "START MULTI-COPY (" .. val .. ")"
             else
                 BuildText.Text = "BUILD SELECTED HOUSE"
                 if Library.ThemeObjects[BuildText] then Library.ThemeObjects[BuildText] = { TextColor3 = "Accent" } end
@@ -682,10 +681,10 @@ function Module:Init(Library, Window, Tab)
             local placed, maxLimit, freeSlots = GetHouseFurnitureStatus()
 
             -- ============================================
-            -- РЕЖИМ МУЛЬТИ-ФЕРМЫ (ФИНАЛ: АВТО-ПРОДАЖА + УМНОЕ НАЗВАНИЕ)
+            -- РЕЖИМ МУЛЬТИ-ФЕРМЫ (PRODUCTION BUILD)
             -- ============================================
             if FarmAmount > 1 then
-                if not houseType then return Library:Notify("Farm Error", "No house_type in JSON! Re-export the house first.", 5) end
+                if not houseType then return Library:Notify("Copy Error", "No house_type in JSON! Re-export the house first.", 5) end
                 
                 if currentBucks < (totalCost * FarmAmount) then
                     return Library:Notify("Low Bucks!", string.format("Need at least $%d for %d houses.", totalCost * FarmAmount, FarmAmount), 5)
@@ -697,29 +696,24 @@ function Module:Init(Library, Window, Tab)
                 local renameRemote = API:FindFirstChild("HousingAPI/RenameHouse")
                 
                 if not buyRemote then return Library:Notify("Error", "API Remotes missing!", 3) end
-                Library:Notify("Farm Started", "Check F9 Console for logs...", 4)
+                Library:Notify("Copy Started", string.format("Building %d houses...", FarmAmount), 4)
                 
                 local clientDataModule = (getgenv().DuskCore and getgenv().DuskCore.M and getgenv().DuskCore.M.ClientData) or require(ReplicatedStorage:WaitForChild("Fsys")).load("ClientData")
                 local LocalPlayer = game:GetService("Players").LocalPlayer
 
                 for i = 1, FarmAmount do
-                    print("=======================================")
-                    print(string.format("🏗 [ФЕРМА] Итерация %d из %d | Тип: %s", i, FarmAmount, houseType))
+                    Library:Notify("Copy Progress", string.format("House %d of %d", i, FarmAmount), 3)
                     
-                    print("🛒 Покупаем новую коробку...")
                     local buySuccess = pcall(function() buyRemote:InvokeServer(houseType, {}, Color3.new(0.768, 0.156, 0.109)) end)
                     
                     if not buySuccess then
-                        warn("❌ Ошибка покупки.")
-                        Library:Notify("Farm Stopped", "Buy failed.", 5)
+                        Library:Notify("Copy Stopped", "Buy failed.", 5)
                         break
                     end
                     
-                    print("✅ Сервер принял покупку. Выходим на улицу для сброса кэша...")
                     pcall(function() API:FindFirstChild("LocationAPI/SetLocation"):FireServer("Neighborhood") end)
                     task.wait(2)
                     
-                    print("🚪 Телепортируемся в купленный дом...")
                     local set_identity = (syn and syn.set_thread_identity) or setthreadidentity or setidentity
                     local get_identity = (syn and syn.get_thread_identity) or getthreadidentity or getidentity
                     local current_id = get_identity and get_identity() or 7
@@ -731,7 +725,6 @@ function Module:Init(Library, Window, Tab)
                     end)
                     if set_identity then pcall(set_identity, current_id) end
                     
-                    print("⏳ Ждем загрузки интерьера...")
                     local isLoaded = false
                     local activeHouseId = nil
                     local waitTime = 0
@@ -749,30 +742,19 @@ function Module:Init(Library, Window, Tab)
                         end
                     until isLoaded or waitTime > 25
                     
-                    if not isLoaded then 
-                        warn("❌ Интерьер не прогрузился! Пропускаем итерацию.")
-                        continue 
-                    end
+                    if not isLoaded then continue end
                     
-                    -- ==========================================
-                    -- УМНОЕ ПЕРЕИМЕНОВАНИЕ
-                    -- ==========================================
                     local safeName = ""
                     if string.match(SelectedHouse, "^AdoptMeHouse_") then
-                        -- Если это автосгенерированное название (начинается с AdoptMeHouse_)
                         safeName = "DuskMultiCloner"
                     else
-                        -- Если это кастомное название от юзера, чистим его от цифр
                         safeName = SelectedHouse:gsub("%d", ""):gsub("_", " ")
-                        -- Если юзер назвал файл одними цифрами (и после очистки стало пусто)
                         if safeName:match("^%s*$") then safeName = "Dusk Custom House" end
                     end
                     
                     if renameRemote then 
-                        print("🏷 Переименовываем дом в '" .. safeName .. "'...")
                         pcall(function() 
                             if activeHouseId then renameRemote:FireServer(activeHouseId, safeName) end
-                            
                             local cInt = clientDataModule.get("house_interior")
                             if cInt then
                                 for _, val in pairs(cInt) do
@@ -782,13 +764,11 @@ function Module:Init(Library, Window, Tab)
                         end) 
                     end
                     
-                    print("🧹 Продаем дефолтную мебель и строим новую...")
                     ExecuteBuild(savedHouse, true)
                     task.wait(2)
                 end
                 
-                print("🏁 Ферма завершила работу!")
-                Library:Notify("Farm Finished", "All tasks completed.", 5)
+                Library:Notify("Copy Finished", "All tasks completed.", 5)
             
             -- ============================================
             -- РЕЖИМ ОДИНОЧНОЙ ПОСТРОЙКИ
