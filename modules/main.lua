@@ -693,7 +693,9 @@ function Module:Init(Library, Window, Tab)
                 local ReplicatedStorage = game:GetService("ReplicatedStorage")
                 local API = ReplicatedStorage:WaitForChild("API", 5)
                 local buyRemote = API:FindFirstChild("HousingAPI/BuyHouseWithAddons")
-                local renameRemote = API:FindFirstChild("HousingAPI/SetHouseName")
+                
+                -- НОВЫЙ РЕМУТ ДЛЯ ПЕРЕИМЕНОВАНИЯ ИЗ СНИФФЕРА
+                local renameRemote = API:FindFirstChild("HousingAPI/RenameHouse")
                 
                 if not buyRemote then return Library:Notify("Error", "API Remotes missing!", 3) end
                 Library:Notify("Farm Started", "Check F9 Console for logs...", 4)
@@ -715,7 +717,6 @@ function Module:Init(Library, Window, Tab)
                     end
                     
                     print("✅ Сервер принял покупку. Выходим на улицу для сброса кэша...")
-                    -- 100% выходим на улицу каждый раз, чтобы телепорт работал идеально и без багов
                     pcall(function() API:FindFirstChild("LocationAPI/SetLocation"):FireServer("Neighborhood") end)
                     task.wait(2)
                     
@@ -743,7 +744,6 @@ function Module:Init(Library, Window, Tab)
                         local camY = workspace.CurrentCamera.CFrame.Position.Y
                         local blueprint = workspace:FindFirstChild("HouseInteriors") and workspace.HouseInteriors:FindFirstChild("blueprint")
                         
-                        -- Просто ждем, пока прогрузится интерьер и берем его ID
                         if newInt and newInt.unique and camY > 500 and camY < 8500 and blueprint and #blueprint:GetChildren() > 0 then
                             activeHouseId = newInt.unique
                             isLoaded = true 
@@ -755,16 +755,26 @@ function Module:Init(Library, Window, Tab)
                         continue 
                     end
                     
-                    if renameRemote and activeHouseId then 
-                        print("🏷 Переименовываем дом...")
+                    -- НОВАЯ ЛОГИКА ПЕРЕИМЕНОВАНИЯ (ПО РЕЗУЛЬТАТАМ СНИФФЕРА)
+                    if renameRemote then 
+                        print("🏷 Переименовываем дом в " .. SelectedHouse .. "...")
                         pcall(function() 
-                            renameRemote:InvokeServer(SelectedHouse) 
-                            renameRemote:InvokeServer(activeHouseId, SelectedHouse) 
+                            -- Пробуем на всякий случай отправить строковый ID
+                            if activeHouseId then renameRemote:FireServer(activeHouseId, SelectedHouse) end
+                            
+                            -- Умный брутфорс: ищем ту самую цифру 21 среди данных интерьера и отправляем всё
+                            local cInt = clientDataModule.get("house_interior")
+                            if cInt then
+                                for _, val in pairs(cInt) do
+                                    if type(val) == "number" then
+                                        renameRemote:FireServer(val, SelectedHouse)
+                                    end
+                                end
+                            end
                         end) 
                     end
                     
                     print("🔨 Строим мебель...")
-                    -- Так как дом 100% новый, очистка старой мебели НЕ НУЖНА (передаем false)
                     ExecuteBuild(savedHouse, false)
                     task.wait(2)
                 end
