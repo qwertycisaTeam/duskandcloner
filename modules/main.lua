@@ -701,91 +701,95 @@ function Module:Init(Library, Window, Tab)
                 local clientDataModule = (getgenv().DuskCore and getgenv().DuskCore.M and getgenv().DuskCore.M.ClientData) or require(ReplicatedStorage:WaitForChild("Fsys")).load("ClientData")
                 local LocalPlayer = game:GetService("Players").LocalPlayer
                 
+                -- ДИНАМИЧЕСКИЙ ЛОКАТОР ДОМОВ (Ищет папку с домами где угодно в памяти)
+                local function GetHousesList()
+                    local allData = clientDataModule.get_data()[LocalPlayer.Name]
+                    if not allData then return {} end
+                    if type(allData.housing) == "table" then return allData.housing end
+                    if type(allData.houses) == "table" then return allData.houses end
+                    for k, v in pairs(allData) do
+                        if type(v) == "table" then
+                            for id, _ in pairs(v) do
+                                if type(id) == "string" and string.sub(id, 1, 6) == "house_" then return v end
+                            end
+                        end
+                    end
+                    return {}
+                end
+
                 for i = 1, FarmAmount do
                     print("=======================================")
                     print(string.format("🏗 [ФЕРМА] Итерация %d из %d | Тип: %s", i, FarmAmount, houseType))
                     
                     local skipBuy = false
                     local skipTeleport = false
-                    local activeHouseId = nil
+                    local activeHouseId = clientDataModule.get("housing")
+                    local ownedHouses = GetHousesList()
                     
-                    -- УМНАЯ ПРОВЕРКА 1 ИТЕРАЦИИ: Нужна ли покупка?
+                    -- УМНАЯ ПРОВЕРКА 1 ИТЕРАЦИИ: Мы уже в нужном доме?
                     if i == 1 then
-                        local allData = clientDataModule.get_data()
-                        local currentExterior = allData and allData[LocalPlayer.Name] and allData[LocalPlayer.Name].house_exterior_model
-                        
-                        if currentExterior == houseType then
+                        local currentHouseData = ownedHouses[activeHouseId]
+                        if currentHouseData and currentHouseData.house_type == houseType then
                             print("🏠 Итерация 1: Нужный тип дома УЖЕ экипирован. Пропуск покупки.")
                             skipBuy = true
                             
                             local currentInterior = clientDataModule.get("house_interior")
-                            if currentInterior and currentInterior.unique then
-                                activeHouseId = currentInterior.unique
-                                local camY = workspace.CurrentCamera.CFrame.Position.Y
-                                local blueprint = workspace:FindFirstChild("HouseInteriors") and workspace.HouseInteriors:FindFirstChild("blueprint")
-                                
-                                if camY > 500 and camY < 8500 and blueprint and #blueprint:GetChildren() > 0 then
-                                    print("✅ Мы уже внутри нужного дома! Пропуск телепортации.")
-                                    skipTeleport = true
-                                end
+                            local camY = workspace.CurrentCamera.CFrame.Position.Y
+                            local blueprint = workspace:FindFirstChild("HouseInteriors") and workspace.HouseInteriors:FindFirstChild("blueprint")
+                            
+                            if currentInterior and currentInterior.unique == activeHouseId and camY > 500 and camY < 8500 and blueprint and #blueprint:GetChildren() > 0 then
+                                print("✅ Мы уже стоим внутри нужного дома! Пропуск телепортации.")
+                                skipTeleport = true
                             end
+                        else
+                            print("⚠️ Текущий дом не подходит (Тип не совпадает). Будем покупать новый.")
                         end
                     end
                     
                     if not skipBuy then
-                        -- 1. СКАНИРУЕМ ИНВЕНТАРЬ ДО ПОКУПКИ
-                        local oldHouses = {}
-                        pcall(function()
-                            local inv = clientDataModule.get_data()[LocalPlayer.Name].inventory.housing
-                            if type(inv) == "table" then
-                                for k, _ in pairs(inv) do oldHouses[k] = true end
-                            end
-                        end)
+                        local oldKeys = {}
+                        for k, _ in pairs(ownedHouses) do oldKeys[k] = true end
 
                         print("🛒 Покупаем новую коробку...")
                         local buySuccess, buyResponse = pcall(function() return buyRemote:InvokeServer(houseType, {}, Color3.new(0.768, 0.156, 0.109)) end)
                         
-                        if not buySuccess or (type(buyResponse) == "table" and buyResponse.success == false) then
+                        if not buySuccess then
                             warn("❌ Ошибка покупки. Сервер отклонил пакет.")
                             Library:Notify("Farm Stopped", "Buy failed.", 5)
                             break
                         end
                         
-                        print("✅ Запрос ушел. Ждем появления нового дома в инвентаре...")
+                        print("✅ Запрос ушел. Ищем новый ID в памяти...")
                         
-                        -- 2. ЖДЕМ ПОЯВЛЕНИЯ НОВОГО ID В ИНВЕНТАРЕ
                         local newHouseId = nil
                         local waitEquip = 0
                         repeat
                             task.wait(0.5)
                             waitEquip = waitEquip + 0.5
-                            pcall(function()
-                                local inv = clientDataModule.get_data()[LocalPlayer.Name].inventory.housing
-                                if type(inv) == "table" then
-                                    for k, _ in pairs(inv) do
-                                        if not oldHouses[k] then
-                                            newHouseId = k
-                                        end
-                                    end
-                                end
-                            end)
+                            local currentHouses = GetHousesList()
+                            for k, _ in pairs(currentHouses) do
+                                if not oldKeys[k] then newHouseId = k end
+                            end
                         until newHouseId or waitEquip > 15
                         
                         if not newHouseId then
-                            warn("❌ Сервер принял покупку, но дом не появился в инвентаре! Прерываем.")
-                            break
+                            -- Резервная проверка: если сервер сразу надел его, но мы не поймали ключ
+                            local latestHousing = clientDataModule.get("housing")
+                            if latestHousing ~= activeHouseId then
+                                newHouseId = latestHousing
+                            else
+                                warn("❌ Сервер принял покупку, но дом не найден в памяти! Прерываем.")
+                                break
+                            end
                         end
                         
                         activeHouseId = newHouseId
-                        print("🏠 Новый дом успешно добавлен в инвентарь! ID: " .. tostring(activeHouseId))
+                        print("🏠 Новый дом найден! ID: " .. tostring(activeHouseId))
 
-                        -- 3. ФОРСИРУЕМ ЭКИПИРОВКУ НОВОГО ДОМА
+                        -- ФОРСИРУЕМ ЭКИПИРОВКУ (на случай, если игра сама не надела)
                         pcall(function()
-                            local equipRemotes = {"EquipHouse", "SetEquippedHouse", "SpawnHouse", "SetHouse"}
-                            for _, name in ipairs(equipRemotes) do
-                                local r = API:FindFirstChild("HousingAPI/" .. name)
-                                if r then r:InvokeServer(activeHouseId) end
-                            end
+                            local equipRemote = API:FindFirstChild("HousingAPI/EquipHouse") or API:FindFirstChild("HousingAPI/SetEquippedHouse")
+                            if equipRemote then equipRemote:InvokeServer(activeHouseId) end
                         end)
                         task.wait(1)
                     end
@@ -793,19 +797,17 @@ function Module:Init(Library, Window, Tab)
                     -- ПЕРЕИМЕНОВАНИЕ
                     if renameRemote and activeHouseId then 
                         pcall(function() 
-                            -- Передаем и просто имя, и ID+имя, чтобы игра 100% схавала
                             renameRemote:InvokeServer(SelectedHouse) 
                             renameRemote:InvokeServer(activeHouseId, SelectedHouse) 
                         end) 
                     end
                     
-                    -- ЭТАП ТЕЛЕПОРТА (Если не пропущен)
+                    -- ТЕЛЕПОРТ (Если не пропущен)
                     if not skipTeleport then
-                        print("🚪 Телепортируемся внутрь...")
+                        print("🚪 Телепортируемся внутрь (InteriorsM)...")
                         
                         local currentLoc = clientDataModule.get("location_id")
                         if currentLoc == "housing" and not skipBuy then
-                            -- Если мы уже были в каком-то доме, сначала выходим на улицу, чтобы избежать бага
                             pcall(function() API:FindFirstChild("LocationAPI/SetLocation"):FireServer("Neighborhood") end)
                             task.wait(1.5)
                         end
@@ -829,14 +831,7 @@ function Module:Init(Library, Window, Tab)
                             waitTime = waitTime + 0.5
                             local currentInterior = clientDataModule.get("house_interior")
                             
-                            -- Защита от Ghost-Building: проверяем, что мы загрузились именно в новый дом
-                            local isCorrectInterior = false
-                            if currentInterior and activeHouseId then
-                                isCorrectInterior = (currentInterior.unique == activeHouseId)
-                            else
-                                isCorrectInterior = true 
-                            end
-                            
+                            local isCorrectInterior = (currentInterior and currentInterior.unique == activeHouseId) or skipBuy
                             local camY = workspace.CurrentCamera.CFrame.Position.Y
                             local blueprint = workspace:FindFirstChild("HouseInteriors") and workspace.HouseInteriors:FindFirstChild("blueprint")
                             
@@ -845,12 +840,12 @@ function Module:Init(Library, Window, Tab)
                         until isLoaded
                         
                         if not isLoaded then 
-                            warn("❌ Интерьер не прогрузился или мы зашли в старый дом! Пропускаем итерацию.")
+                            warn("❌ Интерьер не прогрузился! Пропускаем итерацию.")
                             continue 
                         end
                     end
                     
-                    print("🔨 Строим...")
+                    print("🔨 Строим мебель...")
                     local needsClear = false
                     if skipBuy then
                         local cInterior = clientDataModule.get("house_interior")
